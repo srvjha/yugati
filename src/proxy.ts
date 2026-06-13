@@ -1,30 +1,28 @@
-import { NextResponse, type NextRequest } from "next/server";
+import { NextResponse, type NextRequest } from 'next/server';
 
-// Global proxy — runs before every matched route.
-// Responsibility: read session cookie → verify → inject x-tenant-id header for route handlers.
-// Route handlers still call getRequiredTenantId() themselves; never rely on proxy alone for auth.
-// TODO: replace the stub below with real session/JWT verification once auth is implemented.
+// Better Auth sets this cookie after a successful sign-in.
+const SESSION_COOKIE = 'better-auth.session_token';
+
+// Routes that require a session. Everything else is public.
+const PROTECTED_PREFIXES = ['/dashboard'];
 
 export function proxy(request: NextRequest) {
-  // Stub: in production, read and verify a session cookie/JWT here,
-  // then inject the verified tenant ID so downstream handlers can trust it.
-  const sessionTenantId = request.cookies.get("session")?.value;
+  const { pathname } = request.nextUrl;
+  const hasSession = Boolean(request.cookies.get(SESSION_COOKIE)?.value);
 
-  if (!sessionTenantId && request.nextUrl.pathname.startsWith("/api/")) {
-    return Response.json({ error: "Unauthorized" }, { status: 401 });
+  // Unauthenticated user hitting a protected route → send to sign-in.
+  if (!hasSession && PROTECTED_PREFIXES.some((p) => pathname.startsWith(p))) {
+    return NextResponse.redirect(new URL('/', request.url));
   }
 
-  const headers = new Headers(request.headers);
-  if (sessionTenantId) {
-    headers.set("x-tenant-id", sessionTenantId);
+  // Already signed-in user hitting the sign-in page → send to dashboard.
+  if (hasSession && pathname === '/') {
+    return NextResponse.redirect(new URL('/dashboard', request.url));
   }
 
-  return NextResponse.next({ request: { headers } });
+  return NextResponse.next();
 }
 
 export const config = {
-  matcher: [
-    // Skip Next.js internals and static assets
-    "/((?!_next/static|_next/image|favicon.ico).*)",
-  ],
+  matcher: ['/((?!_next/static|_next/image|favicon.ico|api/auth).*)'],
 };

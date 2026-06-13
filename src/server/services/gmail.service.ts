@@ -11,6 +11,27 @@ export class GmailService {
     return this.c.gmail.api.messages.list({ maxResults: 20, ...opts });
   }
 
+  // Returns messages enriched with Subject, From, Date headers and snippet.
+  // messages.list only gives IDs — this fetches metadata for each in parallel.
+  async listInbox(opts: { maxResults?: number; q?: string } = {}) {
+    const list = await this.c.gmail.api.messages.list({
+      maxResults: opts.maxResults ?? 20,
+      labelIds: ['INBOX'],
+      q: opts.q,
+    });
+    if (!list.messages?.length) return { messages: [], nextPageToken: list.nextPageToken };
+
+    const messages = await Promise.all(
+      list.messages.map(({ id }) =>
+        this.c.gmail.api.messages.get({
+          id: id!,
+          format: 'metadata',
+        })
+      )
+    );
+    return { messages, nextPageToken: list.nextPageToken };
+  }
+
   getMessage(id: string) {
     return this.c.gmail.api.messages.get({ id, format: "full" });
   }

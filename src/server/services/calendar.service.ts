@@ -34,16 +34,35 @@ export class CalendarService {
     description?: string;
     calendarId?: string;
     attendees?: { email: string }[];
+    addMeet?: boolean;
   }) {
-    return this.c.googlecalendar.api.events.create({
-      calendarId: opts.calendarId ?? "primary",
-      event: {
-        summary: opts.summary,
-        description: opts.description,
-        start: opts.start,
-        end: opts.end,
-        attendees: opts.attendees,
-      },
+    const calendarId = opts.calendarId ?? 'primary';
+    const baseEvent = {
+      summary: opts.summary,
+      description: opts.description,
+      start: opts.start,
+      end: opts.end,
+      attendees: opts.attendees,
+    };
+
+    if (!opts.addMeet) {
+      return this.c.googlecalendar.api.events.create({ calendarId, event: baseEvent });
+    }
+
+    // The SDK's create endpoint doesn't forward conferenceDataVersion to Google,
+    // but update does. Create first, then immediately patch to attach a Meet link.
+    return this.c.googlecalendar.api.events.create({ calendarId, event: baseEvent }).then((event) => {
+      if (!event.id) return event;
+      return this.c.googlecalendar.api.events.update({
+        calendarId,
+        id: event.id,
+        conferenceDataVersion: 1,
+        event: {
+          ...baseEvent,
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          conferenceData: { createRequest: { requestId: event.id, conferenceSolutionKey: { type: 'hangoutsMeet' } } } as any,
+        } as any,
+      });
     });
   }
 

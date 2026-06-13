@@ -18,6 +18,13 @@ export const gmailRouter = createTRPCRouter({
     .input(ListMessagesSchema)
     .query(({ ctx, input }) => new GmailService(ctx.tenantId).listMessages(input)),
 
+  listInbox: protectedProcedure
+    .input(z.object({
+      maxResults: z.number().int().min(1).max(50).default(20),
+      q:          z.string().optional(),
+    }).optional())
+    .query(({ ctx, input }) => new GmailService(ctx.tenantId).listInbox(input ?? {})),
+
   getMessage: protectedProcedure
     .input(GetMessageSchema)
     .query(({ ctx, input }) => new GmailService(ctx.tenantId).getMessage(input.id)),
