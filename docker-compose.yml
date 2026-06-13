@@ -1,0 +1,19 @@
+services:
+  postgresdb:
+      image: postgres:15
+      restart: unless-stopped
+      container_name: superai
+
+      environment:
+        POSTGRES_USER: superai
+        POSTGRES_PASSWORD: superai
+        POSTGRES_DB: superai
+
+      ports:
+        - "5432:5432"
+
+      volumes:
+         - postgres_data:/var/lib/postgresql/data
+
+volumes:
+  postgres_data: 
