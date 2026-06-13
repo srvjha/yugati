@@ -1,13 +1,12 @@
-import { Pool } from 'pg';
 import { createCorsair } from 'corsair';
 import { gmail } from '@corsair-dev/gmail';
-import {googlecalendar} from '@corsair-dev/googlecalendar';
-
-const db = new Pool({ connectionString: process.env.DATABASE_URL });
+import { googlecalendar } from '@corsair-dev/googlecalendar';
+import { env } from '@/env';
+import { db } from '@/server/db';
 
 export const corsair = createCorsair({
     plugins: [gmail(), googlecalendar()],
-    database: db,
-    kek: process.env.CORSAIR_KEK!,
+    database: db.$client,
+    kek: env.CORSAIR_KEK,
     multiTenancy: true,
 });
