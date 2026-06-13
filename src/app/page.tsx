@@ -12,9 +12,9 @@ export default function LandingPage() {
         <div className="max-w-6xl mx-auto px-6 h-14 flex items-center justify-between">
           <div className="flex items-center gap-2">
             <div className="w-6 h-6 rounded bg-white flex items-center justify-center">
-              <span className="text-black text-xs font-bold">S</span>
+              <span className="text-black text-xs font-bold">Y</span>
             </div>
-            <span className="font-semibold text-sm">SuperAI</span>
+            <span className="font-semibold text-sm">Yugati</span>
           </div>
           <button
             onClick={() => signIn.social({ provider: 'google', callbackURL: '/dashboard' })}
@@ -47,7 +47,7 @@ export default function LandingPage() {
           </h1>
 
           <p className="text-zinc-400 text-lg max-w-xl leading-relaxed">
-            SuperAI connects to your Gmail and Google Calendar to automate the
+            Yugati connects to your Gmail and Google Calendar to automate the
             tedious parts — so you can focus on what matters.
           </p>
 
@@ -96,7 +96,7 @@ export default function LandingPage() {
       {/* Footer */}
       <footer className="border-t border-zinc-900 py-6">
         <div className="max-w-6xl mx-auto px-6 flex items-center justify-between">
-          <span className="text-xs text-zinc-600">© 2026 SuperAI</span>
+          <span className="text-xs text-zinc-600">© 2026 Yugati</span>
           <div className="flex items-center gap-1 text-xs text-zinc-600">
             <Shield size={12} />
             End-to-end encrypted

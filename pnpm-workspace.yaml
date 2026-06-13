@@ -2,3 +2,5 @@ allowBuilds:
   esbuild: false
   sharp: false
   unrs-resolver: false
+minimumReleaseAgeExclude:
+  - '@corsair-dev/googlecalendar@0.1.4'

@@ -56,9 +56,9 @@ export function DashboardShell({ user, connected, connectError }: { user: User; 
         <div className="max-w-6xl mx-auto px-6 h-14 flex items-center justify-between">
           <div className="flex items-center gap-2">
             <div className="w-6 h-6 rounded bg-white flex items-center justify-center">
-              <span className="text-black text-xs font-bold">S</span>
+              <span className="text-black text-xs font-bold">Y</span>
             </div>
-            <span className="font-semibold text-sm">SuperAI</span>
+            <span className="font-semibold text-sm">Yugati</span>
           </div>
 
           <div className="flex items-center gap-3">

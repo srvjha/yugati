@@ -1,14 +1,14 @@
 import { auth } from '@/lib/auth';
-import { headers, cookies } from 'next/headers';
+import { headers } from 'next/headers';
 import { redirect } from 'next/navigation';
 import { SidebarNav } from './_components/sidebar-nav';
 
 export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
   const session = await auth.api.getSession({ headers: await headers() });
   if (!session) {
-    const cookieStore = await cookies();
-    cookieStore.delete('better-auth.session_token');
-    redirect('/');
+    // Cookies can't be mutated in a Server Component layout — delegate to a
+    // Route Handler that clears the stale cookie then redirects to /.
+    redirect('/api/auth/clear-session');
   }
 
   return (

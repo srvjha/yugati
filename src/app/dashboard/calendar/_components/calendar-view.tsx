@@ -54,6 +54,17 @@ function eventsForDay(events: CalEvent[], date: Date): CalEvent[] {
   });
 }
 
+// Builds a valid RFC 3339 datetime string with local UTC offset, e.g. "2026-06-14T09:00:00+05:30".
+// The bare "YYYY-MM-DDTHH:mm:ss" format (no offset) fails the Zod isoDateTimeSchema regex.
+function toLocalISO(dateStr: string, timeStr: string): string {
+  const dt     = new Date(`${dateStr}T${timeStr}:00`);
+  const offset = -dt.getTimezoneOffset();           // minutes ahead of UTC
+  const sign   = offset >= 0 ? '+' : '-';
+  const hh     = String(Math.floor(Math.abs(offset) / 60)).padStart(2, '0');
+  const mm     = String(Math.abs(offset) % 60).padStart(2, '0');
+  return `${dateStr}T${timeStr}:00${sign}${hh}:${mm}`;
+}
+
 function fmtTime(dt?: string) {
   if (!dt) return '';
   return new Date(dt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
@@ -361,8 +372,8 @@ function CreateEventModal({
         description: desc || undefined,
         attendees:   attendeeList.length ? attendeeList : undefined,
         addMeet:     addMeet || undefined,
-        start:       { dateTime: `${date}T${startTime}:00`, timeZone: tz },
-        end:         { dateTime: `${date}T${endTime}:00`,   timeZone: tz },
+        start:       { dateTime: toLocalISO(date, startTime), timeZone: tz },
+        end:         { dateTime: toLocalISO(date, endTime),   timeZone: tz },
         sendUpdates: 'all',
       });
     }

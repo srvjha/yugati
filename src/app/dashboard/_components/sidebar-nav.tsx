@@ -22,9 +22,9 @@ export function SidebarNav({ user }: { user: User }) {
       {/* Logo */}
       <div className="px-4 h-14 flex items-center gap-2.5 border-b border-zinc-800">
         <div className="w-6 h-6 rounded bg-white flex items-center justify-center">
-          <span className="text-black text-xs font-bold">S</span>
+          <span className="text-black text-xs font-bold">Y</span>
         </div>
-        <span className="font-semibold text-sm">SuperAI</span>
+        <span className="font-semibold text-sm">Yugati</span>
       </div>
 
       {/* Nav links */}
