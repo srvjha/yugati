@@ -1,6 +1,5 @@
 import { auth } from '@/lib/auth';
-import { corsair } from '@/server/corsair';
-import { initCorsair } from '@/server/corsair-setup';
+import { corsair, initCorsair } from '@/server/corsair';
 import { env } from '@/env';
 import { setupCorsair } from 'corsair';
 import { generateOAuthUrl } from 'corsair/oauth';

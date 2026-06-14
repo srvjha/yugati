@@ -1,14 +1,14 @@
 import { z } from 'zod';
-import { createTRPCRouter, protectedProcedure } from '../trpc';
-import { GmailService } from '@/server/services/gmail.service';
+import { createTRPCRouter, protectedProcedure } from '@/trpc/trpc';
+import { GmailService } from './service';
 import {
   ListMessagesSchema, GetMessageSchema, SendMessageSchema, TrashMessageSchema,
   ModifyMessageSchema, BatchModifySchema,
   ListThreadsSchema, GetThreadSchema, TrashThreadSchema, ModifyThreadSchema,
   CreateDraftSchema, UpdateDraftSchema, SendDraftSchema, GetDraftSchema,
   CreateLabelSchema, UpdateLabelSchema,
-} from '../schemas/gmail';
-import { idSchema } from '../schemas/common';
+} from './schema';
+import { idSchema } from '@/features/schemas';
 
 export const gmailRouter = createTRPCRouter({
 
@@ -86,10 +86,9 @@ export const gmailRouter = createTRPCRouter({
 
   listDrafts: protectedProcedure
     .input(z.object({ maxResults: z.number().int().min(1).max(500).default(20) }).optional())
-    .query(({ ctx, input }) => new GmailService(ctx.tenantId).listMessages({
-      labelIds: ['DRAFT'],
-      maxResults: input?.maxResults,
-    })),
+    .query(({ ctx, input }) =>
+      new GmailService(ctx.tenantId).listMessages({ labelIds: ['DRAFT'], maxResults: input?.maxResults })
+    ),
 
   // ─── Labels ────────────────────────────────────────────────────────────────
 

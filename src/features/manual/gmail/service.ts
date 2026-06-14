@@ -1,4 +1,4 @@
-import { corsair } from "@/server/corsair";
+import { corsair } from '@/server/corsair';
 
 export class GmailService {
   private readonly c: ReturnType<typeof corsair.withTenant>;
@@ -11,8 +11,6 @@ export class GmailService {
     return this.c.gmail.api.messages.list({ maxResults: 20, ...opts });
   }
 
-  // Returns messages enriched with Subject, From, Date headers and snippet.
-  // messages.list only gives IDs — this fetches metadata for each in parallel.
   async listInbox(opts: { maxResults?: number; q?: string } = {}) {
     const list = await this.c.gmail.api.messages.list({
       maxResults: opts.maxResults ?? 20,
@@ -23,17 +21,14 @@ export class GmailService {
 
     const messages = await Promise.all(
       list.messages.map(({ id }) =>
-        this.c.gmail.api.messages.get({
-          id: id!,
-          format: 'metadata',
-        })
+        this.c.gmail.api.messages.get({ id: id!, format: 'metadata' })
       )
     );
     return { messages, nextPageToken: list.nextPageToken };
   }
 
   getMessage(id: string) {
-    return this.c.gmail.api.messages.get({ id, format: "full" });
+    return this.c.gmail.api.messages.get({ id, format: 'full' });
   }
 
   sendMessage(opts: {
@@ -45,8 +40,10 @@ export class GmailService {
     htmlBody?: string;
     threadId?: string;
   }) {
-    const raw = GmailService.buildRfc2822(opts);
-    return this.c.gmail.api.messages.send({ raw, threadId: opts.threadId });
+    return this.c.gmail.api.messages.send({
+      raw: GmailService.buildRfc2822(opts),
+      threadId: opts.threadId,
+    });
   }
 
   createDraft(opts: { to?: string | string[]; subject?: string; body?: string; threadId?: string }) {
@@ -71,12 +68,16 @@ export class GmailService {
     return this.c.gmail.api.labels.create({ label: { name: opts.name } });
   }
 
-  updateLabel(id: string, opts: { name?: string; labelListVisibility?: string; messageListVisibility?: string }) {
+  updateLabel(id: string, opts: { name?: string }) {
     return this.c.gmail.api.labels.update({ id, label: { name: opts.name } });
   }
 
   deleteLabel(id: string) {
     return this.c.gmail.api.labels.delete({ id });
+  }
+
+  listLabels() {
+    return this.c.gmail.api.labels.list({});
   }
 
   trashMessage(id: string) {
@@ -92,18 +93,13 @@ export class GmailService {
   }
 
   getThread(id: string) {
-    return this.c.gmail.api.threads.get({ id, format: "full" });
+    return this.c.gmail.api.threads.get({ id, format: 'full' });
   }
 
   trashThread(id: string) {
     return this.c.gmail.api.threads.trash({ id });
   }
 
-  listLabels() {
-    return this.c.gmail.api.labels.list({});
-  }
-
-  // Encodes a plain-text email as base64url RFC2822 (required by the Gmail API).
   private static buildRfc2822(opts: {
     to: string | string[];
     cc?: string[];
@@ -112,19 +108,16 @@ export class GmailService {
     body?: string;
   }) {
     const toHeader = Array.isArray(opts.to) ? opts.to.join(', ') : opts.to;
-    const lines: string[] = [
+    const lines = [
       `To: ${toHeader}`,
-      opts.cc?.length  ? `Cc: ${opts.cc.join(', ')}`  : '',
+      opts.cc?.length  ? `Cc: ${opts.cc.join(', ')}`   : '',
       opts.bcc?.length ? `Bcc: ${opts.bcc.join(', ')}` : '',
       `Subject: ${opts.subject ?? ''}`,
-      `MIME-Version: 1.0`,
-      `Content-Type: text/plain; charset=utf-8`,
-      ``,
+      'MIME-Version: 1.0',
+      'Content-Type: text/plain; charset=utf-8',
+      '',
       opts.body ?? '',
     ].filter((l) => l !== '');
-
-    const message = lines.join("\r\n");
-
-    return Buffer.from(message).toString("base64url");
+    return Buffer.from(lines.join('\r\n')).toString('base64url');
   }
 }

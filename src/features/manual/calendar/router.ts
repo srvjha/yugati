@@ -1,10 +1,9 @@
-import { z } from 'zod';
-import { createTRPCRouter, protectedProcedure } from '../trpc';
-import { CalendarService } from '@/server/services/calendar.service';
+import { createTRPCRouter, protectedProcedure } from '@/trpc/trpc';
+import { CalendarService } from './service';
 import {
   ListEventsSchema, GetEventSchema, CreateEventSchema,
   UpdateEventSchema, DeleteEventSchema, AvailabilitySchema,
-} from '../schemas/calendar';
+} from './schema';
 
 export const calendarRouter = createTRPCRouter({
 
@@ -17,7 +16,7 @@ export const calendarRouter = createTRPCRouter({
     .query(({ ctx, input }) => new CalendarService(ctx.tenantId).getEvent(input.id, input.calendarId)),
 
   createEvent: protectedProcedure
-    .input(CreateEventSchema.extend({ addMeet: z.boolean().optional() }))
+    .input(CreateEventSchema)
     .mutation(({ ctx, input }) => new CalendarService(ctx.tenantId).createEvent(input)),
 
   updateEvent: protectedProcedure

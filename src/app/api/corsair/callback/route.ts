@@ -1,5 +1,4 @@
-import { corsair } from '@/server/corsair';
-import { initCorsair } from '@/server/corsair-setup';
+import { corsair, initCorsair } from '@/server/corsair';
 import { env } from '@/env';
 import { processOAuthCallback } from 'corsair/oauth';
 import { type NextRequest } from 'next/server';

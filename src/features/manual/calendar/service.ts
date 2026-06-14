@@ -1,4 +1,4 @@
-import { corsair } from "@/server/corsair";
+import { corsair } from '@/server/corsair';
 
 type EventTime = { dateTime?: string; date?: string; timeZone?: string };
 
@@ -9,21 +9,16 @@ export class CalendarService {
     this.c = corsair.withTenant(tenantId);
   }
 
-  listEvents(opts: {
-    calendarId?: string;
-    timeMin?: string;
-    timeMax?: string;
-    maxResults?: number;
-  } = {}) {
+  listEvents(opts: { calendarId?: string; timeMin?: string; timeMax?: string; maxResults?: number } = {}) {
     return this.c.googlecalendar.api.events.getMany({
-      calendarId: opts.calendarId ?? "primary",
-      timeMin: opts.timeMin,
-      timeMax: opts.timeMax,
-      maxResults: opts.maxResults ?? 20,
+      calendarId:  opts.calendarId ?? 'primary',
+      timeMin:     opts.timeMin,
+      timeMax:     opts.timeMax,
+      maxResults:  opts.maxResults ?? 20,
     });
   }
 
-  getEvent(eventId: string, calendarId = "primary") {
+  getEvent(eventId: string, calendarId = 'primary') {
     return this.c.googlecalendar.api.events.get({ calendarId, id: eventId });
   }
 
@@ -37,20 +32,19 @@ export class CalendarService {
     addMeet?: boolean;
   }) {
     const calendarId = opts.calendarId ?? 'primary';
-    const baseEvent = {
-      summary: opts.summary,
+    const baseEvent  = {
+      summary:     opts.summary,
       description: opts.description,
-      start: opts.start,
-      end: opts.end,
-      attendees: opts.attendees,
+      start:       opts.start,
+      end:         opts.end,
+      attendees:   opts.attendees,
     };
 
     if (!opts.addMeet) {
       return this.c.googlecalendar.api.events.create({ calendarId, event: baseEvent });
     }
 
-    // The SDK's create endpoint doesn't forward conferenceDataVersion to Google,
-    // but update does. Create first, then immediately patch to attach a Meet link.
+    // Create first, then patch to attach a Meet link (SDK create doesn't forward conferenceDataVersion).
     return this.c.googlecalendar.api.events.create({ calendarId, event: baseEvent }).then((event) => {
       if (!event.id) return event;
       return this.c.googlecalendar.api.events.update({
@@ -59,41 +53,37 @@ export class CalendarService {
         conferenceDataVersion: 1,
         event: {
           ...baseEvent,
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          conferenceData: { createRequest: { requestId: event.id, conferenceSolutionKey: { type: 'hangoutsMeet' } } } as any,
-        } as any,
+          conferenceData: { createRequest: { requestId: event.id, conferenceSolutionKey: { type: 'hangoutsMeet' } } } as unknown as Record<string, unknown>,
+        } as unknown as Parameters<typeof this.c.googlecalendar.api.events.update>[0]['event'],
       });
     });
   }
 
-  updateEvent(
-    eventId: string,
-    opts: {
-      summary?: string;
-      start?: EventTime;
-      end?: EventTime;
-      description?: string;
-      calendarId?: string;
-    },
-  ) {
+  updateEvent(eventId: string, opts: {
+    summary?: string;
+    start?: EventTime;
+    end?: EventTime;
+    description?: string;
+    calendarId?: string;
+  }) {
     return this.c.googlecalendar.api.events.update({
-      calendarId: opts.calendarId ?? "primary",
+      calendarId: opts.calendarId ?? 'primary',
       id: eventId,
       event: {
-        summary: opts.summary,
+        summary:     opts.summary,
         description: opts.description,
-        start: opts.start,
-        end: opts.end,
+        start:       opts.start,
+        end:         opts.end,
       },
     });
   }
 
-  deleteEvent(eventId: string, calendarId = "primary") {
+  deleteEvent(eventId: string, calendarId = 'primary') {
     return this.c.googlecalendar.api.events.delete({ calendarId, id: eventId });
   }
 
   getAvailability(opts: { timeMin: string; timeMax: string; calendarIds?: string[] }) {
-    const items = (opts.calendarIds ?? ["primary"]).map((id) => ({ id }));
+    const items = (opts.calendarIds ?? ['primary']).map((id) => ({ id }));
     return this.c.googlecalendar.api.calendar.getAvailability({
       timeMin: opts.timeMin,
       timeMax: opts.timeMax,
