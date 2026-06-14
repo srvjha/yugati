@@ -9,8 +9,12 @@ export async function POST(request: Request) {
   const session = await auth.api.getSession({ headers: await headers() });
   if (!session) return Response.json({ error: 'Unauthorized' }, { status: 401 });
 
-  const { messages } = await request.json() as { messages: ChatMessage[] };
-  const output = await runChat(session.user.id, messages);
+  const { messages, conversationId } = await request.json() as {
+    messages:       ChatMessage[];
+    conversationId?: string;
+  };
 
-  return Response.json({ output });
+  const result = await runChat(session.user.id, messages, conversationId);
+
+  return Response.json(result);
 }

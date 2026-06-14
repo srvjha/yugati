@@ -1,4 +1,5 @@
 import { boolean, pgTable, text, timestamp, jsonb } from 'drizzle-orm/pg-core';
+import { sql } from 'drizzle-orm';
 
 // ─── Better Auth tables ────────────────────────────────────────────────────────
 // These are managed by Better Auth — do not write to them directly.
@@ -80,6 +81,17 @@ export const corsairEntities = pgTable('corsair_entities', {
   entityType: text('entity_type').notNull(),
   version:    text('version').notNull(),
   data:       jsonb('data').notNull().default({}),
+});
+
+// ─── Chat sessions ─────────────────────────────────────────────────────────────
+// Persists OpenAI Agents SDK conversation history (AgentInputItem[]) per user.
+// items is the full turn-by-turn transcript — user msgs, assistant msgs, tool calls, tool results.
+
+export const chatSessions = pgTable('chat_sessions', {
+  id:        text('id').primaryKey(),
+  userId:    text('user_id').notNull().references(() => user.id, { onDelete: 'cascade' }),
+  items:     jsonb('items').notNull().default(sql`'[]'::jsonb`),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
 });
 
 export const corsairEvents = pgTable('corsair_events', {

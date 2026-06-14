@@ -1,6 +1,7 @@
 import { OpenAIAgentsProvider } from '@corsair-dev/mcp';
 import { Agent, run, tool } from '@openai/agents';
 import { corsair } from '@/server/corsair';
+import { loadSession, saveSession } from './session';
 import type { ChatMessage } from './types';
 
 const INSTRUCTIONS =
@@ -20,8 +21,20 @@ function createAgent(tenantId: string) {
   });
 }
 
-export async function runChat(tenantId: string, messages: ChatMessage[]): Promise<string> {
+export async function runChat(
+  tenantId: string,
+  messages: ChatMessage[],
+  conversationId?: string,
+): Promise<{ output: string; conversationId: string }> {
+  const { session, id } = await loadSession(tenantId, conversationId);
+
   const lastUserMessage = [...messages].reverse().find((m) => m.role === 'user')?.content ?? '';
-  const result = await run(createAgent(tenantId), lastUserMessage);
-  return result.finalOutput ?? '';
+
+  // Pass session so the SDK reads prior history before this turn
+  // and appends all new items (assistant msgs, tool calls, results) to it after.
+  const result = await run(createAgent(tenantId), lastUserMessage, { session });
+
+  await saveSession(tenantId, id, session);
+
+  return { output: result.finalOutput ?? '', conversationId: id };
 }

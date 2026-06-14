@@ -13,11 +13,12 @@ const SUGGESTIONS = [
 ];
 
 export function ChatView() {
-  const [messages, setMessages] = useState<Message[]>([]);
-  const [input, setInput]       = useState('');
-  const [isLoading, setLoading] = useState(false);
-  const bottomRef               = useRef<HTMLDivElement>(null);
-  const textareaRef             = useRef<HTMLTextAreaElement>(null);
+  const [messages, setMessages]         = useState<Message[]>([]);
+  const [input, setInput]               = useState('');
+  const [isLoading, setLoading]         = useState(false);
+  const [conversationId, setConversationId] = useState<string | undefined>();
+  const bottomRef                        = useRef<HTMLDivElement>(null);
+  const textareaRef                      = useRef<HTMLTextAreaElement>(null);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -42,9 +43,10 @@ export function ChatView() {
       const res  = await fetch('/api/agent/chat', {
         method:  'POST',
         headers: { 'Content-Type': 'application/json' },
-        body:    JSON.stringify({ messages: next }),
+        body:    JSON.stringify({ messages: next, conversationId }),
       });
-      const data = await res.json() as { output?: string; error?: string };
+      const data = await res.json() as { output?: string; conversationId?: string; error?: string };
+      if (data.conversationId) setConversationId(data.conversationId);
       setMessages(prev => [
         ...prev,
         { role: 'assistant', content: data.output ?? data.error ?? 'Something went wrong.' },
