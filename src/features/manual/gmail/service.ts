@@ -108,16 +108,16 @@ export class GmailService {
     body?: string;
   }) {
     const toHeader = Array.isArray(opts.to) ? opts.to.join(', ') : opts.to;
-    const lines = [
+    const headers = [
       `To: ${toHeader}`,
-      opts.cc?.length  ? `Cc: ${opts.cc.join(', ')}`   : '',
-      opts.bcc?.length ? `Bcc: ${opts.bcc.join(', ')}` : '',
+      ...(opts.cc?.length  ? [`Cc: ${opts.cc.join(', ')}`]   : []),
+      ...(opts.bcc?.length ? [`Bcc: ${opts.bcc.join(', ')}`] : []),
       `Subject: ${opts.subject ?? ''}`,
       'MIME-Version: 1.0',
       'Content-Type: text/plain; charset=utf-8',
-      '',
-      opts.body ?? '',
-    ].filter((l) => l !== '');
-    return Buffer.from(lines.join('\r\n')).toString('base64url');
+    ];
+    // RFC 2822 requires a blank line between headers and body — never filter it out
+    const body = (opts.body ?? '').replace(/\r?\n/g, '\r\n');
+    return Buffer.from([...headers, '', body].join('\r\n')).toString('base64url');
   }
 }

@@ -3,7 +3,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { ArrowUp, Bot, Loader2, Mail, Calendar, Zap } from 'lucide-react';
 
-type Message = { role: 'user' | 'assistant'; content: string };
+type Message = { role: 'user' | 'assistant'; content: string; enhanced?: string; blocked?: boolean };
 
 const SUGGESTIONS = [
   { icon: Mail,     text: 'Show me my unread emails'               },
@@ -45,11 +45,19 @@ export function ChatView() {
         headers: { 'Content-Type': 'application/json' },
         body:    JSON.stringify({ messages: next, conversationId }),
       });
-      const data = await res.json() as { output?: string; conversationId?: string; error?: string };
+      const data = await res.json() as {
+        status?: string; output?: string; enhanced?: string;
+        conversationId?: string; error?: string;
+      };
       if (data.conversationId) setConversationId(data.conversationId);
       setMessages(prev => [
         ...prev,
-        { role: 'assistant', content: data.output ?? data.error ?? 'Something went wrong.' },
+        {
+          role:     'assistant',
+          content:  data.output ?? data.error ?? 'Something went wrong.',
+          enhanced: data.enhanced,
+          blocked:  data.status === 'blocked' || res.status === 400,
+        },
       ]);
     } catch {
       setMessages(prev => [
@@ -115,12 +123,19 @@ export function ChatView() {
                   </div>
                 ) : (
                   <div className="flex gap-3 items-start">
-                    <div className="shrink-0 w-7 h-7 rounded-lg bg-white flex items-center justify-center mt-0.5">
+                    <div className={`shrink-0 w-7 h-7 rounded-lg flex items-center justify-center mt-0.5 ${msg.blocked ? 'bg-red-500' : 'bg-white'}`}>
                       <span className="text-black text-xs font-bold">Y</span>
                     </div>
-                    <p className="flex-1 text-sm leading-relaxed whitespace-pre-wrap text-zinc-100 pt-0.5">
-                      {msg.content}
-                    </p>
+                    <div className="flex-1 min-w-0 pt-0.5 space-y-1">
+                      {msg.enhanced && (
+                        <p className="text-[11px] text-zinc-500 italic">
+                          interpreted as: &ldquo;{msg.enhanced}&rdquo;
+                        </p>
+                      )}
+                      <p className={`text-sm leading-relaxed whitespace-pre-wrap ${msg.blocked ? 'text-red-400' : 'text-zinc-100'}`}>
+                        {msg.content}
+                      </p>
+                    </div>
                   </div>
                 )}
               </div>
