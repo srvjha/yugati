@@ -29,5 +29,7 @@ export async function GET(request: NextRequest) {
     redirectUri: REDIRECT_URI,
   });
 
+  console.log('Redirecting to OAuth URL:', url);
+
   return Response.redirect(url);
 }

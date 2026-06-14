@@ -3,19 +3,31 @@
 import Link from 'next/link';
 import Image from 'next/image';
 import { usePathname, useRouter } from 'next/navigation';
-import { Mail, Calendar, LogOut, Plug } from 'lucide-react';
+import { Mail, Calendar, LogOut, Plug, Bot } from 'lucide-react';
 import { signOut } from '@/lib/auth-client';
 
 type User = { id: string; name: string; email: string; image?: string | null };
 
-const NAV = [
-  { href: '/dashboard/mail',     label: 'Mail',     icon: Mail     },
-  { href: '/dashboard/calendar', label: 'Calendar', icon: Calendar },
-] as const;
+function NavLink({ href, label, icon: Icon }: { href: string; label: string; icon: React.ElementType }) {
+  const pathname = usePathname();
+  const active = pathname === href || pathname.startsWith(href + '/');
+  return (
+    <Link
+      href={href}
+      className={`flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-colors
+        ${active
+          ? 'bg-zinc-800 text-white'
+          : 'text-zinc-400 hover:text-white hover:bg-zinc-800/50'
+        }`}
+    >
+      <Icon size={15} />
+      {label}
+    </Link>
+  );
+}
 
 export function SidebarNav({ user }: { user: User }) {
-  const pathname = usePathname();
-  const router   = useRouter();
+  const router = useRouter();
 
   return (
     <nav className="w-56 shrink-0 border-r border-zinc-800 flex flex-col h-full">
@@ -27,25 +39,20 @@ export function SidebarNav({ user }: { user: User }) {
         <span className="font-semibold text-sm">Yugati</span>
       </div>
 
-      {/* Nav links */}
-      <div className="flex-1 py-3 px-2 space-y-0.5">
-        {NAV.map(({ href, label, icon: Icon }) => {
-          const active = pathname === href || pathname.startsWith(href + '/');
-          return (
-            <Link
-              key={href}
-              href={href}
-              className={`flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-colors
-                ${active
-                  ? 'bg-zinc-800 text-white'
-                  : 'text-zinc-400 hover:text-white hover:bg-zinc-800/50'
-                }`}
-            >
-              <Icon size={15} />
-              {label}
-            </Link>
-          );
-        })}
+      {/* Nav */}
+      <div className="flex-1 py-3 px-2 space-y-4 overflow-y-auto">
+        {/* Chat mode */}
+        <div>
+          <p className="px-2 text-[10px] font-medium text-zinc-600 uppercase tracking-wider mb-1">AI Chat</p>
+          <NavLink href="/dashboard/chat" label="Chat" icon={Bot} />
+        </div>
+
+        {/* Manual mode */}
+        <div>
+          <p className="px-2 text-[10px] font-medium text-zinc-600 uppercase tracking-wider mb-1">Manual</p>
+          <NavLink href="/dashboard/mail"     label="Mail"     icon={Mail}     />
+          <NavLink href="/dashboard/calendar" label="Calendar" icon={Calendar} />
+        </div>
       </div>
 
       {/* Integrations */}
