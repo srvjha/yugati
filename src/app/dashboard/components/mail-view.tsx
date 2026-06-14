@@ -3,7 +3,10 @@
 import { useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { ArrowLeft, Trash2, Archive, Reply, Forward, MoreHorizontal } from 'lucide-react';
-import type { GmailMessage } from '../page';
+import type { inferRouterOutputs } from '@trpc/server';
+import type { AppRouter } from '@/trpc/types';
+
+type GmailMessage = inferRouterOutputs<AppRouter>['gmail']['getMessage'];
 
 type Part = NonNullable<GmailMessage['payload']>;
 

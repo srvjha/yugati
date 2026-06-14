@@ -2,12 +2,11 @@ import { auth } from '@/lib/auth';
 import { headers } from 'next/headers';
 import { redirect, notFound } from 'next/navigation';
 import { getQueryClient, trpc } from '@/trpc/server';
+import { MailView } from '../../components/mail-view';
 import type { inferRouterOutputs } from '@trpc/server';
 import type { AppRouter } from '@/trpc/types';
-import { MailView } from './_components/mail-view';
 
-type RouterOutputs = inferRouterOutputs<AppRouter>;
-export type GmailMessage = RouterOutputs['gmail']['getMessage'];
+type GmailMessage = inferRouterOutputs<AppRouter>['gmail']['getMessage'];
 
 export default async function MailPage({
   params,
