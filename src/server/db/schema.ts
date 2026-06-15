@@ -1,4 +1,4 @@
-import { boolean, pgTable, text, timestamp, jsonb } from 'drizzle-orm/pg-core';
+import { boolean, pgTable, text, timestamp, jsonb, integer } from 'drizzle-orm/pg-core';
 import { sql } from 'drizzle-orm';
 
 // ─── Better Auth tables ────────────────────────────────────────────────────────
@@ -12,6 +12,11 @@ export const user = pgTable('user', {
   image:         text('image'),
   createdAt:     timestamp('created_at').notNull(),
   updatedAt:     timestamp('updated_at').notNull(),
+  // better-auth admin plugin fields
+  role:          text('role').default('user'),
+  banned:        boolean('banned').default(false),
+  banReason:     text('ban_reason'),
+  banExpires:    timestamp('ban_expires'),
 });
 
 export const session = pgTable('session', {
@@ -102,4 +107,50 @@ export const corsairEvents = pgTable('corsair_events', {
   eventType: text('event_type').notNull(),
   payload:   jsonb('payload').notNull().default({}),
   status:    text('status'),
+});
+
+// ─── Plans & billing ───────────────────────────────────────────────────────────
+
+// Tracks each user's active plan and monthly usage counters.
+// A row is created (free plan) on first chat request if it doesn't exist.
+export const userPlans = pgTable('user_plans', {
+  id:     text('id').primaryKey(),
+  userId: text('user_id').notNull().unique().references(() => user.id, { onDelete: 'cascade' }),
+
+  plan: text('plan').notNull().default('free'), // 'free' | 'standard' | 'premium' | 'enterprise'
+
+  // Monthly usage counters — reset each billing cycle
+  messagesUsed: integer('messages_used').notNull().default(0),
+  voiceUsed:    integer('voice_used').notNull().default(0),
+  composeUsed:  integer('compose_used').notNull().default(0),
+
+  // When counters reset (30 days from signup / last payment cycle)
+  usageResetAt: timestamp('usage_reset_at', { withTimezone: true }).notNull(),
+
+  // Razorpay subscription (null for free plan)
+  razorpaySubscriptionId: text('razorpay_subscription_id'),
+  subscriptionStatus:     text('subscription_status').default('active'), // 'active' | 'cancelled' | 'expired' | 'paused'
+  currentPeriodEnd:       timestamp('current_period_end', { withTimezone: true }),
+
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+});
+
+// Tracks every Razorpay payment order for audit trail.
+export const orders = pgTable('orders', {
+  id:     text('id').primaryKey(),
+  userId: text('user_id').notNull().references(() => user.id, { onDelete: 'cascade' }),
+
+  // Razorpay identifiers
+  razorpayOrderId:   text('razorpay_order_id').notNull().unique(),
+  razorpayPaymentId: text('razorpay_payment_id'),
+  razorpaySignature: text('razorpay_signature'),
+
+  plan:     text('plan').notNull(),           // 'standard' | 'premium'
+  amount:   integer('amount').notNull(),      // in paise (INR × 100)
+  currency: text('currency').notNull().default('INR'),
+  status:   text('status').notNull().default('created'), // 'created' | 'paid' | 'failed'
+
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
 });

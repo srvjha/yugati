@@ -36,6 +36,7 @@
     "next": "16.2.9",
     "openai": "^6.42.0",
     "pg": "^8.21.0",
+    "razorpay": "^2.9.6",
     "react": "19.2.4",
     "react-dom": "19.2.4",
     "react-markdown": "^10.1.0",

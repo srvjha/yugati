@@ -3,7 +3,10 @@ import { runChat } from '@/features/agent/agent';
 import type { ChatMessage } from '@/features/agent/types';
 import { initCorsair } from '@/server/corsair';
 import { headers } from 'next/headers';
-import { rateLimiter, MAX_PROMPT_CHARS } from '@/lib/rate-limit';
+import { rateLimiter } from '@/lib/rate-limit';
+import { checkAndIncrement, getUserPlan } from '@/lib/usage';
+import { PLANS } from '@/lib/plans';
+import type { PlanId } from '@/lib/plans';
 
 export const runtime = 'nodejs';
 
@@ -23,25 +26,36 @@ export async function POST(request: Request) {
     conversationId?: string;
   };
 
-  // Character limit — check the last user message
+  // Per-plan character limit
+  const userPlan  = await getUserPlan(session.user.id);
+  const planId    = (userPlan.plan ?? 'free') as PlanId;
+  const charLimit = PLANS[planId].charLimit;
   const lastUserMsg = [...messages].reverse().find((m) => m.role === 'user');
-  if (lastUserMsg && lastUserMsg.content.length > MAX_PROMPT_CHARS) {
+  if (lastUserMsg && lastUserMsg.content.length > charLimit) {
     return Response.json(
-      { error: `Message too long. Maximum ${MAX_PROMPT_CHARS} characters allowed.` },
+      { error: `Message too long. Your ${PLANS[planId].name} plan allows up to ${charLimit} characters.` },
       { status: 400 },
     );
   }
 
-  // Rate limit — 20 requests per user per minute
-  const { success, limit, remaining, reset } = await rateLimiter.limit(session.user.id);
+  // Per-plan rate limit
+  const { success, limit, reset } = await rateLimiter.limit(session.user.id);
   if (!success) {
     const retryAfterSec = Math.ceil((reset - Date.now()) / 1000);
     return Response.json(
-      { error: `Too many requests. You've hit the ${limit} req/min limit. Try again in ${retryAfterSec}s.` },
+      { error: `Too many requests — ${limit} req/min limit reached. Try again in ${retryAfterSec}s.` },
       { status: 429, headers: { 'Retry-After': String(retryAfterSec) } },
     );
   }
-  void remaining; // used for future quota tracking
+
+  // Monthly message quota
+  const usage = await checkAndIncrement(session.user.id, 'messagesUsed');
+  if (!usage.allowed) {
+    return Response.json(
+      { error: `Monthly limit reached. You've used all ${usage.limit} messages on the ${PLANS[planId].name} plan. Upgrade to continue.` },
+      { status: 429 },
+    );
+  }
 
   const stream = new ReadableStream({
     async start(controller) {

@@ -3,8 +3,9 @@
 import Link from 'next/link';
 import Image from 'next/image';
 import { usePathname, useRouter } from 'next/navigation';
-import { Mail, Calendar, LogOut, LayoutDashboard, Blocks } from 'lucide-react';
+import { Mail, Calendar, LogOut, LayoutDashboard, Blocks, CreditCard } from 'lucide-react';
 import { signOut } from '@/lib/auth-client';
+import { UsagePill } from './usage-pill';
 
 type User = { id: string; name: string; email: string; image?: string | null };
 
@@ -23,6 +24,7 @@ const NAV_ITEMS: NavItem[] = [
   { href: '/dashboard/calendar',      label: 'Calendar',     icon: Calendar,        dot: 'bg-blue-400'               },
   { href: '/dashboard/integrations',  label: 'Integrations', icon: Blocks,          dot: 'bg-blue-400'               },
   { href: '/dashboard/chat',          label: 'Agentic',      icon: null, imgSrc: '/openai.png', dot: 'bg-green-400', isNew: true },
+  { href: '/dashboard/billing',       label: 'Billing',      icon: CreditCard,      dot: 'bg-blue-400'               },
 ];
 
 export function SidebarNav({ user }: { user: User }) {
@@ -84,6 +86,11 @@ export function SidebarNav({ user }: { user: User }) {
             </Link>
           );
         })}
+      </div>
+
+      {/* Usage pill */}
+      <div className="px-3 pb-3">
+        <UsagePill />
       </div>
 
       {/* User */}

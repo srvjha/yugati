@@ -10,11 +10,12 @@ import Link from 'next/link';
 import Image from 'next/image';
 import * as Tooltip from '@radix-ui/react-tooltip';
 import * as ScrollArea from '@radix-ui/react-scroll-area';
-import { ChatView } from '../components/chat-view';
+import { ChatView }   from '../components/chat-view';
+import { UsagePill }  from '../components/usage-pill';
 import {
   Inbox, Star, Send, FileText, AlertCircle, Trash2,
   Pencil, Search, ChevronLeft, ChevronRight, Calendar, Bot, Mail,
-  Clock, Plug, CheckCircle, LogOut, Settings, Blocks,
+  Clock, Plug, CheckCircle, LogOut, Settings, Blocks, CreditCard,
   PanelLeftClose, PanelLeftOpen, X, RefreshCw, Tag, Users, Bell,
   SlidersHorizontal, Zap, Command, Square, SquareCheck, ChevronDown, Paperclip,
   Minimize2, Maximize2, List, ListOrdered, Link2, Loader2 as Loader2Icon,
@@ -582,6 +583,7 @@ function MailSidebar({
           <NavItem icon={SlidersHorizontal} label="Overview"      collapsed={collapsed} href="/dashboard/overview"      isNew />
           <NavItem icon={Calendar}          label="Calendar"      collapsed={collapsed} href="/dashboard/calendar"      />
           <NavItem icon={Blocks}            label="Integrations"  collapsed={collapsed} href="/dashboard/integrations"  />
+          <NavItem icon={CreditCard}        label="Billing"       collapsed={collapsed} href="/dashboard/billing"       />
           <NavItem icon={Settings}          label="Settings"      collapsed={collapsed} href="/dashboard/settings"      />
 
           {/* Ambient AI status — clickable */}
@@ -607,6 +609,11 @@ function MailSidebar({
           <ScrollArea.Thumb className="flex-1 bg-zinc-800 rounded-full" />
         </ScrollArea.Scrollbar>
       </ScrollArea.Root>
+
+      {/* Usage pill */}
+      <div className={`shrink-0 px-2 pb-2 ${collapsed ? 'flex justify-center' : ''}`}>
+        <UsagePill collapsed={collapsed} />
+      </div>
 
       {/* User footer */}
       <div className="shrink-0 border-t border-zinc-800/70 p-2">
