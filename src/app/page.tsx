@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { signIn, useSession } from '@/lib/auth-client';
 import { ArrowRight, Calendar, Bot, Zap, Shield, Check, Sparkles } from 'lucide-react';
+import { ThemeToggle, useTheme } from '@/components/theme-toggle';
 
 // Shared edge-highlight style used on every "card" element
 const edgeShadow =
@@ -80,6 +81,7 @@ function LandingNav({ onSignIn }: { onSignIn: () => void }) {
         </div>
 
         <div className="flex items-center gap-4">
+          <ThemeToggle />
           {isLoggedIn ? (
             <Link
               href="/dashboard/mail"
@@ -128,6 +130,12 @@ function ExtIcon({ src, size, style }: { src: string; size: number; style?: Reac
   );
 }
 
+// OpenAI mark — uses the dark logo on the light theme so it stays visible.
+function OpenAIIcon({ size, style }: { size: number; style?: React.CSSProperties }) {
+  const { theme } = useTheme();
+  return <ExtIcon src={theme === 'light' ? '/openai-dark.png' : '/openai.png'} size={size} style={style} />;
+}
+
 function NextjsFloatIcon({ size }: { size: number }) {
   return (
     <svg width={size} height={size} viewBox="0 0 180 180" fill="none">
@@ -160,7 +168,7 @@ const ICON_SIZE = 20;
 const FLOAT_CARDS: FloatCard[] = [
   { icon: <ExtIcon src={GMAIL_ICON} size={ICON_SIZE} />,                             label: 'Gmail',    delay: '0s',    style: { top: '12%', left:  'calc(50% - 485px)' } },
   { icon: <NextjsFloatIcon size={ICON_SIZE} />,                                       label: 'Next.js',  delay: '-2.4s', style: { top: '42%', left:  'calc(50% - 605px)' } },
-  { icon: <ExtIcon src="/openai.png" size={ICON_SIZE} style={{ borderRadius: 4 }} />, label: 'OpenAI',   delay: '-4.8s', style: { top: '72%', left:  'calc(50% - 520px)' } },
+  { icon: <OpenAIIcon size={ICON_SIZE} style={{ borderRadius: 4 }} />, label: 'OpenAI',   delay: '-4.8s', style: { top: '72%', left:  'calc(50% - 520px)' } },
   { icon: <ExtIcon src={GCAL_ICON} size={ICON_SIZE} />,                               label: 'Calendar', delay: '-1.2s', style: { top: '12%', right: 'calc(50% - 465px)' } },
   { icon: <ExtIcon src={PG_ICON} size={ICON_SIZE} />,                                 label: 'Postgres', delay: '-3.6s', style: { top: '39%', right: 'calc(50% - 590px)' } },
   { icon: <ExtIcon src={CORSAIR_ICON} size={ICON_SIZE} />,                             label: 'Corsair',  delay: '-6s',   style: { top: '70%', right: 'calc(50% - 503px)' } },
@@ -175,7 +183,7 @@ function HeroSection({ onSignIn }: { onSignIn: () => void }) {
         className="pointer-events-none absolute inset-0 animate-grid-move"
         style={{
           backgroundImage:
-            'linear-gradient(to right,rgba(255,255,255,0.055) 1px,transparent 1px),linear-gradient(to bottom,rgba(255,255,255,0.055) 1px,transparent 1px)',
+            'linear-gradient(to right,var(--grid-line) 1px,transparent 1px),linear-gradient(to bottom,var(--grid-line) 1px,transparent 1px)',
           backgroundSize: '32px 32px',
         }}
       />
@@ -190,7 +198,7 @@ function HeroSection({ onSignIn }: { onSignIn: () => void }) {
           className="pointer-events-none absolute animate-float-a hidden xl:block opacity-70"
           style={{ ...style, animationDelay: delay }}
         >
-          <div className="flex items-center gap-2 px-3 py-2 rounded-xl
+          <div className="flex items-center gap-2 px-3 py-2
             bg-zinc-900/80 border border-white/[0.09] backdrop-blur-sm
             shadow-[0_8px_24px_rgba(0,0,0,0.5),inset_0_1px_0_rgba(255,255,255,0.06)]">
             <span className="shrink-0 flex items-center justify-center w-5 h-5">{icon}</span>
@@ -610,7 +618,7 @@ function AgenticSection() {
 
         {/* Left: text */}
         <div>
-          <span className="inline-flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-widest text-green-400 bg-green-500/10 border border-green-500/20 px-3 py-1.5 rounded-full mb-7">
+          <span className="inline-flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-widest text-green-400 bg-green-500/10 border border-green-500/20 px-3 py-1.5 mb-7">
             <span className="w-1.5 h-1.5 rounded-full bg-green-400 shadow-[0_0_5px_rgba(74,222,128,0.7)]" />
             Agentic Mode
           </span>
@@ -628,7 +636,7 @@ function AgenticSection() {
               ['Search across everything', 'Find that email from six months ago in seconds'],
             ].map(([label, desc]) => (
               <div key={label} className="flex items-start gap-3.5">
-                <div className="mt-0.5 w-5 h-5 rounded-full border border-green-500/30 bg-green-500/10 flex items-center justify-center shrink-0">
+                <div className="mt-0.5 w-5 h-5 border border-green-500/30 bg-green-500/10 flex items-center justify-center shrink-0">
                   <svg width="8" height="8" viewBox="0 0 8 8" fill="none">
                     <path d="M1.5 4l2 2 3-3" stroke="#4ade80" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
                   </svg>
@@ -649,7 +657,7 @@ function AgenticSection() {
 
           {/* Header */}
           <div className="flex items-center gap-2.5 px-4 py-3.5 border-b border-white/[0.06]">
-            <img src="/openai.png" alt="AI" width={16} height={16} style={{ display: 'block', borderRadius: 3, opacity: 0.8 }} />
+            <OpenAIIcon size={16} style={{ borderRadius: 3, opacity: 0.8 }} />
             <span className="text-xs font-semibold text-zinc-300">Agentic</span>
             <span className="ml-auto flex items-center gap-1.5 text-[10px] font-semibold text-green-400">
               <span className="w-1.5 h-1.5 rounded-full bg-green-400 shadow-[0_0_4px_rgba(74,222,128,0.7)]" />
@@ -663,8 +671,8 @@ function AgenticSection() {
               <div key={i} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
                 <div className={`max-w-[88%] px-3.5 py-2.5 text-[12px] leading-relaxed whitespace-pre-line
                   ${msg.role === 'user'
-                    ? 'bg-zinc-800 text-zinc-200 rounded-xl rounded-br-sm'
-                    : 'bg-black border border-white/[0.07] text-zinc-400 rounded-xl rounded-bl-sm'}`}>
+                    ? 'bg-zinc-800 text-zinc-200'
+                    : 'bg-black border border-white/[0.07] text-zinc-400'}`}>
                   {msg.text}
                 </div>
               </div>
@@ -673,9 +681,9 @@ function AgenticSection() {
 
           {/* Input */}
           <div className="px-4 pb-4">
-            <div className="flex items-center gap-2 bg-black border border-white/[0.07] px-3.5 py-3 rounded-xl">
+            <div className="flex items-center gap-2 bg-black border border-white/[0.07] px-3.5 py-3">
               <span className="flex-1 text-[11px] text-zinc-700">Ask about your inbox…</span>
-              <div className="w-6 h-6 border border-white/[0.08] bg-white/5 rounded-lg flex items-center justify-center">
+              <div className="w-6 h-6 border border-white/[0.08] bg-white/5 flex items-center justify-center">
                 <ArrowRight size={10} className="text-zinc-500" />
               </div>
             </div>
@@ -753,7 +761,7 @@ function ManualMailSection() {
   return (
     <section className="max-w-6xl mx-auto px-6 py-24 w-full">
       <div className="text-center mb-14">
-        <span className="inline-flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-widest text-zinc-400 bg-zinc-900 border border-zinc-800 px-3 py-1.5 rounded-full mb-7">
+        <span className="inline-flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-widest text-zinc-400 bg-zinc-900 border border-zinc-800 px-3 py-1.5 mb-7">
           Inbox
         </span>
         <h2 className="text-4xl sm:text-5xl font-bold tracking-tight mb-5">
@@ -815,7 +823,7 @@ function DashboardSection() {
   return (
     <section className="max-w-6xl mx-auto px-6 py-24 w-full">
       <div className="text-center mb-14">
-        <span className="inline-flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-widest text-blue-400 bg-blue-500/10 border border-blue-500/20 px-3 py-1.5 rounded-full mb-7">
+        <span className="inline-flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-widest text-blue-400 bg-blue-500/10 border border-blue-500/20 px-3 py-1.5 mb-7">
           Insights
         </span>
         <h2 className="text-4xl sm:text-5xl font-bold tracking-tight mb-5">
@@ -1003,7 +1011,7 @@ function CalendarSection() {
             <p className="text-[10px] text-zinc-700 uppercase tracking-wider font-semibold mb-3">Thu, Jun 19 — 3 events</p>
             <div className="space-y-2">
               {CAL_EVENTS_MOCK.map((ev) => (
-                <div key={ev.title} className="flex items-center gap-3 px-3 py-2.5 bg-black/40 border border-white/[0.05] rounded-lg">
+                <div key={ev.title} className="flex items-center gap-3 px-3 py-2.5 bg-black/40 border border-white/[0.05]">
                   <div className="w-1 h-9 rounded-full shrink-0 opacity-80" style={{ backgroundColor: ev.color }} />
                   <div className="flex-1 min-w-0">
                     <p className="text-[11px] font-semibold text-zinc-300 truncate">{ev.title}</p>
@@ -1024,7 +1032,7 @@ function CalendarSection() {
 
         {/* Right: text */}
         <div>
-          <span className="inline-flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-widest text-blue-400 bg-blue-500/10 border border-blue-500/20 px-3 py-1.5 rounded-full mb-7">
+          <span className="inline-flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-widest text-blue-400 bg-blue-500/10 border border-blue-500/20 px-3 py-1.5 mb-7">
             Calendar
           </span>
           <h2 className="text-4xl sm:text-5xl font-bold tracking-tight leading-[1.1] mb-5">
@@ -1041,7 +1049,7 @@ function CalendarSection() {
               ['AI schedules for you', 'Ask Yugati to find a free slot and send the invite'],
             ].map(([label, desc]) => (
               <div key={label} className="flex items-start gap-3.5">
-                <div className="mt-0.5 w-5 h-5 rounded-full border border-blue-500/30 bg-blue-500/10 flex items-center justify-center shrink-0">
+                <div className="mt-0.5 w-5 h-5 border border-blue-500/30 bg-blue-500/10 flex items-center justify-center shrink-0">
                   <svg width="8" height="8" viewBox="0 0 8 8" fill="none">
                     <path d="M1.5 4l2 2 3-3" stroke="#60a5fa" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
                   </svg>
@@ -1168,14 +1176,14 @@ function PricingSection({ onSignIn }: { onSignIn: () => void }) {
         {PRICING_TIERS.map((tier) => (
           <div
             key={tier.id}
-            className={`relative flex flex-col rounded-2xl border p-6 transition-all duration-200
+            className={`relative flex flex-col border p-6 transition-all duration-200
               ${tier.highlight
                 ? 'border-white/20 bg-zinc-950 shadow-[0_0_40px_rgba(255,255,255,0.04)]'
                 : 'border-zinc-800/60 bg-zinc-950/40 hover:border-zinc-700/60'}`}
           >
             {tier.highlight && (
               <div className="absolute -top-3 left-1/2 -translate-x-1/2">
-                <span className="flex items-center gap-1.5 bg-white text-black text-[10px] font-bold uppercase tracking-wider px-3 py-1 rounded-full">
+                <span className="flex items-center gap-1.5 bg-white text-black text-[10px] font-bold uppercase tracking-wider px-3 py-1">
                   <Sparkles size={9} />
                   Most popular
                 </span>
@@ -1202,7 +1210,7 @@ function PricingSection({ onSignIn }: { onSignIn: () => void }) {
 
             <button
               onClick={onSignIn}
-              className={`w-full py-2.5 text-sm font-semibold rounded-xl transition-all duration-150
+              className={`w-full py-2.5 text-sm font-semibold transition-all duration-150
                 ${tier.highlight
                   ? 'bg-white text-black hover:bg-zinc-100'
                   : 'bg-zinc-800/60 text-zinc-300 border border-zinc-700/60 hover:bg-zinc-800 hover:text-white'}`}
@@ -1214,9 +1222,9 @@ function PricingSection({ onSignIn }: { onSignIn: () => void }) {
       </div>
 
       {/* Enterprise strip */}
-      <div className={`flex items-center justify-between px-6 py-4 rounded-2xl border border-zinc-800/60 bg-zinc-950/30 ${edgeShadow}`}>
+      <div className={`flex items-center justify-between px-6 py-4 border border-zinc-800/60 bg-zinc-950/30 ${edgeShadow}`}>
         <div className="flex items-center gap-4">
-          <div className="w-9 h-9 rounded-xl border border-zinc-700/60 bg-zinc-900 flex items-center justify-center">
+          <div className="w-9 h-9 border border-zinc-700/60 bg-zinc-900 flex items-center justify-center">
             <Sparkles size={14} className="text-zinc-400" />
           </div>
           <div>

@@ -21,6 +21,7 @@ import {
   Minimize2, Maximize2, List, ListOrdered, Link2, Loader2 as Loader2Icon,
   Sparkles, Wand2, RefreshCcw,
 } from 'lucide-react';
+import { ThemeToggle } from '@/components/theme-toggle';
 
 // ─── Constants ─────────────────────────────────────────────────────────────────
 
@@ -757,6 +758,8 @@ function MailTopBar({
 
       {/* Right side: search + action buttons */}
       <div className="ml-auto flex items-center gap-2">
+        <ThemeToggle />
+
         {showRefresh && (
           <TooltipWrap label="Refresh">
             <button

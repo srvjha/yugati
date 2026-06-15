@@ -4,6 +4,7 @@ import { useState, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useTRPC } from '@/trpc/client';
 import { ChevronLeft, ChevronRight, Plus, Plug, Video, X, Clock, MapPin, Users, Trash2, ExternalLink, AlignLeft, UserPlus, ChevronDown } from 'lucide-react';
+import { ThemeToggle } from '@/components/theme-toggle';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -207,6 +208,8 @@ export function CalendarView() {
         >
           Today
         </button>
+
+        <ThemeToggle />
       </header>
 
       {/* Calendar grid */}

@@ -69,14 +69,17 @@ export function MailView({ message }: { message: GmailMessage }) {
     const iframe = iframeRef.current;
     const doc = iframe.contentDocument;
     if (!doc) return;
+    const isLight = document.documentElement.getAttribute('data-theme') === 'light';
+    const bodyColor = isLight ? '#2c2620' : '#e4e4e7';
+    const linkColor = isLight ? '#1d4ed8' : '#60a5fa';
     doc.open();
     doc.write(`<!DOCTYPE html><html><head>
       <meta charset="utf-8">
       <style>
         body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-               font-size: 14px; color: #e4e4e7; background: transparent;
+               font-size: 14px; color: ${bodyColor}; background: transparent;
                margin: 0; padding: 0; word-break: break-word; }
-        a { color: #60a5fa; }
+        a { color: ${linkColor}; }
         img { max-width: 100%; height: auto; }
         * { box-sizing: border-box; }
       </style>

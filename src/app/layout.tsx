@@ -31,8 +31,19 @@ export default function RootLayout({
   return (
     <html
       lang="en"
+      data-theme="dark"
+      suppressHydrationWarning
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
+      <head>
+        {/* Apply the saved theme synchronously, before first paint, to
+            avoid a flash of the default (dark) theme on light-mode loads. */}
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `(function(){try{var t=localStorage.getItem("theme");if(t)document.documentElement.setAttribute("data-theme",t)}catch(e){}})()`,
+          }}
+        />
+      </head>
       <body className="min-h-full flex flex-col">
         <TRPCReactProvider>{children}</TRPCReactProvider>
         <Toaster theme="dark" position="bottom-right" richColors />

@@ -7,6 +7,7 @@ html {
 :root {
   --background: #000000;
   --foreground: #fafafa;
+  --grid-line: rgba(255, 255, 255, 0.055);
   --muted: #71717a;
   --muted-foreground: #a1a1aa;
   --border: #27272a;
@@ -15,6 +16,63 @@ html {
   --accent: #18181b;
   --primary: #fafafa;
   --primary-foreground: #09090b;
+}
+
+/* ── Light mode ───────────────────────────────────────────────────
+   A warm, paper-like light theme (soft cream, not stark white).
+
+   The whole UI is built on hardcoded Tailwind colors (bg-black,
+   text-white, zinc-*, white/black-alpha). Rather than rewrite every
+   class, we redefine Tailwind's *color tokens* under [data-theme=light].
+   Every utility — including hover:/focus:/group-hover: variants and
+   /opacity + arbitrary-alpha forms — resolves these vars at use-time,
+   so the entire app flips with zero markup changes.
+
+   The zinc scale is used as a "ladder": high numbers (800–950) are
+   surfaces, low–mid numbers (300–700) are text/borders, and 100–200
+   are inverted accent chips. We remap each shade to the warm-light
+   tone that best serves its dominant role. `white` becomes the
+   high-contrast ink and `black` becomes the base canvas. */
+:root[data-theme='light'] {
+  --background: #f6f1e4;
+  --foreground: #211d16;
+  --grid-line: rgba(60, 50, 30, 0.07);
+  --muted: #8c8472;
+  --muted-foreground: #6b6453;
+  --border: #e6ddc8;
+  --card: #fbf7ec;
+  --card-border: #ece3d0;
+  --accent: #ece3d0;
+  --primary: #211d16;
+  --primary-foreground: #f6f1e4;
+
+  /* High-contrast ink (was bright white) / base canvas (was black) */
+  --color-white: #211d16;
+  --color-black: #f6f1e4;
+
+  /* Surface + text + border ladder, warm yellow-tinted */
+  --color-zinc-50:  #1d1a13;
+  --color-zinc-100: #262118;
+  --color-zinc-200: #322c20;
+  --color-zinc-300: #443d2d;
+  --color-zinc-400: #5c5341;
+  --color-zinc-500: #6f6754;
+  --color-zinc-600: #807865;
+  --color-zinc-700: #a99e85;
+  --color-zinc-800: #e6dcc5;
+  --color-zinc-900: #f0e9d7;
+  --color-zinc-950: #faf6ec;
+
+  /* Blue is the app's only color accent (active tabs, "today",
+     toggles, links, primary action buttons). A saturated blue reads
+     as a dark-mode color on warm cream — so in light mode the accent
+     collapses to the theme's ink, matching how bg-white primaries
+     already flip to dark. High contrast, monochrome, paper-like.
+     Alpha tints (/10, /20, /30) become soft warm-gray washes. */
+  --color-blue-300: #4a4339;
+  --color-blue-400: #2f2a22;
+  --color-blue-500: #211d16;
+  --color-blue-600: #211d16;
 }
 
 @theme inline {
@@ -106,3 +164,29 @@ body {
 ::-webkit-scrollbar-track  { background: transparent; }
 ::-webkit-scrollbar-thumb  { background: #27272a; border-radius: 9999px; }
 ::-webkit-scrollbar-thumb:hover { background: #3f3f46; }
+
+/* ── Light-mode fixups ────────────────────────────────────────────
+   A few classes intentionally must NOT follow the token flip. Modal
+   backdrops use bg-black/60–90 to dim the page; after the flip those
+   become light, so re-pin them to a warm-dark scrim. (bg-black/70 and
+   /40 are nav/chips and correctly stay light.) */
+:root[data-theme='light'] .bg-black\/60 { background-color: rgba(35, 31, 22, 0.45); }
+:root[data-theme='light'] .bg-black\/90 { background-color: rgba(35, 31, 22, 0.55); }
+
+/* Solid accent surfaces (the ink-filled "today" pill, primary action
+   buttons) pair bg-blue-* with text-white. After the flip text-white
+   is ink too — invisible on the ink fill — so restore light text on
+   exactly those elements. */
+:root[data-theme='light'] .bg-blue-500.text-white,
+:root[data-theme='light'] .bg-blue-600.text-white { color: #f6f1e4; }
+
+/* Every custom shadow (shadow-[…]) is baked with heavy black rgba
+   tuned for a black canvas (e.g. rgba(0,0,0,0.6–0.9)). On cream those
+   read as harsh, oversized drops. Borders already carry the elevation
+   in light mode, so collapse them all to one whisper-soft warm shadow. */
+:root[data-theme='light'] [class*="shadow-["] {
+  box-shadow: 0 1px 2px rgba(60, 50, 30, 0.05), 0 4px 12px rgba(60, 50, 30, 0.04);
+}
+
+:root[data-theme='light'] ::-webkit-scrollbar-thumb        { background: #d8ccae; }
+:root[data-theme='light'] ::-webkit-scrollbar-thumb:hover  { background: #c2b48f; }
