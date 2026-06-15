@@ -17,6 +17,7 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "Yugati",
   description: "Automate your manual plugins",
+  icons: { icon: '/favicon.svg' },
 };
 
 export default function RootLayout({

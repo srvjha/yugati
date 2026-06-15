@@ -1,8 +1,9 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { signIn } from '@/lib/auth-client';
-import { ArrowRight, Calendar, Bot, Zap, Shield } from 'lucide-react';
+import Link from 'next/link';
+import { signIn, useSession } from '@/lib/auth-client';
+import { ArrowRight, Calendar, Bot, Zap, Shield, Check, Sparkles } from 'lucide-react';
 
 // Shared edge-highlight style used on every "card" element
 const edgeShadow =
@@ -27,6 +28,7 @@ export default function LandingPage() {
       <CalendarSection />
       <SectionDivider />
       <FeaturesSection />
+      <PricingSection onSignIn={handleSignIn} />
       <CTASection onSignIn={handleSignIn} />
       <LandingFooter />
     </div>
@@ -37,6 +39,8 @@ export default function LandingPage() {
 
 function LandingNav({ onSignIn }: { onSignIn: () => void }) {
   const [scrolled, setScrolled] = useState(false);
+  const { data: session } = useSession();
+  const isLoggedIn = !!session?.user;
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 12);
@@ -58,25 +62,57 @@ function LandingNav({ onSignIn }: { onSignIn: () => void }) {
           <span className="font-semibold text-sm tracking-tight">Yugati</span>
         </div>
 
-        <div className="flex items-center gap-5">
-          <button
-            onClick={onSignIn}
-            className="text-sm text-zinc-500 hover:text-white transition-colors duration-150 relative group"
-          >
-            Sign in
-            <span className="absolute -bottom-0.5 left-0 w-0 h-px bg-white/60 transition-all duration-200 group-hover:w-full" />
-          </button>
+        {/* Center nav links */}
+        <div className="hidden sm:flex items-center gap-6">
+          {[
+            { label: 'Features', href: '#features' },
+            { label: 'Pricing',  href: '#pricing'  },
+          ].map(({ label, href }) => (
+            <a
+              key={label}
+              href={href}
+              className="text-sm text-zinc-500 hover:text-white transition-colors duration-150 relative group"
+            >
+              {label}
+              <span className="absolute -bottom-0.5 left-0 w-0 h-px bg-white/40 transition-all duration-200 group-hover:w-full" />
+            </a>
+          ))}
+        </div>
 
-          <button
-            onClick={onSignIn}
-            className={`group flex items-center gap-2 px-4 py-2 bg-white text-black text-sm font-semibold border border-white/20
-              hover:-translate-y-px hover:shadow-[0_0_24px_rgba(255,255,255,0.18)]
-              active:translate-y-0 active:shadow-none
-              transition-all duration-150 ${edgeShadow}`}
-          >
-            Get started
-            <ArrowRight size={13} className="transition-transform duration-150 group-hover:translate-x-0.5" />
-          </button>
+        <div className="flex items-center gap-4">
+          {isLoggedIn ? (
+            <Link
+              href="/dashboard/mail"
+              className={`group flex items-center gap-2 px-4 py-2 bg-white text-black text-sm font-semibold border border-white/20
+                hover:-translate-y-px hover:shadow-[0_0_24px_rgba(255,255,255,0.18)]
+                active:translate-y-0 active:shadow-none
+                transition-all duration-150 ${edgeShadow}`}
+            >
+              Dashboard
+              <ArrowRight size={13} className="transition-transform duration-150 group-hover:translate-x-0.5" />
+            </Link>
+          ) : (
+            <>
+              <button
+                onClick={onSignIn}
+                className="text-sm text-zinc-500 hover:text-white transition-colors duration-150 relative group"
+              >
+                Sign in
+                <span className="absolute -bottom-0.5 left-0 w-0 h-px bg-white/60 transition-all duration-200 group-hover:w-full" />
+              </button>
+
+              <button
+                onClick={onSignIn}
+                className={`group flex items-center gap-2 px-4 py-2 bg-white text-black text-sm font-semibold border border-white/20
+                  hover:-translate-y-px hover:shadow-[0_0_24px_rgba(255,255,255,0.18)]
+                  active:translate-y-0 active:shadow-none
+                  transition-all duration-150 ${edgeShadow}`}
+              >
+                Get started
+                <ArrowRight size={13} className="transition-transform duration-150 group-hover:translate-x-0.5" />
+              </button>
+            </>
+          )}
         </div>
       </div>
     </nav>
@@ -1045,7 +1081,7 @@ const FEATURES = [
 
 function FeaturesSection() {
   return (
-    <section className="max-w-6xl mx-auto px-6 pb-28 w-full">
+    <section id="features" className="max-w-6xl mx-auto px-6 pb-28 w-full">
       <div className="text-center mb-14">
         <p className="text-xs font-semibold text-zinc-700 uppercase tracking-widest mb-4">Why Yugati</p>
         <h2 className="text-4xl sm:text-5xl font-bold tracking-tight">
@@ -1080,6 +1116,125 @@ function FeaturesSection() {
   );
 }
 
+// ─── Pricing preview ───────────────────────────────────────────────────────────
+
+const PRICING_TIERS = [
+  {
+    id: 'free',
+    name: 'Free',
+    price: '₹0',
+    period: 'forever',
+    desc: 'Get started, no card needed.',
+    features: ['30 AI messages / month', '1 voice message', '10 email compose', 'Gmail + Calendar', '1,000 char limit'],
+    cta: 'Start for free',
+    highlight: false,
+  },
+  {
+    id: 'standard',
+    name: 'Standard',
+    price: '₹199',
+    period: '/ month',
+    desc: 'For individuals who move fast.',
+    features: ['150 AI messages / month', '15 voice messages', '50 email compose', 'Gmail + Calendar', '2,000 char limit', 'Email support'],
+    cta: 'Get Standard',
+    highlight: false,
+  },
+  {
+    id: 'premium',
+    name: 'Premium',
+    price: '₹499',
+    period: '/ month',
+    desc: 'For power users and teams.',
+    features: ['500 AI messages / month', '30 voice messages', '150 email compose', 'Gmail + Calendar', '5,000 char limit', 'Priority support'],
+    cta: 'Get Premium',
+    highlight: true,
+  },
+] as const;
+
+function PricingSection({ onSignIn }: { onSignIn: () => void }) {
+  return (
+    <section id="pricing" className="max-w-6xl mx-auto px-6 pb-28 w-full">
+      <div className="text-center mb-14">
+        <p className="text-xs font-semibold text-zinc-700 uppercase tracking-widest mb-4">Pricing</p>
+        <h2 className="text-4xl sm:text-5xl font-bold tracking-tight">
+          Simple, transparent <span className="text-zinc-600">pricing.</span>
+        </h2>
+        <p className="text-zinc-600 text-base max-w-sm mx-auto mt-5 leading-relaxed">
+          Start free. Upgrade when you need more. Cancel anytime.
+        </p>
+      </div>
+
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
+        {PRICING_TIERS.map((tier) => (
+          <div
+            key={tier.id}
+            className={`relative flex flex-col rounded-2xl border p-6 transition-all duration-200
+              ${tier.highlight
+                ? 'border-white/20 bg-zinc-950 shadow-[0_0_40px_rgba(255,255,255,0.04)]'
+                : 'border-zinc-800/60 bg-zinc-950/40 hover:border-zinc-700/60'}`}
+          >
+            {tier.highlight && (
+              <div className="absolute -top-3 left-1/2 -translate-x-1/2">
+                <span className="flex items-center gap-1.5 bg-white text-black text-[10px] font-bold uppercase tracking-wider px-3 py-1 rounded-full">
+                  <Sparkles size={9} />
+                  Most popular
+                </span>
+              </div>
+            )}
+
+            <div className="mb-5">
+              <p className="text-xs font-semibold text-zinc-500 uppercase tracking-widest mb-2">{tier.name}</p>
+              <div className="flex items-end gap-1.5 mb-2">
+                <span className="text-3xl font-bold tracking-tight">{tier.price}</span>
+                <span className="text-zinc-600 text-sm mb-1">{tier.period}</span>
+              </div>
+              <p className="text-xs text-zinc-600">{tier.desc}</p>
+            </div>
+
+            <ul className="space-y-2 mb-6 flex-1">
+              {tier.features.map((f) => (
+                <li key={f} className="flex items-center gap-2 text-xs text-zinc-400">
+                  <Check size={11} className="text-zinc-500 shrink-0" />
+                  {f}
+                </li>
+              ))}
+            </ul>
+
+            <button
+              onClick={onSignIn}
+              className={`w-full py-2.5 text-sm font-semibold rounded-xl transition-all duration-150
+                ${tier.highlight
+                  ? 'bg-white text-black hover:bg-zinc-100'
+                  : 'bg-zinc-800/60 text-zinc-300 border border-zinc-700/60 hover:bg-zinc-800 hover:text-white'}`}
+            >
+              {tier.cta}
+            </button>
+          </div>
+        ))}
+      </div>
+
+      {/* Enterprise strip */}
+      <div className={`flex items-center justify-between px-6 py-4 rounded-2xl border border-zinc-800/60 bg-zinc-950/30 ${edgeShadow}`}>
+        <div className="flex items-center gap-4">
+          <div className="w-9 h-9 rounded-xl border border-zinc-700/60 bg-zinc-900 flex items-center justify-center">
+            <Sparkles size={14} className="text-zinc-400" />
+          </div>
+          <div>
+            <p className="text-sm font-semibold text-zinc-200">Enterprise</p>
+            <p className="text-xs text-zinc-600">Unlimited usage · team seats · SSO · dedicated support · GST invoices</p>
+          </div>
+        </div>
+        <Link
+          href="/pricing"
+          className="shrink-0 flex items-center gap-1.5 text-xs font-semibold text-zinc-400 hover:text-white transition-colors"
+        >
+          See all plans <ArrowRight size={12} />
+        </Link>
+      </div>
+    </section>
+  );
+}
+
 // ─── Bottom CTA ────────────────────────────────────────────────────────────────
 
 function CTASection({ onSignIn }: { onSignIn: () => void }) {
@@ -1092,7 +1247,7 @@ function CTASection({ onSignIn }: { onSignIn: () => void }) {
           className="pointer-events-none absolute inset-0 animate-grid-move"
           style={{
             backgroundImage:
-              'linear-gradient(to right,rgba(255,255,255,0.048) 1px,transparent 1px),linear-gradient(to bottom,rgba(255,255,255,0.048) 1px,transparent 1px)',
+              'linear-gradient(to right,rgba(255,255,255,0.018) 1px,transparent 1px),linear-gradient(to bottom,rgba(255,255,255,0.018) 1px,transparent 1px)',
             backgroundSize: '32px 32px',
           }}
         />

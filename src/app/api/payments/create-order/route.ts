@@ -1,6 +1,6 @@
 import { auth }      from '@/lib/auth';
 import { headers }   from 'next/headers';
-import { razorpay }  from '@/lib/razorpay';
+import { getRazorpay } from '@/lib/razorpay';
 import { db }        from '@/server/db';
 import { orders }    from '@/server/db/schema';
 import { PLANS }     from '@/lib/plans';
@@ -23,7 +23,7 @@ export async function POST(request: Request) {
   const plan    = PLANS[planId];
   const receipt = `rcpt_${session.user.id.slice(0, 10)}_${Date.now()}`;
 
-  const rzpOrder = await razorpay.orders.create({
+  const rzpOrder = await getRazorpay().orders.create({
     amount:   plan.paise!,
     currency: 'INR',
     receipt,
