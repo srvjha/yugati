@@ -9,4 +9,4 @@ export const rateLimiter = new Ratelimit({
   prefix:    'yugati_rl',
 });
 
-export const MAX_PROMPT_CHARS = 2000;
+export { MAX_PROMPT_CHARS } from './constants';

@@ -926,8 +926,8 @@ function DashboardSection() {
             ))}
           </div>
           <div className="flex justify-between">
-            {['12am', '6am', '12pm', '6pm', '12am'].map((t) => (
-              <span key={t} className="text-[9px] text-zinc-700">{t}</span>
+            {['12am', '6am', '12pm', '6pm', '12am'].map((t, i) => (
+              <span key={i} className="text-[9px] text-zinc-700">{t}</span>
             ))}
           </div>
         </div>

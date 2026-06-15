@@ -8,7 +8,7 @@ import {
   Copy, RefreshCw, Pencil, Check, Plus, MessageSquare,
   Maximize2, Minimize2, Trash2, X, Mic, MicOff,
 } from 'lucide-react';
-import { MAX_PROMPT_CHARS } from '@/lib/rate-limit';
+import { MAX_PROMPT_CHARS } from '@/lib/constants';
 
 // ─── Voice input — OpenAI Whisper via /api/voice/transcribe ──────────────────
 

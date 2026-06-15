@@ -111,11 +111,7 @@ export default function MailPage() {
   const user = authData?.user;
 
   const [collapsed,    setCollapsed]    = useState(false);
-  const [chatMode,     setChatMode]     = useState(() => {
-    if (typeof window === 'undefined') return true;
-    const stored = localStorage.getItem('yugati_mail_mode');
-    return stored !== null ? stored === 'agentic' : true;
-  });
+  const [chatMode,     setChatMode]     = useState(true);
   const [activeFolder, setActiveFolder] = useState<SidebarFolder>('inbox');
   const [activeTab,    setActiveTab]    = useState<InboxTab>('all');
   const [searchQuery,  setSearchQuery]  = useState('');
@@ -188,6 +184,12 @@ export default function MailPage() {
   const [confirmDialog, setConfirmDialog] = useState<{
     title: string; description: string; onConfirm: () => Promise<void>;
   } | null>(null);
+
+  // Read persisted mode after hydration to avoid SSR mismatch
+  useEffect(() => {
+    const stored = localStorage.getItem('yugati_mail_mode');
+    if (stored !== null) setChatMode(stored === 'agentic');
+  }, []);
 
   useEffect(() => {
     localStorage.setItem('yugati_mail_mode', chatMode ? 'agentic' : 'manual');
