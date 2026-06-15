@@ -1,11 +1,12 @@
 import { NextResponse, type NextRequest } from 'next/server';
 
-const SESSION_COOKIE = 'better-auth.session_token';
+// better-auth uses __Secure- prefix on HTTPS (production), plain name on HTTP (dev)
+const SESSION_COOKIES = ['better-auth.session_token', '__Secure-better-auth.session_token'];
 const PROTECTED_PREFIXES = ['/dashboard'];
 
 export function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
-  const hasSession = Boolean(request.cookies.get(SESSION_COOKIE)?.value);
+  const hasSession = SESSION_COOKIES.some((name) => Boolean(request.cookies.get(name)?.value));
 
   if (!hasSession && PROTECTED_PREFIXES.some((p) => pathname.startsWith(p))) {
     return NextResponse.redirect(new URL('/', request.url));
