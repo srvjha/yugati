@@ -849,10 +849,19 @@ export function ChatView({
                         {msg.content ? (
                           <MdContent content={msg.content} streaming={msg.streaming} />
                         ) : (
-                          <div className="flex gap-1 items-center h-5">
-                            {[0, 1, 2].map((j) => (
-                              <span key={j} className="w-1.5 h-1.5 rounded-full bg-zinc-500 animate-bounce" style={{ animationDelay: `${j * 0.15}s` }} />
-                            ))}
+                          <div className="flex items-center gap-2 h-7">
+                            <span
+                              key={fillerText}
+                              className="text-sm text-zinc-500 animate-fade-in-up"
+                              style={{ animationDuration: '0.3s' }}
+                            >
+                              {fillerText}
+                            </span>
+                            <span className="flex gap-0.5 items-center">
+                              {[0, 1, 2].map((j) => (
+                                <span key={j} className="w-1 h-1 rounded-full bg-zinc-600 animate-bounce" style={{ animationDelay: `${j * 0.15}s` }} />
+                              ))}
+                            </span>
                           </div>
                         )}
                         {!msg.streaming && msg.content && (
@@ -873,33 +882,6 @@ export function ChatView({
                   )}
                 </div>
               ))}
-
-              {(() => {
-                const last = messages[messages.length - 1];
-                const showFiller = isLoading && last?.role === 'assistant' && last?.streaming && !last?.content;
-                if (!showFiller) return null;
-                return (
-                  <div className="flex gap-3 items-start">
-                    <div className="shrink-0 w-7 h-7 rounded-lg bg-white flex items-center justify-center">
-                      <span className="text-black text-xs font-bold">Y</span>
-                    </div>
-                    <div className="flex items-center gap-2 h-7">
-                      <span
-                        key={fillerText}
-                        className="text-sm text-zinc-500 animate-fade-in-up"
-                        style={{ animationDuration: '0.3s' }}
-                      >
-                        {fillerText}
-                      </span>
-                      <span className="flex gap-0.5 items-center">
-                        {[0, 1, 2].map((j) => (
-                          <span key={j} className="w-1 h-1 rounded-full bg-zinc-600 animate-bounce" style={{ animationDelay: `${j * 0.15}s` }} />
-                        ))}
-                      </span>
-                    </div>
-                  </div>
-                );
-              })()}
 
               <div ref={bottomRef} />
             </div>
