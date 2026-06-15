@@ -6,8 +6,144 @@ import remarkGfm from 'remark-gfm';
 import {
   ArrowUp, Loader2, Mail, Calendar, Zap,
   Copy, RefreshCw, Pencil, Check, Plus, MessageSquare,
-  Maximize2, Minimize2, Trash2, X,
+  Maximize2, Minimize2, Trash2, X, Mic, MicOff,
 } from 'lucide-react';
+
+// ─── Voice input — OpenAI Whisper via /api/voice/transcribe ──────────────────
+
+const VOICE_LIMIT_MS = 20_000;
+
+type VoiceState = 'idle' | 'recording' | 'transcribing';
+
+function useVoiceInput(onResult: (text: string) => void) {
+  const [state,    setState]    = useState<VoiceState>('idle');
+  const [timeLeft, setTimeLeft] = useState(VOICE_LIMIT_MS / 1000);
+  const mediaRef  = useRef<MediaRecorder | null>(null);
+  const chunksRef = useRef<Blob[]>([]);
+  const timerRef  = useRef<ReturnType<typeof setInterval> | null>(null);
+  const stopRef   = useRef<() => void>(() => {});
+
+  const transcribe = useCallback(async (blob: Blob) => {
+    setState('transcribing');
+    try {
+      const form = new FormData();
+      form.append('audio', blob, 'voice.webm');
+      const res  = await fetch('/api/voice/transcribe', { method: 'POST', body: form });
+      const data = await res.json() as { text?: string };
+      if (data.text?.trim()) onResult(data.text.trim());
+    } catch {
+      // silently fail — user can retry
+    } finally {
+      setState('idle');
+      setTimeLeft(VOICE_LIMIT_MS / 1000);
+    }
+  }, [onResult]);
+
+  const stop = useCallback(() => {
+    if (timerRef.current) clearInterval(timerRef.current);
+    const mr = mediaRef.current;
+    if (mr && mr.state !== 'inactive') mr.stop();
+  }, []);
+
+  useEffect(() => { stopRef.current = stop; }, [stop]);
+
+  const start = useCallback(async () => {
+    if (state !== 'idle') { stop(); return; }
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      chunksRef.current = [];
+      const mr = new MediaRecorder(stream, { mimeType: 'audio/webm' });
+      mediaRef.current = mr;
+
+      mr.ondataavailable = (e) => { if (e.data.size > 0) chunksRef.current.push(e.data); };
+      mr.onstop = () => {
+        stream.getTracks().forEach((t) => t.stop());
+        const blob = new Blob(chunksRef.current, { type: 'audio/webm' });
+        void transcribe(blob);
+      };
+
+      mr.start(250);
+      setState('recording');
+      setTimeLeft(VOICE_LIMIT_MS / 1000);
+
+      let remaining = VOICE_LIMIT_MS / 1000;
+      timerRef.current = setInterval(() => {
+        remaining -= 1;
+        setTimeLeft(remaining);
+        if (remaining <= 0) stopRef.current();
+      }, 1000);
+    } catch {
+      alert('Microphone access denied.');
+    }
+  }, [state, stop, transcribe]);
+
+  useEffect(() => () => { stop(); }, [stop]);
+
+  return { state, timeLeft, start, stop };
+}
+
+// ─── Filler phrases while agent is generating ─────────────────────────────────
+
+const FILLER_EMAIL = [
+  'Reading your inbox…',
+  'Scanning your threads…',
+  'Searching your mail…',
+  'Fetching messages…',
+  'Reviewing your emails…',
+  'Drafting a response…',
+  'Analysing threads…',
+  'Looking through your inbox…',
+  'Pulling email data…',
+  'Almost there…',
+];
+
+const FILLER_CALENDAR = [
+  'Checking your calendar…',
+  'Looking up your schedule…',
+  'Scanning your events…',
+  'Reviewing upcoming meetings…',
+  'Fetching calendar data…',
+  'Checking for conflicts…',
+  'Looking at your availability…',
+  'Analysing your schedule…',
+  'Almost there…',
+];
+
+const FILLER_GENERIC = [
+  'Thinking…',
+  'Generating…',
+  'Processing…',
+  'Working on it…',
+  'Looking into that…',
+  'Connecting the dots…',
+  'Gathering insights…',
+  'Almost there…',
+];
+
+const EMAIL_KEYWORDS    = /email|gmail|inbox|mail|thread|message|unread|sender|draft|reply|compose|attachment|subject|folder|label|sent|spam/i;
+const CALENDAR_KEYWORDS = /calendar|event|meeting|schedule|appointment|slot|availability|invite|rsvp|remind|upcoming|book|reschedule|cancel/i;
+
+function detectTopic(query: string): 'email' | 'calendar' | 'generic' {
+  if (CALENDAR_KEYWORDS.test(query)) return 'calendar';
+  if (EMAIL_KEYWORDS.test(query))    return 'email';
+  return 'generic';
+}
+
+function useFillerText(active: boolean, lastQuery: string) {
+  const [tick, setTick] = useState(0);
+
+  useEffect(() => {
+    if (!active) return;
+    const id = setInterval(() => setTick((t) => t + 1), 1800);
+    return () => clearInterval(id);
+  }, [active, lastQuery]);
+
+  const phrases = detectTopic(lastQuery) === 'email'    ? FILLER_EMAIL
+                : detectTopic(lastQuery) === 'calendar' ? FILLER_CALENDAR
+                : FILLER_GENERIC;
+
+  return active ? phrases[tick % phrases.length]! : phrases[0]!;
+}
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -112,6 +248,42 @@ const SUGGESTIONS = [
   },
 ];
 
+// ─── Confirm dialog ───────────────────────────────────────────────────────────
+
+function ConfirmDialog({
+  title, message, confirmLabel = 'Delete', onConfirm, onCancel,
+}: {
+  title:         string;
+  message:       string;
+  confirmLabel?: string;
+  onConfirm:     () => void;
+  onCancel:      () => void;
+}) {
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center">
+      <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onCancel} />
+      <div className="relative z-10 w-full max-w-sm mx-4 bg-zinc-950 border border-zinc-800 rounded-2xl p-6 shadow-[0_24px_60px_rgba(0,0,0,0.8)]">
+        <h3 className="text-sm font-semibold text-white mb-2">{title}</h3>
+        <p className="text-sm text-zinc-500 leading-relaxed mb-6">{message}</p>
+        <div className="flex items-center justify-end gap-2">
+          <button
+            onClick={onCancel}
+            className="px-4 py-2 text-xs font-medium text-zinc-400 hover:text-white border border-zinc-700 hover:border-zinc-500 rounded-xl transition-colors"
+          >
+            Cancel
+          </button>
+          <button
+            onClick={onConfirm}
+            className="px-4 py-2 text-xs font-semibold text-white bg-red-500/20 hover:bg-red-500/30 border border-red-500/40 hover:border-red-500/60 rounded-xl transition-colors"
+          >
+            {confirmLabel}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ─── Markdown renderer ────────────────────────────────────────────────────────
 
 function MdContent({ content, streaming }: { content: string; streaming?: boolean }) {
@@ -178,13 +350,22 @@ export function ChatView({
   userName?: string;
 } = {}) {
 
-  const [sessions,         setSessions]         = useState<Session[]>([]);
-  const [activeId,         setActiveId]         = useState<string>('');
+  const [initState]  = useState(() => {
+    const stored = loadSessions();
+    if (stored.length > 0) return { sessions: stored, activeId: stored[0].id };
+    const s = makeSession();
+    return { sessions: [s], activeId: s.id };
+  });
+  const [sessions,         setSessions]         = useState<Session[]>(initState.sessions);
+  const [activeId,         setActiveId]         = useState<string>(initState.activeId);
   const [fullscreen,       setFullscreen]       = useState(showSidebar);
   const [input,            setInput]            = useState('');
   const [isLoading,        setLoading]          = useState(false);
   const [editingMsgId,     setEditingMsgId]     = useState<string | null>(null);
   const [editMsgText,      setEditMsgText]      = useState('');
+  const [showClearDialog,  setShowClearDialog]  = useState(false);
+
+  const voice = useVoiceInput((transcript) => { void submit(transcript); });
   const [copiedId,         setCopiedId]         = useState<string | null>(null);
   const [editingSessionId, setEditingSessionId] = useState<string | null>(null);
   const [editSessionTitle, setEditSessionTitle] = useState('');
@@ -194,24 +375,12 @@ export function ChatView({
   const editMsgRef     = useRef<HTMLTextAreaElement>(null);
   const editSessionRef = useRef<HTMLInputElement>(null);
 
-  // ── Init sessions ─────────────────────────────────────────────────────────
-
-  useEffect(() => {
-    const stored = loadSessions();
-    if (stored.length > 0) {
-      setSessions(stored);
-      setActiveId(stored[0].id);
-    } else {
-      const s = makeSession();
-      setSessions([s]);
-      setActiveId(s.id);
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
 
   const activeSession  = sessions.find((s) => s.id === activeId);
   const messages       = activeSession?.messages ?? [];
   const sidebarVisible = fullscreen;
+  const lastQuery      = [...messages].reverse().find((m) => m.role === 'user')?.content ?? '';
+  const fillerText     = useFillerText(isLoading, lastQuery);
 
   useEffect(() => { if (sessions.length > 0) saveSessions(sessions); }, [sessions]);
   useEffect(() => { bottomRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [messages, isLoading]);
@@ -266,6 +435,17 @@ export function ChatView({
       }
       return next;
     });
+  }
+
+  function clearCurrentChat() {
+    setSessions((prev) => {
+      const fresh = makeSession();
+      const next  = prev.filter((s) => s.id !== activeId);
+      next.unshift(fresh);
+      setActiveId(fresh.id);
+      return next;
+    });
+    setShowClearDialog(false);
   }
 
   function updateSession(id: string, upd: Partial<Session> | ((s: Session) => Session)) {
@@ -427,6 +607,16 @@ export function ChatView({
   return (
     <div className={wrapClass}>
 
+      {showClearDialog && (
+        <ConfirmDialog
+          title="Clear this chat?"
+          message="This will permanently delete the current conversation. This action cannot be undone."
+          confirmLabel="Clear chat"
+          onConfirm={clearCurrentChat}
+          onCancel={() => setShowClearDialog(false)}
+        />
+      )}
+
       {/* ── Sidebar ───────────────────────────────────────────────────────── */}
       {sidebarVisible && (
         <aside className="w-60 shrink-0 flex flex-col bg-zinc-950 border-r border-zinc-800/70 overflow-hidden">
@@ -445,13 +635,21 @@ export function ChatView({
             )}
           </div>
 
-          <div className="px-2 pt-2.5 pb-1.5 shrink-0">
+          <div className="px-2 pt-2.5 pb-1.5 shrink-0 flex gap-1.5">
             <button
               onClick={startNewChat}
-              className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-medium bg-zinc-800 hover:bg-zinc-700 text-zinc-200 transition-colors"
+              className="flex-1 flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-medium bg-zinc-800 hover:bg-zinc-700 text-zinc-200 transition-colors"
             >
               <Plus size={13} className="shrink-0" />
               New chat
+            </button>
+            <button
+              onClick={() => setShowClearDialog(true)}
+              disabled={!activeSession?.messages.length}
+              title="Clear current chat"
+              className="flex items-center justify-center w-8 h-8 rounded-lg text-zinc-600 hover:text-red-400 hover:bg-red-500/10 border border-transparent hover:border-red-500/20 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+            >
+              <Trash2 size={13} />
             </button>
           </div>
 
@@ -527,13 +725,21 @@ export function ChatView({
             {messages.length === 0 ? 'Chat' : (activeSession?.title ?? 'Chat')}
           </span>
           <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-zinc-800 text-zinc-400 uppercase tracking-wider">AI</span>
-          <div className="ml-auto">
+          <div className="ml-auto flex items-center gap-1">
             <button
               onClick={startNewChat}
               className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs text-zinc-400 hover:text-white hover:bg-zinc-800 rounded-lg transition-colors"
             >
               <Plus size={13} />
               New chat
+            </button>
+            <button
+              onClick={() => setShowClearDialog(true)}
+              disabled={!activeSession?.messages.length}
+              title="Clear current chat"
+              className="flex items-center justify-center w-7 h-7 rounded-lg text-zinc-600 hover:text-red-400 hover:bg-red-500/10 border border-transparent hover:border-red-500/20 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+            >
+              <Trash2 size={13} />
             </button>
           </div>
         </div>
@@ -655,18 +861,32 @@ export function ChatView({
                 </div>
               ))}
 
-              {isLoading && messages[messages.length - 1]?.role !== 'assistant' && (
-                <div className="flex gap-3 items-start">
-                  <div className="shrink-0 w-7 h-7 rounded-lg bg-white flex items-center justify-center">
-                    <span className="text-black text-xs font-bold">Y</span>
+              {(() => {
+                const last = messages[messages.length - 1];
+                const showFiller = isLoading && last?.role === 'assistant' && last?.streaming && !last?.content;
+                if (!showFiller) return null;
+                return (
+                  <div className="flex gap-3 items-start">
+                    <div className="shrink-0 w-7 h-7 rounded-lg bg-white flex items-center justify-center">
+                      <span className="text-black text-xs font-bold">Y</span>
+                    </div>
+                    <div className="flex items-center gap-2 h-7">
+                      <span
+                        key={fillerText}
+                        className="text-sm text-zinc-500 animate-fade-in-up"
+                        style={{ animationDuration: '0.3s' }}
+                      >
+                        {fillerText}
+                      </span>
+                      <span className="flex gap-0.5 items-center">
+                        {[0, 1, 2].map((j) => (
+                          <span key={j} className="w-1 h-1 rounded-full bg-zinc-600 animate-bounce" style={{ animationDelay: `${j * 0.15}s` }} />
+                        ))}
+                      </span>
+                    </div>
                   </div>
-                  <div className="flex gap-1 items-center h-7 pt-0.5">
-                    {[0, 1, 2].map((j) => (
-                      <span key={j} className="w-1.5 h-1.5 rounded-full bg-zinc-500 animate-bounce" style={{ animationDelay: `${j * 0.15}s` }} />
-                    ))}
-                  </div>
-                </div>
-              )}
+                );
+              })()}
 
               <div ref={bottomRef} />
             </div>
@@ -676,7 +896,8 @@ export function ChatView({
         {/* Input */}
         <div className="shrink-0 px-4 pb-4 pt-2">
           <div className="max-w-2xl mx-auto">
-            <div className="flex items-end gap-2 bg-zinc-900 border border-zinc-700 rounded-2xl px-4 py-3 focus-within:border-zinc-500 transition-colors">
+            <div className={`flex items-end gap-2 bg-zinc-900 border rounded-2xl px-4 py-3 transition-colors
+              ${voice.state === 'recording' ? 'border-red-500/60' : voice.state === 'transcribing' ? 'border-blue-500/40' : 'border-zinc-700 focus-within:border-zinc-500'}`}>
               <textarea
                 ref={textareaRef}
                 value={input}
@@ -684,14 +905,35 @@ export function ChatView({
                 onKeyDown={(e) => {
                   if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); void submit(input); }
                 }}
-                placeholder="Ask anything about your email or calendar…"
+                placeholder={
+                  voice.state === 'recording'     ? `Listening… ${voice.timeLeft}s remaining` :
+                  voice.state === 'transcribing'  ? 'Transcribing with Whisper…' :
+                  'Ask anything about your email or calendar…'
+                }
                 rows={1}
-                disabled={isLoading}
+                disabled={isLoading || voice.state === 'transcribing'}
                 className="flex-1 bg-transparent text-sm resize-none outline-none placeholder-zinc-600 min-h-5 max-h-40 leading-5 disabled:opacity-50"
               />
+              {/* Mic button */}
+              <button
+                onClick={() => void voice.start()}
+                disabled={isLoading || voice.state === 'transcribing'}
+                title={voice.state === 'recording' ? `Stop (${voice.timeLeft}s left)` : 'Voice input — powered by OpenAI Whisper'}
+                className={`shrink-0 w-7 h-7 rounded-lg flex items-center justify-center transition-all disabled:opacity-30 disabled:cursor-not-allowed
+                  ${voice.state === 'recording'
+                    ? 'bg-red-500 text-white animate-pulse'
+                    : voice.state === 'transcribing'
+                      ? 'bg-blue-500/20 text-blue-400'
+                      : 'text-zinc-500 hover:text-zinc-300 hover:bg-zinc-800'}`}
+              >
+                {voice.state === 'transcribing' ? <Loader2 size={13} className="animate-spin" /> :
+                 voice.state === 'recording'    ? <MicOff size={13} /> :
+                 <Mic size={13} />}
+              </button>
+              {/* Send button */}
               <button
                 onClick={() => void submit(input)}
-                disabled={!input.trim() || isLoading}
+                disabled={!input.trim() || isLoading || voice.state !== 'idle'}
                 className="shrink-0 w-7 h-7 rounded-lg bg-white text-black flex items-center justify-center hover:bg-zinc-100 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
               >
                 {isLoading ? <Loader2 size={13} className="animate-spin" /> : <ArrowUp size={13} />}

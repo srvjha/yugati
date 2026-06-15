@@ -110,7 +110,11 @@ export default function MailPage() {
   const user = authData?.user;
 
   const [collapsed,    setCollapsed]    = useState(false);
-  const [chatMode,     setChatMode]     = useState(true);
+  const [chatMode,     setChatMode]     = useState(() => {
+    if (typeof window === 'undefined') return true;
+    const stored = localStorage.getItem('yugati_mail_mode');
+    return stored !== null ? stored === 'agentic' : true;
+  });
   const [activeFolder, setActiveFolder] = useState<SidebarFolder>('inbox');
   const [activeTab,    setActiveTab]    = useState<InboxTab>('all');
   const [searchQuery,  setSearchQuery]  = useState('');
@@ -183,6 +187,10 @@ export default function MailPage() {
   const [confirmDialog, setConfirmDialog] = useState<{
     title: string; description: string; onConfirm: () => Promise<void>;
   } | null>(null);
+
+  useEffect(() => {
+    localStorage.setItem('yugati_mail_mode', chatMode ? 'agentic' : 'manual');
+  }, [chatMode]);
 
   useEffect(() => {
     if (connectedParam) { toast.success('Gmail connected!'); router.replace('/dashboard/mail'); }
