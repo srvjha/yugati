@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { signIn, useSession } from '@/lib/auth-client';
-import { ArrowRight, Calendar, Bot, Zap, Shield, Check, Sparkles } from 'lucide-react';
+import { ArrowRight, Calendar, Bot, Zap, Shield, Check, Sparkles, Loader2 } from 'lucide-react';
 import { ThemeToggle, useTheme } from '@/components/theme-toggle';
 
 // Shared edge-highlight style used on every "card" element
@@ -11,14 +11,18 @@ const edgeShadow =
   'shadow-[inset_0_1px_0_rgba(255,255,255,0.07),inset_1px_0_0_rgba(255,255,255,0.03),0_4px_24px_rgba(0,0,0,0.6)]';
 
 export default function LandingPage() {
+  const [signingIn, setSigningIn] = useState(false);
+
   function handleSignIn() {
+    if (signingIn) return;
+    setSigningIn(true);
     void signIn.social({ provider: 'google', callbackURL: '/dashboard' });
   }
 
   return (
     <div className="min-h-screen bg-black text-white flex flex-col overflow-x-hidden">
-      <LandingNav onSignIn={handleSignIn} />
-      <HeroSection   onSignIn={handleSignIn} />
+      <LandingNav onSignIn={handleSignIn} signingIn={signingIn} />
+      <HeroSection   onSignIn={handleSignIn} signingIn={signingIn} />
       <ProductMockup />
       <AgenticSection />
       <SectionDivider />
@@ -29,8 +33,8 @@ export default function LandingPage() {
       <CalendarSection />
       <SectionDivider />
       <FeaturesSection />
-      <PricingSection onSignIn={handleSignIn} />
-      <CTASection onSignIn={handleSignIn} />
+      <PricingSection onSignIn={handleSignIn} signingIn={signingIn} />
+      <CTASection onSignIn={handleSignIn} signingIn={signingIn} />
       <LandingFooter />
     </div>
   );
@@ -38,7 +42,7 @@ export default function LandingPage() {
 
 // ─── Nav ───────────────────────────────────────────────────────────────────────
 
-function LandingNav({ onSignIn }: { onSignIn: () => void }) {
+function LandingNav({ onSignIn, signingIn }: { onSignIn: () => void; signingIn: boolean }) {
   const [scrolled, setScrolled] = useState(false);
   const { data: session } = useSession();
   const isLoggedIn = !!session?.user;
@@ -97,7 +101,8 @@ function LandingNav({ onSignIn }: { onSignIn: () => void }) {
             <>
               <button
                 onClick={onSignIn}
-                className="text-sm text-zinc-500 hover:text-white transition-colors duration-150 relative group"
+                disabled={signingIn}
+                className="text-sm text-zinc-500 hover:text-white transition-colors duration-150 relative group disabled:opacity-60"
               >
                 Sign in
                 <span className="absolute -bottom-0.5 left-0 w-0 h-px bg-white/60 transition-all duration-200 group-hover:w-full" />
@@ -105,13 +110,17 @@ function LandingNav({ onSignIn }: { onSignIn: () => void }) {
 
               <button
                 onClick={onSignIn}
+                disabled={signingIn}
                 className={`group flex items-center gap-2 px-4 py-2 bg-white text-black text-sm font-semibold border border-white/20
                   hover:-translate-y-px hover:shadow-[0_0_24px_rgba(255,255,255,0.18)]
-                  active:translate-y-0 active:shadow-none
+                  active:translate-y-0 active:shadow-none disabled:opacity-70 disabled:hover:translate-y-0
                   transition-all duration-150 ${edgeShadow}`}
               >
-                Get started
-                <ArrowRight size={13} className="transition-transform duration-150 group-hover:translate-x-0.5" />
+                {signingIn ? (
+                  <>Signing in<Loader2 size={13} className="animate-spin" /></>
+                ) : (
+                  <>Get started<ArrowRight size={13} className="transition-transform duration-150 group-hover:translate-x-0.5" /></>
+                )}
               </button>
             </>
           )}
@@ -174,7 +183,7 @@ const FLOAT_CARDS: FloatCard[] = [
   { icon: <ExtIcon src={CORSAIR_ICON} size={ICON_SIZE} />,                             label: 'Corsair',  delay: '-6s',   style: { top: '70%', right: 'calc(50% - 503px)' } },
 ];
 
-function HeroSection({ onSignIn }: { onSignIn: () => void }) {
+function HeroSection({ onSignIn, signingIn }: { onSignIn: () => void; signingIn: boolean }) {
   return (
     <section className="relative flex flex-col items-center justify-center text-center px-6 pt-44 pb-32">
 
@@ -230,9 +239,10 @@ function HeroSection({ onSignIn }: { onSignIn: () => void }) {
         <div className="animate-fade-in-up delay-300 flex flex-col sm:flex-row items-center gap-3">
           <button
             onClick={onSignIn}
+            disabled={signingIn}
             className={`group relative flex items-center gap-3 px-6 py-3 bg-white text-black font-semibold text-sm border border-white/20
               hover:-translate-y-px hover:shadow-[0_0_40px_rgba(255,255,255,0.2)]
-              active:translate-y-0 active:shadow-none
+              active:translate-y-0 active:shadow-none disabled:opacity-70 disabled:hover:translate-y-0
               transition-all duration-150 overflow-hidden ${edgeShadow}`}
           >
             {/* shimmer sweep on hover */}
@@ -242,9 +252,18 @@ function HeroSection({ onSignIn }: { onSignIn: () => void }) {
               [background-size:200%_100%] [background-position:-100%_0]
               group-hover:[background-position:200%_0]
               [transition:opacity_0.15s,background-position_0.5s]" />
-            <GoogleIcon />
-            Get started with Google
-            <ArrowRight size={13} className="transition-transform duration-150 group-hover:translate-x-0.5" />
+            {signingIn ? (
+              <>
+                <Loader2 size={15} className="animate-spin" />
+                Signing in…
+              </>
+            ) : (
+              <>
+                <GoogleIcon />
+                Get started with Google
+                <ArrowRight size={13} className="transition-transform duration-150 group-hover:translate-x-0.5" />
+              </>
+            )}
           </button>
 
           <button className="group flex items-center gap-2 px-5 py-3 border border-white/[0.08] text-zinc-500 text-sm font-medium
@@ -1159,7 +1178,7 @@ const PRICING_TIERS = [
   },
 ] as const;
 
-function PricingSection({ onSignIn }: { onSignIn: () => void }) {
+function PricingSection({ onSignIn, signingIn }: { onSignIn: () => void; signingIn: boolean }) {
   return (
     <section id="pricing" className="max-w-6xl mx-auto px-6 pb-28 w-full">
       <div className="text-center mb-14">
@@ -1210,12 +1229,13 @@ function PricingSection({ onSignIn }: { onSignIn: () => void }) {
 
             <button
               onClick={onSignIn}
-              className={`w-full py-2.5 text-sm font-semibold transition-all duration-150
+              disabled={signingIn}
+              className={`w-full py-2.5 text-sm font-semibold transition-all duration-150 flex items-center justify-center gap-2 disabled:opacity-70
                 ${tier.highlight
                   ? 'bg-white text-black hover:bg-zinc-100'
                   : 'bg-zinc-800/60 text-zinc-300 border border-zinc-700/60 hover:bg-zinc-800 hover:text-white'}`}
             >
-              {tier.cta}
+              {signingIn ? <><Loader2 size={14} className="animate-spin" />Signing in…</> : tier.cta}
             </button>
           </div>
         ))}
@@ -1245,7 +1265,7 @@ function PricingSection({ onSignIn }: { onSignIn: () => void }) {
 
 // ─── Bottom CTA ────────────────────────────────────────────────────────────────
 
-function CTASection({ onSignIn }: { onSignIn: () => void }) {
+function CTASection({ onSignIn, signingIn }: { onSignIn: () => void; signingIn: boolean }) {
   return (
     <section className="max-w-6xl mx-auto px-6 pb-28 w-full">
       <div className={`relative border border-white/[0.07] bg-zinc-950 overflow-hidden p-16 text-center ${edgeShadow}`}>
@@ -1273,9 +1293,10 @@ function CTASection({ onSignIn }: { onSignIn: () => void }) {
 
           <button
             onClick={onSignIn}
+            disabled={signingIn}
             className={`group relative inline-flex items-center gap-3 px-7 py-3.5 bg-white text-black font-semibold text-sm border border-white/20
               hover:-translate-y-px hover:shadow-[0_0_40px_rgba(255,255,255,0.22)]
-              active:translate-y-0 active:shadow-none
+              active:translate-y-0 active:shadow-none disabled:opacity-70 disabled:hover:translate-y-0
               transition-all duration-150 overflow-hidden ${edgeShadow}`}
           >
             <span className="pointer-events-none absolute inset-0
@@ -1284,9 +1305,18 @@ function CTASection({ onSignIn }: { onSignIn: () => void }) {
               [background-size:200%_100%] [background-position:-100%_0]
               group-hover:[background-position:200%_0]
               [transition:opacity_0.15s,background-position_0.5s]" />
-            <GoogleIcon />
-            Continue with Google
-            <ArrowRight size={13} className="transition-transform duration-150 group-hover:translate-x-0.5" />
+            {signingIn ? (
+              <>
+                <Loader2 size={15} className="animate-spin" />
+                Signing in…
+              </>
+            ) : (
+              <>
+                <GoogleIcon />
+                Continue with Google
+                <ArrowRight size={13} className="transition-transform duration-150 group-hover:translate-x-0.5" />
+              </>
+            )}
           </button>
 
         </div>

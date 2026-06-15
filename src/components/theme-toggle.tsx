@@ -5,23 +5,20 @@ import { Moon, Sun } from 'lucide-react';
 
 export type Theme = 'dark' | 'light';
 
-const STORAGE_KEY = 'theme';
 const EVENT = 'yugati-theme';
 
-/** Apply a theme everywhere: <html data-theme>, localStorage, and notify
- *  any other toggles mounted on the same page so they stay in sync. */
+/** Apply a theme everywhere: <html data-theme>, a cookie (so the server
+ *  renders the right theme on the next request — survives navigation,
+ *  reloads, and full page loads), and notify any other toggles on the
+ *  page so they stay in sync. */
 export function applyTheme(theme: Theme) {
   document.documentElement.setAttribute('data-theme', theme);
-  try {
-    localStorage.setItem(STORAGE_KEY, theme);
-  } catch {
-    /* localStorage unavailable (private mode, etc.) — ignore */
-  }
+  document.cookie = `theme=${theme};path=/;max-age=31536000;samesite=lax`;
   window.dispatchEvent(new CustomEvent<Theme>(EVENT, { detail: theme }));
 }
 
-/** Reads the current theme from the DOM (set pre-paint by the inline
- *  script in the root layout) and stays in sync with other toggles. */
+/** Reads the current theme from the DOM (set during SSR from the theme
+ *  cookie) and stays in sync with other toggles. */
 export function useTheme() {
   const [theme, setTheme] = useState<Theme>('dark');
 

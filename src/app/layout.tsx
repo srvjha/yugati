@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
+import { cookies } from "next/headers";
 import { TRPCReactProvider } from "@/trpc/client";
 import { Toaster } from "sonner";
 import "./globals.css";
@@ -23,30 +24,25 @@ export const metadata: Metadata = {
   },
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  // Render the persisted theme on the server so it's correct before first
+  // paint and survives every navigation / reload. Defaults to dark.
+  const theme = (await cookies()).get("theme")?.value === "light" ? "light" : "dark";
+
   return (
     <html
       lang="en"
-      data-theme="dark"
+      data-theme={theme}
       suppressHydrationWarning
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
-      <head>
-        {/* Apply the saved theme synchronously, before first paint, to
-            avoid a flash of the default (dark) theme on light-mode loads. */}
-        <script
-          dangerouslySetInnerHTML={{
-            __html: `(function(){try{var t=localStorage.getItem("theme");if(t)document.documentElement.setAttribute("data-theme",t)}catch(e){}})()`,
-          }}
-        />
-      </head>
       <body className="min-h-full flex flex-col">
         <TRPCReactProvider>{children}</TRPCReactProvider>
-        <Toaster theme="dark" position="bottom-right" richColors />
+        <Toaster theme={theme} position="bottom-right" richColors />
       </body>
     </html>
   );

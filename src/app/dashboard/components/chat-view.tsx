@@ -315,9 +315,28 @@ function MdContent({ content, streaming }: { content: string; streaming?: boolea
           blockquote: ({ children }) => (
             <blockquote className="border-l-2 border-zinc-600 pl-3 text-zinc-400 italic my-2">{children}</blockquote>
           ),
-          a: ({ href, children }) => (
-            <a href={href} target="_blank" rel="noopener noreferrer" className="text-blue-400 hover:text-blue-300 underline">{children}</a>
-          ),
+          a: ({ href, children }) => {
+            // "Open in Gmail" → soft cornflower-blue pill that always sits on its
+            // own line below the email entry (block-level + w-fit), underline on
+            // hover, never wraps the arrow. Hex literals keep it a true blue in
+            // both themes (the accent-token remap doesn't touch them).
+            const isGmail = typeof href === 'string' && href.includes('mail.google.com');
+            if (isGmail) {
+              return (
+                <a
+                  href={href}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex w-fit mt-1.5 items-center gap-1 px-2.5 py-0.5 rounded-full border border-[#4f80c9]/35 text-[#4f80c9] text-[11px] font-medium whitespace-nowrap no-underline hover:underline hover:border-[#4f80c9]/60 transition-colors"
+                >
+                  {children}
+                </a>
+              );
+            }
+            return (
+              <a href={href} target="_blank" rel="noopener noreferrer" className="text-[#4f80c9] hover:text-[#6b97d8] underline">{children}</a>
+            );
+          },
           hr: () => <hr className="border-zinc-800 my-3" />,
           table: ({ children }) => (
             <div className="overflow-x-auto my-2">
@@ -824,7 +843,7 @@ export function ChatView({
                         </div>
                       ) : (
                         <div className="flex flex-col items-end gap-1 max-w-[80%]">
-                          <div className="bg-zinc-800 rounded-2xl rounded-tr-sm px-4 py-2.5 text-sm leading-relaxed whitespace-pre-wrap text-zinc-100">
+                          <div className="bg-white/5 backdrop-blur-md border border-white/10 rounded-2xl rounded-tr-sm px-4 py-2.5 text-sm leading-relaxed whitespace-pre-wrap text-zinc-100">
                             {msg.content}
                           </div>
                           <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">

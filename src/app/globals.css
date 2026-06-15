@@ -73,6 +73,13 @@ html {
   --color-blue-400: #2f2a22;
   --color-blue-500: #211d16;
   --color-blue-600: #211d16;
+
+  /* Green is the "agentic / active / connected" accent. Neon green-400
+     (#4ade80) glows against black but looks electric on cream — soften
+     it to an earthy sage that matches the warm tone. */
+  --color-green-300: #86b873;
+  --color-green-400: #5f9a4e;
+  --color-green-500: #51883f;
 }
 
 @theme inline {

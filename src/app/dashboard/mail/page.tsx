@@ -186,15 +186,7 @@ export default function MailPage() {
     title: string; description: string; onConfirm: () => Promise<void>;
   } | null>(null);
 
-  // Read persisted mode after hydration to avoid SSR mismatch
-  useEffect(() => {
-    const stored = localStorage.getItem('yugati_mail_mode');
-    if (stored !== null) setChatMode(stored === 'agentic');
-  }, []);
-
-  useEffect(() => {
-    localStorage.setItem('yugati_mail_mode', chatMode ? 'agentic' : 'manual');
-  }, [chatMode]);
+  // Always open in Agentic mode — don't restore a previously-saved manual mode.
 
   useEffect(() => {
     if (connectedParam) { toast.success('Gmail connected!'); router.replace('/dashboard/mail'); }
