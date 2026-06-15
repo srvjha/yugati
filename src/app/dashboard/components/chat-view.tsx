@@ -8,6 +8,7 @@ import {
   Copy, RefreshCw, Pencil, Check, Plus, MessageSquare,
   Maximize2, Minimize2, Trash2, X, Mic, MicOff,
 } from 'lucide-react';
+import { MAX_PROMPT_CHARS } from '@/lib/rate-limit';
 
 // ─── Voice input — OpenAI Whisper via /api/voice/transcribe ──────────────────
 
@@ -508,6 +509,18 @@ export function ChatView({
         }),
       });
 
+      if (!res.ok) {
+        const err = await res.json() as { error?: string };
+        const msg = err.error ?? (res.status === 429 ? 'Too many requests — slow down a bit.' : 'Request failed.');
+        updateSession(currentId, (s) => ({
+          ...s,
+          messages: s.messages.map((m) =>
+            m.id === assistantMsg.id ? { ...m, content: msg, streaming: false, blocked: true } : m,
+          ),
+        }));
+        return;
+      }
+
       if (!res.body) throw new Error('No response body');
 
       const reader  = res.body.getReader();
@@ -897,7 +910,11 @@ export function ChatView({
         <div className="shrink-0 px-4 pb-4 pt-2">
           <div className="max-w-2xl mx-auto">
             <div className={`flex items-end gap-2 bg-zinc-900 border rounded-2xl px-4 py-3 transition-colors
-              ${voice.state === 'recording' ? 'border-red-500/60' : voice.state === 'transcribing' ? 'border-blue-500/40' : 'border-zinc-700 focus-within:border-zinc-500'}`}>
+              ${input.length > MAX_PROMPT_CHARS
+                ? 'border-red-500/60'
+                : voice.state === 'recording'    ? 'border-red-500/60'
+                : voice.state === 'transcribing' ? 'border-blue-500/40'
+                : 'border-zinc-700 focus-within:border-zinc-500'}`}>
               <textarea
                 ref={textareaRef}
                 value={input}
@@ -914,6 +931,15 @@ export function ChatView({
                 disabled={isLoading || voice.state === 'transcribing'}
                 className="flex-1 bg-transparent text-sm resize-none outline-none placeholder-zinc-600 min-h-5 max-h-40 leading-5 disabled:opacity-50"
               />
+              {/* Char counter — always visible, escalates as limit approaches */}
+              <span className={`shrink-0 self-end text-[10px] font-mono tabular-nums mb-0.5 transition-colors
+                ${input.length > MAX_PROMPT_CHARS
+                  ? 'text-red-400 font-semibold'
+                  : input.length > MAX_PROMPT_CHARS * 0.8
+                    ? 'text-zinc-400'
+                    : 'text-zinc-700'}`}>
+                {input.length}/{MAX_PROMPT_CHARS}
+              </span>
               {/* Mic button */}
               <button
                 onClick={() => void voice.start()}
@@ -933,7 +959,7 @@ export function ChatView({
               {/* Send button */}
               <button
                 onClick={() => void submit(input)}
-                disabled={!input.trim() || isLoading || voice.state !== 'idle'}
+                disabled={!input.trim() || isLoading || voice.state !== 'idle' || input.length > MAX_PROMPT_CHARS}
                 className="shrink-0 w-7 h-7 rounded-lg bg-white text-black flex items-center justify-center hover:bg-zinc-100 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
               >
                 {isLoading ? <Loader2 size={13} className="animate-spin" /> : <ArrowUp size={13} />}

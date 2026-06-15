@@ -3,6 +3,7 @@ import { runChat } from '@/features/agent/agent';
 import type { ChatMessage } from '@/features/agent/types';
 import { initCorsair } from '@/server/corsair';
 import { headers } from 'next/headers';
+import { rateLimiter, MAX_PROMPT_CHARS } from '@/lib/rate-limit';
 
 export const runtime = 'nodejs';
 
@@ -21,6 +22,26 @@ export async function POST(request: Request) {
     messages:        ChatMessage[];
     conversationId?: string;
   };
+
+  // Character limit — check the last user message
+  const lastUserMsg = [...messages].reverse().find((m) => m.role === 'user');
+  if (lastUserMsg && lastUserMsg.content.length > MAX_PROMPT_CHARS) {
+    return Response.json(
+      { error: `Message too long. Maximum ${MAX_PROMPT_CHARS} characters allowed.` },
+      { status: 400 },
+    );
+  }
+
+  // Rate limit — 20 requests per user per minute
+  const { success, limit, remaining, reset } = await rateLimiter.limit(session.user.id);
+  if (!success) {
+    const retryAfterSec = Math.ceil((reset - Date.now()) / 1000);
+    return Response.json(
+      { error: `Too many requests. You've hit the ${limit} req/min limit. Try again in ${retryAfterSec}s.` },
+      { status: 429, headers: { 'Retry-After': String(retryAfterSec) } },
+    );
+  }
+  void remaining; // used for future quota tracking
 
   const stream = new ReadableStream({
     async start(controller) {
