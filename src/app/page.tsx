@@ -1302,9 +1302,16 @@ function LandingFooter() {
           <span className="text-xs text-zinc-800">© 2026</span>
         </div>
 
-        <div className="flex items-center gap-1.5 text-xs text-zinc-700">
-          <Shield size={11} />
-          End-to-end encrypted
+        <div className="flex items-center gap-4">
+          <div className="flex items-center gap-1.5 text-xs text-zinc-700">
+            <Shield size={11} />
+            End-to-end encrypted
+          </div>
+          <div className="w-px h-3 bg-zinc-800" />
+          <div className="flex items-center gap-4 text-xs text-zinc-700">
+            <a href="/privacy" className="hover:text-zinc-400 transition-colors">Privacy Policy</a>
+            <a href="/terms" className="hover:text-zinc-400 transition-colors">Terms of Service</a>
+          </div>
         </div>
       </div>
     </footer>
