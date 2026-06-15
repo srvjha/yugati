@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" width="120" height="120">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#141414"/>
+      <stop offset="100%" stop-color="#000000"/>
+    </linearGradient>
+    <linearGradient id="letter" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#ffffff"/>
+      <stop offset="100%" stop-color="#d4d4d8"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Background -->
+  <rect width="120" height="120" rx="24" fill="url(#bg)"/>
+
+  <!-- Subtle inner border -->
+  <rect width="120" height="120" rx="24" fill="none" stroke="rgba(255,255,255,0.08)" stroke-width="1"/>
+
+  <!-- Y letter — drawn as paths for precise control -->
+  <!-- Left arm of Y: top-left to center -->
+  <line x1="27" y1="28" x2="60" y2="62" stroke="url(#letter)" stroke-width="11" stroke-linecap="round"/>
+  <!-- Right arm of Y: top-right to center -->
+  <line x1="93" y1="28" x2="60" y2="62" stroke="url(#letter)" stroke-width="11" stroke-linecap="round"/>
+  <!-- Stem of Y: center down -->
+  <line x1="60" y1="62" x2="60" y2="94" stroke="url(#letter)" stroke-width="11" stroke-linecap="round"/>
+</svg>

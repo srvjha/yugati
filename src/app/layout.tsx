@@ -18,6 +18,9 @@ export const metadata: Metadata = {
   title: "Yugati",
   description: "Automate your manual plugins",
   icons: { icon: '/favicon.svg' },
+  verification: {
+    google: 'z3iyyL2torlKDge6zjG6izidaDeTY1jUXsJLomLphEA',
+  },
 };
 
 export default function RootLayout({
