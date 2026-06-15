@@ -32,6 +32,10 @@
   border-color: var(--border);
 }
 
+button, a, [role="button"] {
+  cursor: pointer;
+}
+
 body {
   background: var(--background);
   color: var(--foreground);
@@ -54,19 +58,18 @@ body {
 .animate-dash-flow-slow   { animation: dash-flow 4.5s linear infinite reverse; }
 
 @keyframes float-a {
-  0%, 100% { transform: translateY(0px);   }
-  40%       { transform: translateY(-18px); }
-  70%       { transform: translateY(-8px);  }
+  0%, 100% { transform: translateY(0px);  }
+  50%       { transform: translateY(-8px); }
 }
 
 @keyframes float-b {
-  0%, 100% { transform: translateY(0px);   }
-  50%       { transform: translateY(-22px); }
+  0%, 100% { transform: translateY(0px);  }
+  50%       { transform: translateY(-8px); }
 }
 
 @keyframes float-c {
-  0%, 100% { transform: translateY(0px);   }
-  60%       { transform: translateY(-14px); }
+  0%, 100% { transform: translateY(0px);  }
+  50%       { transform: translateY(-8px); }
 }
 
 @keyframes fade-in-up {
@@ -80,9 +83,9 @@ body {
 }
 
 .animate-grid-move  { animation: grid-move 14s linear infinite; }
-.animate-float-a    { animation: float-a 8s ease-in-out infinite; }
-.animate-float-b    { animation: float-b 11s ease-in-out infinite; }
-.animate-float-c    { animation: float-c 7s ease-in-out infinite; }
+.animate-float-a    { animation: float-a 6s ease-in-out infinite; }
+.animate-float-b    { animation: float-b 6s ease-in-out infinite; }
+.animate-float-c    { animation: float-c 6s ease-in-out infinite; }
 .animate-fade-in-up { animation: fade-in-up 0.55s ease-out forwards; opacity: 0; }
 .animate-glow-pulse { animation: glow-pulse 2s ease-in-out infinite; }
 .animate-float      { animation: float-a 7s ease-in-out infinite; }

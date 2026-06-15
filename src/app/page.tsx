@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { signIn } from '@/lib/auth-client';
 import { ArrowRight, Calendar, Bot, Zap, Shield } from 'lucide-react';
 
@@ -18,6 +18,14 @@ export default function LandingPage() {
       <LandingNav onSignIn={handleSignIn} />
       <HeroSection   onSignIn={handleSignIn} />
       <ProductMockup />
+      <AgenticSection />
+      <SectionDivider />
+      <ManualMailSection />
+      <SectionDivider />
+      <DashboardSection />
+      <SectionDivider />
+      <CalendarSection />
+      <SectionDivider />
       <FeaturesSection />
       <CTASection onSignIn={handleSignIn} />
       <LandingFooter />
@@ -28,8 +36,19 @@ export default function LandingPage() {
 // ─── Nav ───────────────────────────────────────────────────────────────────────
 
 function LandingNav({ onSignIn }: { onSignIn: () => void }) {
+  const [scrolled, setScrolled] = useState(false);
+
+  useEffect(() => {
+    const onScroll = () => setScrolled(window.scrollY > 12);
+    window.addEventListener('scroll', onScroll, { passive: true });
+    return () => window.removeEventListener('scroll', onScroll);
+  }, []);
+
   return (
-    <nav className="fixed top-0 inset-x-0 z-50 border-b border-white/[0.06] bg-black/80 backdrop-blur-xl">
+    <nav className={`fixed top-0 inset-x-0 z-50 transition-all duration-300
+      ${scrolled
+        ? 'bg-black/70 backdrop-blur-xl border-b border-white/[0.07] shadow-[0_1px_24px_rgba(0,0,0,0.5)]'
+        : 'bg-transparent backdrop-blur-none'}`}>
       <div className="max-w-6xl mx-auto px-6 h-14 flex items-center justify-between">
 
         <div className="flex items-center gap-2.5">
@@ -66,10 +85,10 @@ function LandingNav({ onSignIn }: { onSignIn: () => void }) {
 
 // ─── Hero ──────────────────────────────────────────────────────────────────────
 
-function ExtIcon({ src, size }: { src: string; size: number }) {
+function ExtIcon({ src, size, style }: { src: string; size: number; style?: React.CSSProperties }) {
   return (
     // eslint-disable-next-line @next/next/no-img-element
-    <img src={src} alt="" width={size} height={size} style={{ display: 'block' }} />
+    <img src={src} alt="" width={size} height={size} style={{ display: 'block', ...style }} />
   );
 }
 
@@ -84,24 +103,36 @@ function NextjsFloatIcon({ size }: { size: number }) {
 }
 
 
-const GMAIL_ICON = 'https://upload.wikimedia.org/wikipedia/commons/7/7e/Gmail_icon_%282020%29.svg';
-const GCAL_ICON  = 'https://upload.wikimedia.org/wikipedia/commons/a/a5/Google_Calendar_icon_%282020%29.svg';
-const PG_ICON    = 'https://upload.wikimedia.org/wikipedia/commons/2/29/Postgresql_elephant.svg';
+const GMAIL_ICON   = 'https://upload.wikimedia.org/wikipedia/commons/7/7e/Gmail_icon_%282020%29.svg';
+const GCAL_ICON    = 'https://upload.wikimedia.org/wikipedia/commons/a/a5/Google_Calendar_icon_%282020%29.svg';
+const PG_ICON      = 'https://upload.wikimedia.org/wikipedia/commons/2/29/Postgresql_elephant.svg';
 const CORSAIR_ICON = '/corsair-logo.png';
 
-type FloatIconDef = { render: (s: number) => React.ReactNode; size: number; opacity: number; cls: string; delay?: string; style: React.CSSProperties };
-const FLOAT_ICONS: FloatIconDef[] = [
-  { render: (s) => <ExtIcon src={GMAIL_ICON}    size={s} />, size: 58, opacity: 0.60, cls: 'animate-float-a',               style: { top: '20%', left:  '13%' } },
-  { render: (s) => <ExtIcon src={GCAL_ICON}     size={s} />, size: 54, opacity: 0.55, cls: 'animate-float-b',               style: { top: '17%', right: '13%' } },
-  { render: (s) => <NextjsFloatIcon             size={s} />, size: 54, opacity: 0.58, cls: 'animate-float-c',               style: { top: '46%', left:  '11%' } },
-  { render: (s) => <ExtIcon src={PG_ICON}       size={s} />, size: 52, opacity: 0.52, cls: 'animate-float-a', delay: '-3s', style: { top: '44%', right: '11%' } },
-  { render: (s) => <ExtIcon src="/openai.png"    size={s} />, size: 48, opacity: 0.46, cls: 'animate-float-b', delay: '-2s', style: { top: '70%', left:  '12%' } },
-  { render: (s) => <ExtIcon src={CORSAIR_ICON}  size={s} />, size: 46, opacity: 0.50, cls: 'animate-float-c', delay: '-5s', style: { top: '68%', right: '12%' } },
+// Industry pattern (Resend / Clerk / WorkOS style):
+//  • All icons inside identical pill cards: [icon 20px] [label]
+//  • Uniform container, uniform opacity, symmetric columns
+//  • Close to the headline — not banished to viewport edges
+//  • Single subtle float, stagger only via delay
+
+type FloatCard = { icon: React.ReactNode; label: string; delay: string; style: React.CSSProperties };
+
+const ICON_SIZE = 20;
+
+// Each card gets its own horizontal offset to break the straight-column look.
+// Left side zigzags: close → far → middle (diagonal top-left to bottom-right arc)
+// Right side mirrors with slight vertical offset for natural asymmetry.
+const FLOAT_CARDS: FloatCard[] = [
+  { icon: <ExtIcon src={GMAIL_ICON} size={ICON_SIZE} />,                             label: 'Gmail',    delay: '0s',    style: { top: '12%', left:  'calc(50% - 485px)' } },
+  { icon: <NextjsFloatIcon size={ICON_SIZE} />,                                       label: 'Next.js',  delay: '-2.4s', style: { top: '42%', left:  'calc(50% - 605px)' } },
+  { icon: <ExtIcon src="/openai.png" size={ICON_SIZE} style={{ borderRadius: 4 }} />, label: 'OpenAI',   delay: '-4.8s', style: { top: '72%', left:  'calc(50% - 520px)' } },
+  { icon: <ExtIcon src={GCAL_ICON} size={ICON_SIZE} />,                               label: 'Calendar', delay: '-1.2s', style: { top: '12%', right: 'calc(50% - 465px)' } },
+  { icon: <ExtIcon src={PG_ICON} size={ICON_SIZE} />,                                 label: 'Postgres', delay: '-3.6s', style: { top: '39%', right: 'calc(50% - 590px)' } },
+  { icon: <ExtIcon src={CORSAIR_ICON} size={ICON_SIZE} />,                             label: 'Corsair',  delay: '-6s',   style: { top: '70%', right: 'calc(50% - 503px)' } },
 ];
 
 function HeroSection({ onSignIn }: { onSignIn: () => void }) {
   return (
-    <section className="relative flex flex-col items-center justify-center text-center px-6 pt-44 pb-32 overflow-hidden">
+    <section className="relative flex flex-col items-center justify-center text-center px-6 pt-44 pb-32">
 
       {/* Moving grid */}
       <div
@@ -116,14 +147,19 @@ function HeroSection({ onSignIn }: { onSignIn: () => void }) {
       {/* Bottom fade */}
       <div className="pointer-events-none absolute bottom-0 inset-x-0 h-48 bg-gradient-to-t from-black to-transparent" />
 
-      {/* Floating tech stack icons — at the edges, not overlapping headline */}
-      {FLOAT_ICONS.map(({ render, size, opacity, cls, delay, style }, i) => (
+      {/* Floating integration pill-cards — hidden below xl where calc goes negative */}
+      {FLOAT_CARDS.map(({ icon, label, delay, style }, i) => (
         <div
           key={i}
-          className={`pointer-events-none absolute ${cls}`}
-          style={{ ...style, opacity, animationDelay: delay }}
+          className="pointer-events-none absolute animate-float-a hidden xl:block opacity-70"
+          style={{ ...style, animationDelay: delay }}
         >
-          {render(size)}
+          <div className="flex items-center gap-2 px-3 py-2 rounded-xl
+            bg-zinc-900/80 border border-white/[0.09] backdrop-blur-sm
+            shadow-[0_8px_24px_rgba(0,0,0,0.5),inset_0_1px_0_rgba(255,255,255,0.06)]">
+            <span className="shrink-0 flex items-center justify-center w-5 h-5">{icon}</span>
+            <span className="text-[12px] font-medium text-zinc-400 whitespace-nowrap">{label}</span>
+          </div>
         </div>
       ))}
 
@@ -504,6 +540,483 @@ function ProductMockup() {
             </div>
           </div>
 
+        </div>
+      </div>
+    </section>
+  );
+}
+
+// ─── Section divider ─────────────────────────────────────────────────────────
+
+function SectionDivider() {
+  return (
+    <div className="max-w-6xl mx-auto px-6">
+      <div className="border-t border-white/[0.04]" />
+    </div>
+  );
+}
+
+// ─── Agentic Showcase ─────────────────────────────────────────────────────────
+
+const AGENTIC_MSGS = [
+  { role: 'user', text: 'Summarise my unread emails' },
+  { role: 'ai',   text: 'You have 12 unread emails. Highlights:\n• 3 investor threads need replies\n• 2 GitHub PRs awaiting your review\n• Stripe invoice ready — $240' },
+  { role: 'user', text: 'Draft a reply to the Anthropic thread' },
+  { role: 'ai',   text: '"Thanks for the heads-up on the new release — excited to integrate this. I\'ll update the pipeline by EOD and report back."' },
+  { role: 'user', text: 'Book a 30-min call with Alex on Thursday 3 PM' },
+  { role: 'ai',   text: 'Done ✓  Created "Call with Alex" — Thu Jun 19 · 3:00–3:30 PM\nGoogle Meet link added · Invite sent to alex@vc.com' },
+];
+
+function AgenticSection() {
+  return (
+    <section className="max-w-6xl mx-auto px-6 py-24 w-full">
+      <div className="grid lg:grid-cols-2 gap-20 items-center">
+
+        {/* Left: text */}
+        <div>
+          <span className="inline-flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-widest text-green-400 bg-green-500/10 border border-green-500/20 px-3 py-1.5 rounded-full mb-7">
+            <span className="w-1.5 h-1.5 rounded-full bg-green-400 shadow-[0_0_5px_rgba(74,222,128,0.7)]" />
+            Agentic Mode
+          </span>
+          <h2 className="text-4xl sm:text-5xl font-bold tracking-tight leading-[1.1] mb-5">
+            Your inbox<br /><span className="text-zinc-500">answers back.</span>
+          </h2>
+          <p className="text-zinc-500 text-base leading-relaxed mb-10 max-w-[340px]">
+            Ask anything in plain English. Yugati reads your Gmail, drafts replies, books meetings, and takes action — without leaving the page.
+          </p>
+          <div className="space-y-5">
+            {[
+              ['Summarise threads', 'Get the gist of 40 emails in one sentence'],
+              ['Draft & send replies', 'AI writes in your voice — you approve with one click'],
+              ['Book meetings instantly', 'Create calendar events from natural language'],
+              ['Search across everything', 'Find that email from six months ago in seconds'],
+            ].map(([label, desc]) => (
+              <div key={label} className="flex items-start gap-3.5">
+                <div className="mt-0.5 w-5 h-5 rounded-full border border-green-500/30 bg-green-500/10 flex items-center justify-center shrink-0">
+                  <svg width="8" height="8" viewBox="0 0 8 8" fill="none">
+                    <path d="M1.5 4l2 2 3-3" stroke="#4ade80" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                  </svg>
+                </div>
+                <div>
+                  <p className="text-sm font-semibold text-zinc-200">{label}</p>
+                  <p className="text-xs text-zinc-600 mt-0.5">{desc}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Right: chat mockup */}
+        <div className={`relative border border-white/[0.08] bg-zinc-950 overflow-hidden ${edgeShadow}`}>
+          {/* ambient glow */}
+          <div className="pointer-events-none absolute -top-24 -right-24 w-72 h-72 bg-green-500/[0.07] rounded-full blur-3xl" />
+
+          {/* Header */}
+          <div className="flex items-center gap-2.5 px-4 py-3.5 border-b border-white/[0.06]">
+            <img src="/openai.png" alt="AI" width={16} height={16} style={{ display: 'block', borderRadius: 3, opacity: 0.8 }} />
+            <span className="text-xs font-semibold text-zinc-300">Agentic</span>
+            <span className="ml-auto flex items-center gap-1.5 text-[10px] font-semibold text-green-400">
+              <span className="w-1.5 h-1.5 rounded-full bg-green-400 shadow-[0_0_4px_rgba(74,222,128,0.7)]" />
+              Active
+            </span>
+          </div>
+
+          {/* Messages */}
+          <div className="px-4 py-4 space-y-3 overflow-hidden" style={{ maxHeight: 320 }}>
+            {AGENTIC_MSGS.map((msg, i) => (
+              <div key={i} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+                <div className={`max-w-[88%] px-3.5 py-2.5 text-[12px] leading-relaxed whitespace-pre-line
+                  ${msg.role === 'user'
+                    ? 'bg-zinc-800 text-zinc-200 rounded-xl rounded-br-sm'
+                    : 'bg-black border border-white/[0.07] text-zinc-400 rounded-xl rounded-bl-sm'}`}>
+                  {msg.text}
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* Input */}
+          <div className="px-4 pb-4">
+            <div className="flex items-center gap-2 bg-black border border-white/[0.07] px-3.5 py-3 rounded-xl">
+              <span className="flex-1 text-[11px] text-zinc-700">Ask about your inbox…</span>
+              <div className="w-6 h-6 border border-white/[0.08] bg-white/5 rounded-lg flex items-center justify-center">
+                <ArrowRight size={10} className="text-zinc-500" />
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+// ─── Manual Mail Showcase ─────────────────────────────────────────────────────
+
+const MAIL_FEATURES = [
+  {
+    title: 'Every folder, live',
+    desc:  'Primary, Promotions, Social, Updates, Sent, Drafts, Spam — every Gmail label synced in real time.',
+    icon: (
+      <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
+        <rect x="1.5" y="3.5" width="15" height="11" rx="1.5" stroke="currentColor" strokeWidth="1.2"/>
+        <path d="M1.5 6.5l7.5 4.5 7.5-4.5" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round"/>
+      </svg>
+    ),
+  },
+  {
+    title: 'Rich compose',
+    desc:  'Bold, italic, links, bullet lists, inline images. A full-featured editor that lives in the panel.',
+    icon: (
+      <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
+        <path d="M3 13.5L6 3l3 7.5L12 3l3 10.5" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round"/>
+        <path d="M4.5 10.5h9" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round"/>
+      </svg>
+    ),
+  },
+  {
+    title: 'Thread view',
+    desc:  'Full conversation history, timestamps, and quick reply — all inline without opening a new tab.',
+    icon: (
+      <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
+        <path d="M3 5h12M3 9h9M3 13h6" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round"/>
+      </svg>
+    ),
+  },
+  {
+    title: 'Auto-categorised',
+    desc:  'Emails land in the right place automatically — no rules, no filters to configure.',
+    icon: (
+      <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
+        <path d="M9 1.5L2 5v8l7 3.5 7-3.5V5L9 1.5z" stroke="currentColor" strokeWidth="1.2" strokeLinejoin="round"/>
+        <path d="M9 1.5v14M2 5l7 3.5 7-3.5" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round"/>
+      </svg>
+    ),
+  },
+  {
+    title: 'Instant search',
+    desc:  'Search by sender, subject, keyword, or date. Across your entire mailbox, in milliseconds.',
+    icon: (
+      <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
+        <circle cx="8" cy="8" r="5.5" stroke="currentColor" strokeWidth="1.2"/>
+        <path d="M12 12l3.5 3.5" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round"/>
+      </svg>
+    ),
+  },
+  {
+    title: 'One-click reply',
+    desc:  'Open a thread and reply inline. No popups, no new tabs — just fast.',
+    icon: (
+      <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
+        <path d="M3 9l4-4v2.5c5 0 8 2 8 7-1.5-3.5-4-4.5-8-4.5V12L3 9z" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round"/>
+      </svg>
+    ),
+  },
+] as const;
+
+function ManualMailSection() {
+  return (
+    <section className="max-w-6xl mx-auto px-6 py-24 w-full">
+      <div className="text-center mb-14">
+        <span className="inline-flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-widest text-zinc-400 bg-zinc-900 border border-zinc-800 px-3 py-1.5 rounded-full mb-7">
+          Inbox
+        </span>
+        <h2 className="text-4xl sm:text-5xl font-bold tracking-tight mb-5">
+          Full Gmail control.<br /><span className="text-zinc-500">Zero compromise.</span>
+        </h2>
+        <p className="text-zinc-500 text-base max-w-md mx-auto leading-relaxed">
+          Every folder, every thread, rich compose. Your entire inbox — reimagined in one clean panel.
+        </p>
+      </div>
+
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-px bg-white/[0.04]">
+        {MAIL_FEATURES.map(({ title, desc, icon }) => (
+          <div key={title} className={`group bg-black p-8 hover:bg-zinc-950 transition-colors duration-200 ${edgeShadow}`}>
+            <div className="w-9 h-9 border border-white/[0.08] bg-zinc-950 flex items-center justify-center mb-6
+              text-zinc-600 group-hover:text-zinc-300 group-hover:border-white/15 transition-all duration-200
+              shadow-[inset_0_1px_0_rgba(255,255,255,0.06)]">
+              {icon}
+            </div>
+            <p className="text-sm font-semibold text-white mb-2.5">{title}</p>
+            <p className="text-sm text-zinc-600 leading-relaxed group-hover:text-zinc-500 transition-colors duration-200">{desc}</p>
+          </div>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+// ─── Dashboard Showcase ───────────────────────────────────────────────────────
+
+const DASH_STATS = [
+  { label: 'Emails this week', val: '127', delta: '+14% vs last week' },
+  { label: 'Avg. response',    val: '2.4h', delta: '−18 min faster'   },
+  { label: 'Events this week', val: '9',   delta: '3 with Meet'       },
+  { label: 'Unread',           val: '12',  delta: '4 need action'     },
+] as const;
+
+const DASH_CATEGORIES = [
+  { label: 'Work',    pct: 42, color: '#3b82f6' },
+  { label: 'Finance', pct: 23, color: '#8b5cf6' },
+  { label: 'Social',  pct: 19, color: '#22c55e' },
+  { label: 'Updates', pct: 16, color: '#f59e0b' },
+] as const;
+
+const DASH_SENDERS = [
+  { name: 'GitHub',   pct: 88, initial: 'G' },
+  { name: 'Notion',   pct: 67, initial: 'N' },
+  { name: 'Stripe',   pct: 52, initial: 'S' },
+  { name: 'Vercel',   pct: 38, initial: 'V' },
+] as const;
+
+const EMAIL_VOL = [12, 28, 18, 35, 22, 8, 5];
+const HOURLY    = [1,1,1,1,2,6,12,18,24,30,28,22,20,26,30,34,28,18,14,10,7,4,2,1];
+const DOW_LABELS = ['M','T','W','T','F','S','S'];
+
+function DashboardSection() {
+  const volMax  = Math.max(...EMAIL_VOL);
+  const hourMax = Math.max(...HOURLY);
+
+  return (
+    <section className="max-w-6xl mx-auto px-6 py-24 w-full">
+      <div className="text-center mb-14">
+        <span className="inline-flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-widest text-blue-400 bg-blue-500/10 border border-blue-500/20 px-3 py-1.5 rounded-full mb-7">
+          Insights
+        </span>
+        <h2 className="text-4xl sm:text-5xl font-bold tracking-tight mb-5">
+          Every metric<br /><span className="text-zinc-500">at a glance.</span>
+        </h2>
+        <p className="text-zinc-500 text-base max-w-md mx-auto leading-relaxed">
+          Yugati tracks email volume, response patterns, top senders, and calendar load — refreshed every minute.
+        </p>
+      </div>
+
+      {/* Stat cards */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-3">
+        {DASH_STATS.map(({ label, val, delta }) => (
+          <div key={label} className={`bg-zinc-950 border border-white/[0.07] p-5 ${edgeShadow}`}>
+            <p className="text-xs text-zinc-600 mb-3 leading-snug">{label}</p>
+            <p className="text-3xl font-bold text-white tracking-tight">{val}</p>
+            <p className="text-[11px] text-zinc-700 mt-2">{delta}</p>
+          </div>
+        ))}
+      </div>
+
+      {/* Row 2: Email volume + categories */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-3">
+        {/* Email volume bar chart */}
+        <div className={`sm:col-span-2 bg-zinc-950 border border-white/[0.07] p-5 ${edgeShadow}`}>
+          <div className="flex items-center justify-between mb-5">
+            <p className="text-xs font-semibold text-zinc-400">Email Volume — This Week</p>
+            <span className="text-[10px] text-zinc-700 bg-zinc-900 border border-white/[0.05] px-2 py-1">Mon – Sun</span>
+          </div>
+          <div className="flex items-end gap-2 h-20 mb-2">
+            {EMAIL_VOL.map((v, i) => (
+              <div key={i} className="flex-1 flex flex-col items-center gap-1.5">
+                <span className="text-[9px] text-zinc-700">{v}</span>
+                <div
+                  className={`w-full rounded-sm transition-all ${i === 3 ? 'bg-blue-500' : 'bg-zinc-800'}`}
+                  style={{ height: `${(v / volMax) * 56}px` }}
+                />
+              </div>
+            ))}
+          </div>
+          <div className="flex gap-2">
+            {DOW_LABELS.map((d, i) => (
+              <div key={i} className="flex-1 text-center text-[9px] text-zinc-700">{d}</div>
+            ))}
+          </div>
+        </div>
+
+        {/* Categories */}
+        <div className={`bg-zinc-950 border border-white/[0.07] p-5 ${edgeShadow}`}>
+          <p className="text-xs font-semibold text-zinc-400 mb-5">By Category</p>
+          <div className="space-y-3.5">
+            {DASH_CATEGORIES.map(({ label, pct, color }) => (
+              <div key={label}>
+                <div className="flex items-center justify-between mb-1.5">
+                  <span className="text-[11px] text-zinc-500">{label}</span>
+                  <span className="text-[11px] text-zinc-600">{pct}%</span>
+                </div>
+                <div className="h-1.5 bg-zinc-900 rounded-full overflow-hidden">
+                  <div className="h-full rounded-full" style={{ width: `${pct}%`, backgroundColor: color }} />
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {/* Row 3: Top senders + hourly pattern */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+        {/* Top senders */}
+        <div className={`bg-zinc-950 border border-white/[0.07] p-5 ${edgeShadow}`}>
+          <p className="text-xs font-semibold text-zinc-400 mb-5">Top Senders</p>
+          <div className="space-y-4">
+            {DASH_SENDERS.map(({ name, pct, initial }) => (
+              <div key={name} className="flex items-center gap-3">
+                <div className="w-6 h-6 bg-zinc-900 border border-white/[0.06] flex items-center justify-center text-[9px] font-bold text-zinc-500 shrink-0">
+                  {initial}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="flex justify-between mb-1">
+                    <span className="text-[11px] text-zinc-400 truncate">{name}</span>
+                    <span className="text-[10px] text-zinc-700 shrink-0 ml-2">{pct}%</span>
+                  </div>
+                  <div className="h-1 bg-zinc-900 rounded-full overflow-hidden">
+                    <div className="h-full bg-zinc-600 rounded-full" style={{ width: `${pct}%` }} />
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Hourly activity */}
+        <div className={`sm:col-span-2 bg-zinc-950 border border-white/[0.07] p-5 ${edgeShadow}`}>
+          <div className="flex items-center justify-between mb-5">
+            <p className="text-xs font-semibold text-zinc-400">Activity by Hour</p>
+            <div className="flex items-center gap-1.5">
+              <div className="w-2 h-2 rounded-sm bg-blue-500/60" />
+              <span className="text-[10px] text-zinc-700">Peak hours</span>
+            </div>
+          </div>
+          <div className="flex items-end gap-0.5 h-16 mb-2">
+            {HOURLY.map((v, i) => (
+              <div
+                key={i}
+                className={`flex-1 rounded-sm ${(i >= 8 && i <= 17) ? 'bg-blue-500/60' : 'bg-zinc-800'}`}
+                style={{ height: `${(v / hourMax) * 64}px` }}
+              />
+            ))}
+          </div>
+          <div className="flex justify-between">
+            {['12am', '6am', '12pm', '6pm', '12am'].map((t) => (
+              <span key={t} className="text-[9px] text-zinc-700">{t}</span>
+            ))}
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+// ─── Calendar Showcase ────────────────────────────────────────────────────────
+
+const CAL_EVENTS_MOCK = [
+  { title: 'Design sync',     time: '10:00 AM', dur: '30m', color: '#3b82f6', attendees: 4  },
+  { title: 'Investor call',   time: '2:00 PM',  dur: '1h',  color: '#8b5cf6', attendees: 2  },
+  { title: 'Sprint planning', time: '4:00 PM',  dur: '1h',  color: '#22c55e', attendees: 8  },
+] as const;
+
+function CalendarSection() {
+  return (
+    <section className="max-w-6xl mx-auto px-6 py-24 w-full">
+      <div className="grid lg:grid-cols-2 gap-20 items-center">
+
+        {/* Left: calendar mockup */}
+        <div className={`relative border border-white/[0.08] bg-zinc-950 overflow-hidden ${edgeShadow}`}>
+          {/* ambient glow */}
+          <div className="pointer-events-none absolute -bottom-24 -left-24 w-72 h-72 bg-blue-500/[0.07] rounded-full blur-3xl" />
+
+          {/* Month header */}
+          <div className="flex items-center justify-between px-5 py-4 border-b border-white/[0.06]">
+            <span className="text-sm font-semibold text-zinc-300">June 2026</span>
+            <div className="flex items-center gap-2">
+              <span className="text-[11px] text-zinc-600 bg-zinc-900 border border-white/[0.06] px-2.5 py-1">Today</span>
+              <div className="flex gap-1 text-[12px] text-zinc-600">
+                <button className="w-6 h-6 flex items-center justify-center border border-white/[0.05] hover:text-zinc-300 transition-colors">‹</button>
+                <button className="w-6 h-6 flex items-center justify-center border border-white/[0.05] hover:text-zinc-300 transition-colors">›</button>
+              </div>
+            </div>
+          </div>
+
+          {/* Day headers */}
+          <div className="grid grid-cols-7 border-b border-white/[0.04]">
+            {['Sun','Mon','Tue','Wed','Thu','Fri','Sat'].map((d) => (
+              <div key={d} className="py-2 text-center text-[10px] text-zinc-700 font-medium tracking-wide">{d}</div>
+            ))}
+          </div>
+
+          {/* Calendar days — June 2026 starts on Monday (pad 1 Sunday) */}
+          <div className="grid grid-cols-7">
+            <div className="h-10 border-b border-r border-white/[0.03]" />
+            {Array.from({ length: 28 }, (_, i) => i + 1).map((day) => (
+              <div
+                key={day}
+                className={`relative h-10 border-b border-r border-white/[0.03] flex items-end justify-end px-1.5 pb-1 text-[10px]
+                  ${day === 15 ? 'bg-white/[0.03]' : ''}
+                  ${day === 19 ? 'bg-blue-500/[0.08]' : ''}`}
+              >
+                <span className={
+                  day === 15 ? 'w-5 h-5 rounded-full bg-white text-black font-bold flex items-center justify-center text-[10px]' :
+                  day === 19 ? 'text-blue-400 font-semibold' :
+                  'text-zinc-700'
+                }>{day}</span>
+                {[8, 12, 19].includes(day) && (
+                  <div className="absolute bottom-1 left-1/2 -translate-x-1/2 flex gap-0.5">
+                    <span className="w-1 h-1 rounded-full bg-blue-500/60" />
+                    {day === 19 && <><span className="w-1 h-1 rounded-full bg-purple-500/60" /><span className="w-1 h-1 rounded-full bg-green-500/60" /></>}
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+
+          {/* Events list */}
+          <div className="px-5 py-4">
+            <p className="text-[10px] text-zinc-700 uppercase tracking-wider font-semibold mb-3">Thu, Jun 19 — 3 events</p>
+            <div className="space-y-2">
+              {CAL_EVENTS_MOCK.map((ev) => (
+                <div key={ev.title} className="flex items-center gap-3 px-3 py-2.5 bg-black/40 border border-white/[0.05] rounded-lg">
+                  <div className="w-1 h-9 rounded-full shrink-0 opacity-80" style={{ backgroundColor: ev.color }} />
+                  <div className="flex-1 min-w-0">
+                    <p className="text-[11px] font-semibold text-zinc-300 truncate">{ev.title}</p>
+                    <p className="text-[10px] text-zinc-600">{ev.time} · {ev.dur}</p>
+                  </div>
+                  <div className="flex items-center gap-1 text-[10px] text-zinc-700 shrink-0">
+                    <svg width="10" height="10" viewBox="0 0 10 10" fill="none">
+                      <circle cx="5" cy="3.5" r="2" stroke="currentColor" strokeWidth="1"/>
+                      <path d="M1.5 9c0-1.657 1.567-3 3.5-3s3.5 1.343 3.5 3" stroke="currentColor" strokeWidth="1" strokeLinecap="round"/>
+                    </svg>
+                    {ev.attendees}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        {/* Right: text */}
+        <div>
+          <span className="inline-flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-widest text-blue-400 bg-blue-500/10 border border-blue-500/20 px-3 py-1.5 rounded-full mb-7">
+            Calendar
+          </span>
+          <h2 className="text-4xl sm:text-5xl font-bold tracking-tight leading-[1.1] mb-5">
+            Your schedule,<br /><span className="text-zinc-500">always in view.</span>
+          </h2>
+          <p className="text-zinc-500 text-base leading-relaxed mb-10 max-w-[340px]">
+            See your calendar right next to your inbox. Create events, invite attendees, and add Google Meet — without switching apps.
+          </p>
+          <div className="space-y-5">
+            {[
+              ['Create events naturally', 'Type "lunch with Alex tomorrow at 1pm" and it\'s done'],
+              ['See conflicts instantly', 'Unavailable slots highlighted before you book'],
+              ['Google Meet built in', 'Every event gets a video link, automatically'],
+              ['AI schedules for you', 'Ask Yugati to find a free slot and send the invite'],
+            ].map(([label, desc]) => (
+              <div key={label} className="flex items-start gap-3.5">
+                <div className="mt-0.5 w-5 h-5 rounded-full border border-blue-500/30 bg-blue-500/10 flex items-center justify-center shrink-0">
+                  <svg width="8" height="8" viewBox="0 0 8 8" fill="none">
+                    <path d="M1.5 4l2 2 3-3" stroke="#60a5fa" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                  </svg>
+                </div>
+                <div>
+                  <p className="text-sm font-semibold text-zinc-200">{label}</p>
+                  <p className="text-xs text-zinc-600 mt-0.5">{desc}</p>
+                </div>
+              </div>
+            ))}
+          </div>
         </div>
       </div>
     </section>
