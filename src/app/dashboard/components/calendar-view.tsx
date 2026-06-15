@@ -3,7 +3,7 @@
 import { useState, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useTRPC } from '@/trpc/client';
-import { ChevronLeft, ChevronRight, Plus, Plug, Video, X, Clock, MapPin, Users, Trash2, ExternalLink } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Plus, Plug, Video, X, Clock, MapPin, Users, Trash2, ExternalLink, AlignLeft, UserPlus, ChevronDown } from 'lucide-react';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -314,6 +314,19 @@ export function CalendarView() {
 
 // ─── Create Event Modal ───────────────────────────────────────────────────────
 
+const COLOR_SWATCHES = [
+  { id: '1',  bg: 'bg-blue-500',    ring: 'ring-blue-400'    },
+  { id: '2',  bg: 'bg-violet-500',  ring: 'ring-violet-400'  },
+  { id: '3',  bg: 'bg-emerald-500', ring: 'ring-emerald-400' },
+  { id: '4',  bg: 'bg-rose-500',    ring: 'ring-rose-400'    },
+  { id: '5',  bg: 'bg-amber-500',   ring: 'ring-amber-400'   },
+  { id: '6',  bg: 'bg-cyan-500',    ring: 'ring-cyan-400'    },
+  { id: '7',  bg: 'bg-pink-500',    ring: 'ring-pink-400'    },
+  { id: '8',  bg: 'bg-indigo-500',  ring: 'ring-indigo-400'  },
+  { id: '9',  bg: 'bg-teal-500',    ring: 'ring-teal-400'    },
+  { id: '10', bg: 'bg-orange-500',  ring: 'ring-orange-400'  },
+];
+
 function CreateEventModal({
   defaultDate,
   onClose,
@@ -333,6 +346,9 @@ function CreateEventModal({
   const [desc,       setDesc]       = useState('');
   const [attendees,  setAttendees]  = useState('');
   const [addMeet,    setAddMeet]    = useState(false);
+  const [colorId,    setColorId]    = useState('1');
+  const [showDesc,   setShowDesc]   = useState(false);
+  const [showGuests, setShowGuests] = useState(false);
   const [error,      setError]      = useState('');
 
   const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
@@ -346,8 +362,8 @@ function CreateEventModal({
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!title.trim())  { setError('Title is required'); return; }
-    if (!date)          { setError('Date is required');  return; }
+    if (!title.trim()) { setError('Title is required'); return; }
+    if (!date)         { setError('Date is required');  return; }
     setError('');
 
     const attendeeList = attendees
@@ -356,137 +372,191 @@ function CreateEventModal({
       .filter(Boolean)
       .map((email) => ({ email }));
 
+    const base = {
+      summary:     title.trim(),
+      description: desc || undefined,
+      attendees:   attendeeList.length ? attendeeList : undefined,
+      addMeet:     addMeet || undefined,
+      colorId,
+      sendUpdates: 'all' as const,
+    };
+
     if (allDay) {
-      mutation.mutate({
-        summary:     title.trim(),
-        description: desc || undefined,
-        attendees:   attendeeList.length ? attendeeList : undefined,
-        addMeet:     addMeet || undefined,
-        start:       { date },
-        end:         { date },
-        sendUpdates: 'all',
-      });
+      mutation.mutate({ ...base, start: { date }, end: { date } });
     } else {
       mutation.mutate({
-        summary:     title.trim(),
-        description: desc || undefined,
-        attendees:   attendeeList.length ? attendeeList : undefined,
-        addMeet:     addMeet || undefined,
-        start:       { dateTime: toLocalISO(date, startTime), timeZone: tz },
-        end:         { dateTime: toLocalISO(date, endTime),   timeZone: tz },
-        sendUpdates: 'all',
+        ...base,
+        start: { dateTime: toLocalISO(date, startTime), timeZone: tz },
+        end:   { dateTime: toLocalISO(date, endTime),   timeZone: tz },
       });
     }
   }
 
+  const inputCls = 'w-full bg-zinc-900 border border-zinc-800 rounded-xl px-3 py-2.5 text-sm text-zinc-100 outline-none focus:border-zinc-600 transition-colors placeholder:text-zinc-600';
+
   return (
     <Overlay onClose={onClose}>
-      <div className="bg-zinc-900 border border-zinc-700 rounded-2xl w-full max-w-md shadow-2xl" onClick={(e) => e.stopPropagation()}>
-        {/* Modal header */}
-        <div className="flex items-center justify-between px-5 py-4 border-b border-zinc-800">
-          <h3 className="text-sm font-semibold">New Event</h3>
-          <button onClick={onClose} className="text-zinc-500 hover:text-white transition-colors">
-            <X size={16} />
+      <div
+        className="bg-zinc-950 border border-zinc-800 rounded-2xl w-full max-w-[420px] shadow-2xl overflow-hidden"
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* Header */}
+        <div className="flex items-center justify-between px-5 pt-5 pb-4">
+          <h3 className="text-base font-semibold text-white">New event</h3>
+          <button
+            onClick={onClose}
+            className="w-7 h-7 flex items-center justify-center rounded-lg text-zinc-500 hover:text-white hover:bg-zinc-800 transition-colors"
+          >
+            <X size={15} />
           </button>
         </div>
 
-        <form onSubmit={handleSubmit} className="p-5 space-y-4">
+        <form onSubmit={handleSubmit} className="px-5 pb-5 space-y-3">
+
           {/* Title */}
           <input
             autoFocus
             value={title}
             onChange={(e) => setTitle(e.target.value)}
             placeholder="Event title"
-            className="w-full bg-transparent border-b border-zinc-700 focus:border-white outline-none text-base font-medium placeholder:text-zinc-600 pb-2 transition-colors"
+            className="w-full bg-transparent border-b border-zinc-800 focus:border-zinc-500 outline-none text-lg font-medium placeholder:text-zinc-700 pb-2.5 transition-colors text-white"
           />
 
-          {/* Date + all-day */}
-          <div className="flex items-center gap-3">
+          {/* Color swatches */}
+          <div className="flex items-center gap-1.5 py-0.5">
+            {COLOR_SWATCHES.map((c) => (
+              <button
+                key={c.id}
+                type="button"
+                onClick={() => setColorId(c.id)}
+                className={`w-5 h-5 rounded-full ${c.bg} transition-all
+                  ${colorId === c.id ? `ring-2 ring-offset-1 ring-offset-zinc-950 ${c.ring} scale-110` : 'opacity-60 hover:opacity-90'}`}
+              />
+            ))}
+          </div>
+
+          {/* Date row */}
+          <div className="flex items-center gap-2">
             <input
               type="date"
               value={date}
               onChange={(e) => setDate(e.target.value)}
-              className="flex-1 bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-2 text-sm outline-none focus:border-zinc-500 transition-colors"
+              className={`${inputCls} flex-1`}
             />
-            <label className="flex items-center gap-2 text-xs text-zinc-400 cursor-pointer">
-              <input
-                type="checkbox"
-                checked={allDay}
-                onChange={(e) => setAllDay(e.target.checked)}
-                className="rounded"
-              />
+            <button
+              type="button"
+              onClick={() => setAllDay((v) => !v)}
+              className={`shrink-0 px-3 py-2.5 rounded-xl text-xs font-medium border transition-colors
+                ${allDay
+                  ? 'bg-blue-500/15 border-blue-500/40 text-blue-400'
+                  : 'bg-zinc-900 border-zinc-800 text-zinc-500 hover:text-zinc-300'}`}
+            >
               All day
-            </label>
+            </button>
           </div>
 
-          {/* Time range */}
+          {/* Time row */}
           {!allDay && (
             <div className="flex items-center gap-2">
-              <input
-                type="time"
-                value={startTime}
-                onChange={(e) => setStartTime(e.target.value)}
-                className="flex-1 bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-2 text-sm outline-none focus:border-zinc-500 transition-colors"
-              />
-              <span className="text-zinc-600 text-sm">→</span>
-              <input
-                type="time"
-                value={endTime}
-                onChange={(e) => setEndTime(e.target.value)}
-                className="flex-1 bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-2 text-sm outline-none focus:border-zinc-500 transition-colors"
-              />
+              <div className="flex-1 relative">
+                <input
+                  type="time"
+                  value={startTime}
+                  onChange={(e) => setStartTime(e.target.value)}
+                  className={inputCls}
+                />
+              </div>
+              <span className="text-zinc-700 text-xs font-medium shrink-0">to</span>
+              <div className="flex-1">
+                <input
+                  type="time"
+                  value={endTime}
+                  onChange={(e) => setEndTime(e.target.value)}
+                  className={inputCls}
+                />
+              </div>
             </div>
           )}
 
-          {/* Description */}
-          <textarea
-            value={desc}
-            onChange={(e) => setDesc(e.target.value)}
-            placeholder="Description (optional)"
-            rows={2}
-            className="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-2 text-sm outline-none focus:border-zinc-500 resize-none placeholder:text-zinc-600 transition-colors"
-          />
-
-          {/* Attendees */}
-          <textarea
-            value={attendees}
-            onChange={(e) => setAttendees(e.target.value)}
-            placeholder="Attendees — one email per line or comma-separated"
-            rows={2}
-            className="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-2 text-sm outline-none focus:border-zinc-500 resize-none placeholder:text-zinc-600 transition-colors"
-          />
-
           {/* Google Meet toggle */}
-          <label className="flex items-center gap-3 cursor-pointer">
-            <div
-              onClick={() => setAddMeet((v) => !v)}
-              className={`w-9 h-5 rounded-full transition-colors flex items-center px-0.5
-                ${addMeet ? 'bg-blue-500' : 'bg-zinc-700'}`}
+          <button
+            type="button"
+            onClick={() => setAddMeet((v) => !v)}
+            className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl border text-sm transition-colors
+              ${addMeet
+                ? 'bg-blue-500/10 border-blue-500/30 text-blue-400'
+                : 'bg-zinc-900 border-zinc-800 text-zinc-500 hover:text-zinc-300'}`}
+          >
+            <Video size={13} className={addMeet ? 'text-blue-400' : 'text-zinc-600'} />
+            <span className="flex-1 text-left text-xs">Add Google Meet link</span>
+            <div className={`w-8 h-4 rounded-full flex items-center px-0.5 transition-colors ${addMeet ? 'bg-blue-500' : 'bg-zinc-700'}`}>
+              <div className={`w-3 h-3 rounded-full bg-white shadow transition-transform ${addMeet ? 'translate-x-4' : 'translate-x-0'}`} />
+            </div>
+          </button>
+
+          {/* Description — expandable */}
+          <div>
+            <button
+              type="button"
+              onClick={() => setShowDesc((v) => !v)}
+              className="flex items-center gap-2 text-xs text-zinc-500 hover:text-zinc-300 transition-colors"
             >
-              <div className={`w-4 h-4 rounded-full bg-white shadow transition-transform ${addMeet ? 'translate-x-4' : 'translate-x-0'}`} />
-            </div>
-            <div className="flex items-center gap-1.5 text-sm text-zinc-300">
-              <Video size={13} className="text-blue-400" />
-              Add Google Meet
-            </div>
-          </label>
+              <AlignLeft size={12} />
+              {showDesc ? 'Hide description' : 'Add description'}
+              <ChevronDown size={11} className={`transition-transform ${showDesc ? 'rotate-180' : ''}`} />
+            </button>
+            {showDesc && (
+              <textarea
+                value={desc}
+                onChange={(e) => setDesc(e.target.value)}
+                placeholder="What's this event about?"
+                rows={2}
+                className={`${inputCls} mt-2 resize-none`}
+              />
+            )}
+          </div>
 
-          {error && <p className="text-xs text-red-400">{error}</p>}
+          {/* Guests — expandable */}
+          <div>
+            <button
+              type="button"
+              onClick={() => setShowGuests((v) => !v)}
+              className="flex items-center gap-2 text-xs text-zinc-500 hover:text-zinc-300 transition-colors"
+            >
+              <UserPlus size={12} />
+              {showGuests ? 'Hide guests' : 'Add guests'}
+              <ChevronDown size={11} className={`transition-transform ${showGuests ? 'rotate-180' : ''}`} />
+            </button>
+            {showGuests && (
+              <textarea
+                value={attendees}
+                onChange={(e) => setAttendees(e.target.value)}
+                placeholder="email@example.com, another@example.com"
+                rows={2}
+                className={`${inputCls} mt-2 resize-none`}
+              />
+            )}
+          </div>
 
-          <div className="flex gap-2 pt-1">
+          {error && (
+            <p className="text-xs text-red-400 bg-red-400/10 border border-red-400/20 rounded-lg px-3 py-2">{error}</p>
+          )}
+
+          {/* Footer */}
+          <div className="flex gap-2 pt-2">
             <button
               type="button"
               onClick={onClose}
-              className="flex-1 py-2 rounded-lg border border-zinc-700 text-sm text-zinc-400 hover:text-white hover:border-zinc-500 transition-colors"
+              className="flex-1 py-2.5 rounded-xl text-sm text-zinc-400 hover:text-white border border-zinc-800 hover:border-zinc-600 transition-colors"
             >
               Cancel
             </button>
             <button
               type="submit"
               disabled={mutation.isPending}
-              className="flex-1 py-2 rounded-lg bg-white text-black text-sm font-medium hover:bg-zinc-200 transition-colors disabled:opacity-50"
+              className="flex-1 py-2.5 rounded-xl bg-white text-black text-sm font-semibold hover:bg-zinc-100 transition-colors disabled:opacity-40"
             >
-              {mutation.isPending ? 'Creating…' : 'Create'}
+              {mutation.isPending ? 'Creating…' : 'Create event'}
             </button>
           </div>
         </form>

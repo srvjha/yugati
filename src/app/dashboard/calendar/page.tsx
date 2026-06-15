@@ -1,5 +1,16 @@
 import { CalendarView } from '../components/calendar-view';
+import { SidebarNav } from '../components/sidebar-nav';
+import { auth } from '@/lib/auth';
+import { headers } from 'next/headers';
 
-export default function CalendarPage() {
-  return <CalendarView />;
+export default async function CalendarPage() {
+  const session = await auth.api.getSession({ headers: await headers() });
+  return (
+    <div className="flex h-screen overflow-hidden bg-black text-white">
+      <SidebarNav user={session!.user} />
+      <div className="flex-1 min-w-0 overflow-hidden">
+        <CalendarView />
+      </div>
+    </div>
+  );
 }

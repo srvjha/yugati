@@ -38,3 +38,64 @@ body {
   font-family: var(--font-sans), Arial, sans-serif;
   -webkit-font-smoothing: antialiased;
 }
+
+/* ── Animations ──────────────────────────────────────────────── */
+
+@keyframes grid-move {
+  0%   { background-position: 0px 0px; }
+  100% { background-position: 32px 32px; }
+}
+
+@keyframes dash-flow {
+  to { stroke-dashoffset: -22; }
+}
+
+.animate-dash-flow        { animation: dash-flow 2.8s linear infinite; }
+.animate-dash-flow-slow   { animation: dash-flow 4.5s linear infinite reverse; }
+
+@keyframes float-a {
+  0%, 100% { transform: translateY(0px);   }
+  40%       { transform: translateY(-18px); }
+  70%       { transform: translateY(-8px);  }
+}
+
+@keyframes float-b {
+  0%, 100% { transform: translateY(0px);   }
+  50%       { transform: translateY(-22px); }
+}
+
+@keyframes float-c {
+  0%, 100% { transform: translateY(0px);   }
+  60%       { transform: translateY(-14px); }
+}
+
+@keyframes fade-in-up {
+  from { opacity: 0; transform: translateY(18px); }
+  to   { opacity: 1; transform: translateY(0);    }
+}
+
+@keyframes glow-pulse {
+  0%, 100% { opacity: 1;   }
+  50%       { opacity: 0.3; }
+}
+
+.animate-grid-move  { animation: grid-move 14s linear infinite; }
+.animate-float-a    { animation: float-a 8s ease-in-out infinite; }
+.animate-float-b    { animation: float-b 11s ease-in-out infinite; }
+.animate-float-c    { animation: float-c 7s ease-in-out infinite; }
+.animate-fade-in-up { animation: fade-in-up 0.55s ease-out forwards; opacity: 0; }
+.animate-glow-pulse { animation: glow-pulse 2s ease-in-out infinite; }
+.animate-float      { animation: float-a 7s ease-in-out infinite; }
+
+.delay-100 { animation-delay: 0.10s; }
+.delay-200 { animation-delay: 0.20s; }
+.delay-300 { animation-delay: 0.30s; }
+.delay-450 { animation-delay: 0.45s; }
+.delay-600 { animation-delay: 0.60s; }
+
+/* ── Thin dark scrollbars ────────────────────────────────────── */
+
+::-webkit-scrollbar        { width: 4px; height: 4px; }
+::-webkit-scrollbar-track  { background: transparent; }
+::-webkit-scrollbar-thumb  { background: #27272a; border-radius: 9999px; }
+::-webkit-scrollbar-thumb:hover { background: #3f3f46; }
