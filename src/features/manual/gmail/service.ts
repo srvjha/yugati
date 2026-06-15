@@ -1,5 +1,7 @@
 import { corsair } from '@/server/corsair';
 
+const CACHE_TTL_MS = 3 * 60 * 1000; // 3 minutes
+
 export class GmailService {
   private readonly c: ReturnType<typeof corsair.withTenant>;
 
@@ -12,8 +14,26 @@ export class GmailService {
   }
 
   async listInbox(opts: { maxResults?: number; q?: string } = {}) {
+    const limit = opts.maxResults ?? 20;
+
+    // Serve from Corsair entity DB when no search query and cache is fresh
+    if (!opts.q) {
+      const cached = await this.c.gmail.db.messages.list({ limit });
+
+      if (cached.length > 0) {
+        const newestUpdatedAt = Math.max(...cached.map((e) => new Date(e.updated_at).getTime()));
+        if (Date.now() - newestUpdatedAt < CACHE_TTL_MS) {
+          const sorted = [...cached]
+            .sort((a, b) => Number(b.data.internalDate ?? 0) - Number(a.data.internalDate ?? 0))
+            .map((e) => e.data);
+          return { messages: sorted, nextPageToken: null };
+        }
+      }
+    }
+
+    // Fetch fresh from Gmail API
     const list = await this.c.gmail.api.messages.list({
-      maxResults: opts.maxResults ?? 20,
+      maxResults: limit,
       labelIds: ['INBOX'],
       q: opts.q,
     });
@@ -24,6 +44,17 @@ export class GmailService {
         this.c.gmail.api.messages.get({ id: id!, format: 'metadata' })
       )
     );
+
+    // Upsert into Corsair entity DB (only for non-search fetches)
+    if (!opts.q && messages.length > 0) {
+      await Promise.all(
+        messages.map((m) => {
+          const msg = m as { id: string } & Record<string, unknown>;
+          return this.c.gmail.db.messages.upsertByEntityId(msg.id, msg as Parameters<typeof this.c.gmail.db.messages.upsertByEntityId>[1]);
+        })
+      );
+    }
+
     return { messages, nextPageToken: list.nextPageToken };
   }
 
@@ -80,12 +111,17 @@ export class GmailService {
     return this.c.gmail.api.labels.list({});
   }
 
-  trashMessage(id: string) {
-    return this.c.gmail.api.messages.trash({ id });
+  async trashMessage(id: string) {
+    const result = await this.c.gmail.api.messages.trash({ id });
+    await this.c.gmail.db.messages.deleteByEntityId(id);
+    return result;
   }
 
-  modifyMessage(id: string, opts: { addLabelIds?: string[]; removeLabelIds?: string[] }) {
-    return this.c.gmail.api.messages.modify({ id, ...opts });
+  async modifyMessage(id: string, opts: { addLabelIds?: string[]; removeLabelIds?: string[] }) {
+    const result = await this.c.gmail.api.messages.modify({ id, ...opts });
+    // Evict so the next listInbox re-fetches with updated labels
+    await this.c.gmail.db.messages.deleteByEntityId(id);
+    return result;
   }
 
   listThreads(opts: { q?: string; maxResults?: number; labelIds?: string[] } = {}) {
