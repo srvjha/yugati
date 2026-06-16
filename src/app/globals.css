@@ -197,3 +197,53 @@ body {
 
 :root[data-theme='light'] ::-webkit-scrollbar-thumb        { background: #d8ccae; }
 :root[data-theme='light'] ::-webkit-scrollbar-thumb:hover  { background: #c2b48f; }
+
+/* ── Sidebar: theme-specific nav images ─────────────────────────────────────
+   Render both images in the DOM; CSS controls which one is visible.
+   Pure CSS approach: no JS flash, responds instantly to data-theme change. */
+.nav-img-dark  { display: inline-block; }
+.nav-img-light { display: none; }
+:root[data-theme='light'] .nav-img-dark  { display: none; }
+:root[data-theme='light'] .nav-img-light { display: inline-block; }
+
+/* ── Primary action buttons: global warm-brown rule ─────────────────────────
+   Every <button> and <a> that uses bg-white maps to dark ink in light mode.
+   One rule here flips them all to warm espresso — no per-button patching.  */
+:root[data-theme='light'] button.bg-white,
+:root[data-theme='light'] a.bg-white {
+  background-color: #5c4535 !important;
+  color: #f0e6d6 !important;
+}
+:root[data-theme='light'] button.bg-white:hover,
+:root[data-theme='light'] a.bg-white:hover {
+  background-color: #6e5342 !important;
+}
+
+/* "Today" indicator in mini-calendars (uses bg-blue-500 which remaps to ink) */
+:root[data-theme='light'] .mini-today {
+  background-color: #5c4535 !important;
+  color: #f0e6d6 !important;
+  border-radius: 9999px;
+}
+
+/* ── Calendar light-mode fixes ────────────────────────────────────────────── */
+
+/* "New event" button: warm dark brown instead of harsh ink-black */
+:root[data-theme='light'] .btn-cal-new       { background-color: #5c4535 !important; color: #f0e6d6 !important; }
+:root[data-theme='light'] .btn-cal-new:hover { background-color: #6e5342 !important; }
+
+/* Event pills: soft pastels with warm dark text (the -600 saturates are
+   too harsh on cream; drop to -200 level pastels that read as gentle tints) */
+:root[data-theme='light'] .cal-event { color: #3d2f1e !important; }
+:root[data-theme='light'] .cal-event.bg-blue-600    { background-color: #bfdbfe !important; }
+:root[data-theme='light'] .cal-event.bg-indigo-600  { background-color: #c7d2fe !important; }
+:root[data-theme='light'] .cal-event.bg-violet-600  { background-color: #ddd6fe !important; }
+:root[data-theme='light'] .cal-event.bg-emerald-600 { background-color: #a7f3d0 !important; }
+:root[data-theme='light'] .cal-event.bg-rose-600    { background-color: #fecaca !important; }
+:root[data-theme='light'] .cal-event.bg-amber-600   { background-color: #fde68a !important; }
+:root[data-theme='light'] .cal-event.bg-cyan-600    { background-color: #a5f3fc !important; }
+:root[data-theme='light'] .cal-event.bg-pink-600    { background-color: #fbcfe8 !important; }
+:root[data-theme='light'] .cal-event.bg-teal-600    { background-color: #99f6e4 !important; }
+:root[data-theme='light'] .cal-event.bg-orange-600  { background-color: #fed7aa !important; }
+:root[data-theme='light'] .cal-event.bg-lime-600    { background-color: #d9f99d !important; }
+

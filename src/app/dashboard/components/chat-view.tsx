@@ -207,11 +207,42 @@ function groupByDate(sessions: Session[]): { label: string; items: Session[] }[]
     .map(([label, items]) => ({ label, items }));
 }
 
-function getGreeting(name?: string) {
-  const h = new Date().getHours();
-  const time = h < 12 ? 'morning' : h < 17 ? 'afternoon' : 'evening';
-  const first = name?.split(' ')[0];
-  return first ? `Good ${time}, ${first}` : `Good ${time}`;
+type GreetEntry = { headline: (n?: string) => string; sub: string };
+
+const GREET_SLOTS: Record<string, GreetEntry[]> = {
+  night: [
+    { headline: (n) => n ? `Burning the midnight oil, ${n}?`  : 'Burning the midnight oil?', sub: "I'm here whenever you need me." },
+    { headline: (n) => n ? `Still at it, ${n}.`               : 'Still at it.',               sub: 'What can I help with?'        },
+    { headline: (n) => n ? `Late night, ${n}.`                : 'Late-night mode.',           sub: "What's on your mind?"         },
+    { headline: (n) => n ? `Up late, ${n}?`                   : 'Up late?',                   sub: 'What are we working on?'      },
+  ],
+  morning: [
+    { headline: (n) => n ? `Good morning, ${n}.`    : 'Good morning.',    sub: "What's on your mind today?"  },
+    { headline: (n) => n ? `Morning, ${n}!`          : 'Morning!',         sub: "Let's get things done."      },
+    { headline: (n) => n ? `Rise and shine, ${n}.`  : 'Rise and shine.',  sub: 'How can I help you today?'   },
+    { headline: (n) => n ? `A fresh start, ${n}.`   : 'A fresh start.',   sub: 'What would you like to tackle?' },
+    { headline: (n) => n ? `Hey ${n}, good morning.`: 'Good morning!',    sub: "What's the plan today?"      },
+  ],
+  afternoon: [
+    { headline: (n) => n ? `Good afternoon, ${n}.`            : 'Good afternoon.',  sub: 'What can I help with?'       },
+    { headline: (n) => n ? `Afternoon, ${n}!`                 : 'Afternoon!',       sub: "What's next on your list?"   },
+    { headline: (n) => n ? `How's the day going, ${n}?`       : 'How\'s the day going?', sub: "I'm here to help."     },
+    { headline: (n) => n ? `Hey ${n}, halfway through the day.`: 'Halfway through the day.', sub: 'What can I do for you?' },
+  ],
+  evening: [
+    { headline: (n) => n ? `Good evening, ${n}.`   : 'Good evening.',    sub: 'How was your day?'            },
+    { headline: (n) => n ? `Evening, ${n}!`         : 'Evening!',         sub: "What's on your mind?"         },
+    { headline: (n) => n ? `Winding down, ${n}?`   : 'Winding down?',   sub: "I'm here if you need anything."},
+    { headline: (n) => n ? `Hey ${n}, how was your day?` : 'How was your day?', sub: 'What can I help with tonight?' },
+  ],
+};
+
+function getGreeting(name?: string): { headline: string; sub: string } {
+  const h     = new Date().getHours();
+  const slot  = h >= 22 || h < 5 ? 'night' : h < 12 ? 'morning' : h < 17 ? 'afternoon' : 'evening';
+  const list  = GREET_SLOTS[slot]!;
+  const entry = list[new Date().getMinutes() % list.length]!;
+  return { headline: entry.headline(name?.split(' ')[0]), sub: entry.sub };
 }
 
 // ─── Suggestions ──────────────────────────────────────────────────────────────
@@ -301,27 +332,23 @@ function MdContent({ content, streaming }: { content: string; streaming?: boolea
           p:  ({ children }) => <p className="text-sm text-zinc-100 leading-relaxed mb-2 last:mb-0">{children}</p>,
           strong: ({ children }) => <strong className="font-semibold text-white">{children}</strong>,
           em: ({ children }) => <em className="italic text-zinc-300">{children}</em>,
-          ul: ({ children }) => <ul className="list-disc list-inside space-y-1 mb-2 text-sm text-zinc-100">{children}</ul>,
-          ol: ({ children }) => <ol className="list-decimal list-inside space-y-1 mb-2 text-sm text-zinc-100">{children}</ol>,
-          li: ({ children }) => <li className="text-zinc-100">{children}</li>,
+          ul: ({ children }) => <ul className="list-disc list-inside space-y-1.5 mb-2 text-sm text-zinc-100">{children}</ul>,
+          ol: ({ children }) => <ol className="list-decimal list-inside space-y-1.5 mb-2 text-sm text-zinc-100">{children}</ol>,
+          li: ({ children }) => <li className="text-zinc-100 leading-relaxed">{children}</li>,
           code: ({ children, className }) => {
             const isBlock = className?.includes('language-');
             return isBlock ? (
-              <pre className="bg-zinc-800 border border-zinc-700 rounded-lg px-4 py-3 overflow-x-auto my-2">
+              <pre className="bg-zinc-900/80 border border-zinc-700/50 rounded-xl px-4 py-3.5 overflow-x-auto my-3">
                 <code className="text-xs text-zinc-300 font-mono">{children}</code>
               </pre>
             ) : (
-              <code className="bg-zinc-800 text-zinc-300 font-mono text-xs px-1.5 py-0.5 rounded">{children}</code>
+              <code className="bg-zinc-800/70 text-zinc-300 font-mono text-[11px] px-1.5 py-0.5 rounded-md border border-zinc-700/40">{children}</code>
             );
           },
           blockquote: ({ children }) => (
-            <blockquote className="border-l-2 border-zinc-600 pl-3 text-zinc-400 italic my-2">{children}</blockquote>
+            <blockquote className="border-l-2 border-zinc-600 pl-3.5 text-zinc-400 italic my-2 rounded-r-lg bg-white/[0.03] py-1">{children}</blockquote>
           ),
           a: ({ href, children }) => {
-            // "Open in Gmail" → soft cornflower-blue pill that always sits on its
-            // own line below the email entry (block-level + w-fit), underline on
-            // hover, never wraps the arrow. Hex literals keep it a true blue in
-            // both themes (the accent-token remap doesn't touch them).
             const isGmail = typeof href === 'string' && href.includes('mail.google.com');
             if (isGmail) {
               return (
@@ -336,23 +363,23 @@ function MdContent({ content, streaming }: { content: string; streaming?: boolea
               );
             }
             return (
-              <a href={href} target="_blank" rel="noopener noreferrer" className="text-[#4f80c9] hover:text-[#6b97d8] underline">{children}</a>
+              <a href={href} target="_blank" rel="noopener noreferrer" className="text-[#4f80c9] hover:text-[#6b97d8] underline underline-offset-2">{children}</a>
             );
           },
-          hr: () => <hr className="border-zinc-800 my-3" />,
+          hr: () => <hr className="border-zinc-800 my-4" />,
           table: ({ children }) => (
-            <div className="overflow-x-auto my-2">
+            <div className="overflow-x-auto my-3 rounded-xl border border-zinc-700/50">
               <table className="text-xs w-full border-collapse">{children}</table>
             </div>
           ),
-          th: ({ children }) => <th className="border border-zinc-700 px-3 py-1.5 text-left font-semibold text-zinc-200 bg-zinc-800">{children}</th>,
-          td: ({ children }) => <td className="border border-zinc-700 px-3 py-1.5 text-zinc-300">{children}</td>,
+          th: ({ children }) => <th className="border-b border-zinc-700/50 px-3 py-2 text-left font-semibold text-zinc-200 bg-zinc-800/60">{children}</th>,
+          td: ({ children }) => <td className="border-b border-zinc-800 px-3 py-2 text-zinc-300 last:border-0">{children}</td>,
         }}
       >
         {content}
       </ReactMarkdown>
       {streaming && (
-        <span className="inline-block w-2 h-4 bg-zinc-400 ml-0.5 animate-pulse align-middle rounded-sm" />
+        <span className="inline-block w-1.5 h-4 bg-zinc-500 ml-0.5 animate-pulse align-middle rounded-full" />
       )}
     </div>
   );
@@ -654,7 +681,8 @@ export function ChatView({
 
   // ── Render ────────────────────────────────────────────────────────────────
 
-  const grouped = groupByDate([...sessions].sort((a, b) => b.updatedAt - a.updatedAt));
+  const grouped  = groupByDate([...sessions].sort((a, b) => b.updatedAt - a.updatedAt));
+  const greeting = getGreeting(userName);
 
   const wrapClass = fullscreen
     ? 'fixed inset-0 z-50 flex bg-black text-white'
@@ -767,7 +795,7 @@ export function ChatView({
       <div className="flex-1 min-w-0 flex flex-col overflow-hidden">
 
         {/* Header */}
-        <div className="shrink-0 border-b border-zinc-800 px-4 h-14 flex items-center gap-2">
+        <div className="shrink-0 border-b border-zinc-800/80 px-4 h-14 flex items-center gap-2">
           {!showSidebar && (
             <button
               onClick={() => setFullscreen((f) => !f)}
@@ -805,10 +833,9 @@ export function ChatView({
           {messages.length === 0 ? (
 
             <div className="flex flex-col items-center justify-center h-full gap-10 px-6 pb-20">
-              <div className="text-center space-y-1">
-                <p className="text-xs font-medium text-zinc-600 uppercase tracking-widest mb-3">Yugati AI</p>
-                <h2 className="text-3xl font-semibold text-white tracking-tight">{getGreeting(userName)}</h2>
-                <p className="text-zinc-500 text-sm pt-1">How can I help you today?</p>
+              <div className="text-center space-y-2">
+                <h2 className="text-4xl font-bold text-white tracking-tight leading-tight">{greeting.headline}</h2>
+                <p className="text-zinc-500 text-sm pt-0.5">{greeting.sub}</p>
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 w-full max-w-lg">
@@ -867,7 +894,8 @@ export function ChatView({
                         </div>
                       ) : (
                         <div className="flex flex-col items-end gap-1 max-w-[80%]">
-                          <div className="bg-white/5 backdrop-blur-md border border-white/10 rounded-2xl rounded-tr-sm px-4 py-2.5 text-sm leading-relaxed whitespace-pre-wrap text-zinc-100">
+                          <div className="relative overflow-hidden bg-white/[0.07] backdrop-blur-xl border border-white/[0.1] rounded-2xl rounded-tr-sm px-4 py-2.5 text-sm leading-relaxed whitespace-pre-wrap text-white shadow-[0_2px_20px_rgba(0,0,0,0.2)]">
+                            <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/[0.2] to-transparent pointer-events-none" />
                             {msg.content}
                           </div>
                           <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
@@ -885,14 +913,28 @@ export function ChatView({
                   ) : (
 
                     <div className="flex gap-3 items-start">
-                      <div className={`shrink-0 w-7 h-7 rounded-lg flex items-center justify-center mt-0.5 ${msg.blocked ? 'bg-red-500' : 'bg-white'}`}>
-                        <span className="text-black text-xs font-bold">Y</span>
+                      {/* Avatar */}
+                      <div className={`shrink-0 w-7 h-7 rounded-lg flex items-center justify-center mt-0.5 shadow-sm
+                        ${msg.blocked ? 'bg-red-500' : 'bg-white'}`}>
+                        <span className={`text-xs font-bold ${msg.blocked ? 'text-white' : 'text-black'}`}>Y</span>
                       </div>
-                      <div className="flex-1 min-w-0 pt-0.5">
+                      <div className="flex-1 min-w-0">
                         {msg.content ? (
-                          <MdContent content={msg.content} streaming={msg.streaming} />
+                          <div className={`relative overflow-hidden rounded-2xl rounded-tl-sm
+                            bg-white/[0.04] backdrop-blur-xl border
+                            shadow-[0_4px_40px_rgba(0,0,0,0.25)]
+                            px-4 py-3.5
+                            ${msg.blocked
+                              ? 'border-red-500/25'
+                              : 'border-white/[0.08]'}`}>
+                            {/* Top-edge shimmer */}
+                            <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/[0.18] to-transparent pointer-events-none" />
+                            {/* Soft violet glow */}
+                            <div className="absolute -top-6 -right-6 w-24 h-24 rounded-full bg-violet-400/[0.06] blur-2xl pointer-events-none" />
+                            <MdContent content={msg.content} streaming={msg.streaming} />
+                          </div>
                         ) : (
-                          <div className="flex items-center gap-2 h-7">
+                          <div className="flex items-center gap-2.5 h-10 px-1">
                             <span
                               key={fillerText}
                               className="text-sm text-zinc-500 animate-fade-in-up"
@@ -900,15 +942,15 @@ export function ChatView({
                             >
                               {fillerText}
                             </span>
-                            <span className="flex gap-0.5 items-center">
+                            <span className="flex gap-1 items-center">
                               {[0, 1, 2].map((j) => (
-                                <span key={j} className="w-1 h-1 rounded-full bg-zinc-600 animate-bounce" style={{ animationDelay: `${j * 0.15}s` }} />
+                                <span key={j} className="w-1.5 h-1.5 rounded-full bg-zinc-600 animate-bounce" style={{ animationDelay: `${j * 0.18}s` }} />
                               ))}
                             </span>
                           </div>
                         )}
                         {!msg.streaming && msg.content && (
-                          <div className="flex items-center gap-0.5 mt-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                          <div className="flex items-center gap-0.5 mt-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
                             <MsgBtn onClick={() => void copyMessage(msg.id, msg.content)} title="Copy">
                               {copiedId === msg.id ? <Check size={12} className="text-green-400" /> : <Copy size={12} />}
                             </MsgBtn>

@@ -183,7 +183,7 @@ export function CalendarView() {
       <header className="h-14 shrink-0 border-b border-zinc-800 px-6 flex items-center gap-4">
         <button
           onClick={() => openCreate()}
-          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white text-black text-xs font-medium hover:bg-zinc-200 transition-colors"
+          className="btn-cal-new flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white text-black text-xs font-medium hover:bg-zinc-200 transition-colors"
         >
           <Plus size={13} />
           New event
@@ -255,7 +255,7 @@ export function CalendarView() {
                         <div className="flex justify-end mb-1">
                           <span className={`text-xs w-6 h-6 flex items-center justify-center rounded-full font-medium
                             ${isToday
-                              ? 'bg-blue-500 text-white'
+                              ? 'bg-blue-500 text-white mini-today'
                               : isOtherMonth
                                 ? 'text-zinc-700'
                                 : 'text-zinc-300'
@@ -269,7 +269,7 @@ export function CalendarView() {
                             <button
                               key={ev.id}
                               onClick={(e) => { e.stopPropagation(); setSelectedEvent(ev); }}
-                              className={`w-full text-left px-1.5 py-0.5 rounded text-[11px] text-white truncate font-medium ${eventColor(ev.id)}`}
+                              className={`cal-event w-full text-left px-1.5 py-0.5 rounded text-[11px] text-white truncate font-medium ${eventColor(ev.id)}`}
                             >
                               {ev.start?.dateTime
                                 ? `${fmtTime(ev.start.dateTime)} ${ev.summary ?? '(no title)'}`

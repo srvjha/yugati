@@ -3,27 +3,28 @@
 import Link from 'next/link';
 import Image from 'next/image';
 import { usePathname, useRouter } from 'next/navigation';
-import { Mail, Calendar, LogOut, LayoutDashboard, Blocks, CreditCard } from 'lucide-react';
+import { Mail, Calendar, LogOut, LayoutDashboard, Plug, CreditCard } from 'lucide-react';
 import { signOut } from '@/lib/auth-client';
 import { UsagePill } from './usage-pill';
 
 type User = { id: string; name: string; email: string; image?: string | null };
 
 type NavItem = {
-  href:    string;
-  label:   string;
-  icon:    React.ElementType | null;
-  imgSrc?: string;
-  dot?:    string;
-  isNew?:  boolean;
+  href:         string;
+  label:        string;
+  icon:         React.ElementType | null;
+  imgSrc?:      string;
+  lightImgSrc?: string;
+  dot?:         string;
+  isNew?:       boolean;
 };
 
 const NAV_ITEMS: NavItem[] = [
   { href: '/dashboard/overview',      label: 'Overview',     icon: LayoutDashboard, dot: 'bg-blue-400',  isNew: true  },
   { href: '/dashboard/mail',          label: 'Mail',         icon: Mail,            dot: 'bg-blue-400'               },
   { href: '/dashboard/calendar',      label: 'Calendar',     icon: Calendar,        dot: 'bg-blue-400'               },
-  { href: '/dashboard/integrations',  label: 'Integrations', icon: Blocks,          dot: 'bg-blue-400'               },
-  { href: '/dashboard/chat',          label: 'Agentic',      icon: null, imgSrc: '/openai.png', dot: 'bg-green-400', isNew: true },
+  { href: '/dashboard/integrations',  label: 'Integrations', icon: Plug,            dot: 'bg-blue-400'               },
+  { href: '/dashboard/chat',          label: 'Agentic',      icon: null, imgSrc: '/openai.png', lightImgSrc: '/openai-dark.png', dot: 'bg-green-400', isNew: true },
   { href: '/dashboard/billing',       label: 'Billing',      icon: CreditCard,      dot: 'bg-blue-400'               },
 ];
 
@@ -48,7 +49,8 @@ export function SidebarNav({ user }: { user: User }) {
 
       {/* Navigation */}
       <div className="flex-1 py-4 px-2 space-y-0.5 overflow-y-auto">
-        {NAV_ITEMS.map(({ href, label, icon: Icon, imgSrc, dot, isNew }) => {
+        {NAV_ITEMS.map(({ href, label, icon: Icon, imgSrc, lightImgSrc, dot, isNew }) => {
+          const imgOpacity = (active: boolean) => active ? 'opacity-100' : 'opacity-40 group-hover:opacity-70';
           const active = isActive(href);
           return (
             <Link
@@ -61,13 +63,14 @@ export function SidebarNav({ user }: { user: User }) {
                 }`}
             >
               {imgSrc ? (
-                <Image
-                  src={imgSrc}
-                  alt={label}
-                  width={20}
-                  height={20}
-                  className={`rounded-sm shrink-0 ${active ? 'opacity-100' : 'opacity-40 group-hover:opacity-70'}`}
-                />
+                <span className="relative shrink-0 w-[15px] h-[15px]">
+                  <Image src={imgSrc} alt={label} width={15} height={15}
+                    className={`nav-img-dark absolute inset-0 w-full h-full object-contain ${imgOpacity(active)}`} />
+                  {lightImgSrc && (
+                    <Image src={lightImgSrc} alt={label} width={15} height={15}
+                      className={`nav-img-light absolute inset-0 w-full h-full object-contain ${imgOpacity(active)}`} />
+                  )}
+                </span>
               ) : Icon ? (
                 <Icon
                   size={15}

@@ -1113,8 +1113,8 @@ function CalendarMini() {
               const hasEvent = eventDays.has(ds);
               return (
                 <div key={di} className="flex flex-col items-center py-0.5">
-                  <span className={`text-[11px] w-6 h-6 flex items-center justify-center leading-none
-                    ${isToday ? 'bg-blue-500 text-white font-bold' : 'text-zinc-400 hover:bg-zinc-800 cursor-pointer'}`}>
+                  <span className={`text-[11px] w-6 h-6 flex items-center justify-center leading-none rounded-full
+                    ${isToday ? 'bg-blue-500 text-white font-bold mini-today' : 'text-zinc-400 hover:bg-zinc-800 cursor-pointer'}`}>
                     {day.getDate()}
                   </span>
                   {hasEvent && <span className="w-1 h-1 rounded-full bg-blue-400 mt-0.5" />}
@@ -1211,6 +1211,24 @@ const AI_ACTIONS = [
   },
 ] as const;
 type AiActionId = (typeof AI_ACTIONS)[number]['id'];
+
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[a-zA-Z]{2,}$/;
+const TLD_TYPOS: Record<string, string> = {
+  copm: 'com', cmo: 'com', ocm: 'com', con: 'com', comn: 'com', coom: 'com',
+  nete: 'net', nett: 'net', nte: 'net',
+  ogr: 'org',  orgg: 'org',
+  eud: 'edu',  eud2: 'edu',
+};
+
+function validateEmails(emails: string[]): string | null {
+  for (const email of emails) {
+    if (!EMAIL_RE.test(email)) return `"${email}" doesn't look like a valid email address`;
+    const tld = email.split('.').pop()?.toLowerCase() ?? '';
+    const fix = TLD_TYPOS[tld];
+    if (fix) return `Possible typo — did you mean ${email.replace(/\.[^.]+$/, `.${fix}`)}?`;
+  }
+  return null;
+}
 
 function ComposeModal({ onClose, onSwitchToAI }: {
   onClose: () => void;
@@ -1310,6 +1328,8 @@ function ComposeModal({ onClose, onSwitchToAI }: {
   async function handleSend() {
     const toList = to.split(/[,;]/).map((e) => e.trim()).filter(Boolean);
     if (!toList.length) { toast.error('Please add at least one recipient'); return; }
+    const emailErr = validateEmails(toList);
+    if (emailErr) { toast.error(emailErr); return; }
     const htmlBody = editorRef.current?.innerHTML ?? '';
     const body     = editorRef.current?.innerText ?? '';
     await sendMutation.mutateAsync({
@@ -1566,7 +1586,7 @@ function ComposeModal({ onClose, onSwitchToAI }: {
           <button
             onClick={() => void handleSend()}
             disabled={!to.trim() || sendMutation.isPending || !!aiLoading}
-            className="flex items-center gap-2 px-4 py-2 bg-white text-black text-xs font-bold rounded-lg hover:bg-zinc-100 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+            className="btn-cal-new flex items-center gap-2 px-4 py-2 bg-white text-black text-xs font-bold rounded-lg hover:bg-zinc-100 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
           >
             {sendMutation.isPending
               ? <><Loader2Icon size={12} className="animate-spin" /> Sending…</>
