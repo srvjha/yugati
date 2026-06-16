@@ -11,6 +11,8 @@ import {
   LogOut, CheckCircle, ExternalLink, Shield, Bell, Keyboard,
   Loader2, AlertCircle, Unplug, RefreshCw, Zap,
 } from 'lucide-react';
+import { Switch } from '@/components/ui/switch';
+import { useTheme, applyTheme } from '@/components/theme-toggle';
 
 // ─── Tab definitions ─────────────────────────────────────────────────────────
 
@@ -347,14 +349,14 @@ function AITab() {
           label="Confirm before actions"
           description="Ask for approval before sending emails or creating events"
         >
-          <Toggle value={confirmActions} onChange={setConfirmActions} />
+          <Switch checked={confirmActions} onCheckedChange={setConfirmActions} />
         </Row>
         <Row
           label="Enhance prompts"
           description="Automatically improve your queries for better results"
           last
         >
-          <Toggle value={enhancePrompts} onChange={setEnhancePrompts} />
+          <Switch checked={enhancePrompts} onCheckedChange={setEnhancePrompts} />
         </Row>
       </Section>
 
@@ -379,10 +381,10 @@ function NotifsTab() {
   return (
     <Section title="Notifications" description="Coming soon — browser notifications for new emails and AI actions.">
       <Row label="New email notifications" description="Notify when new emails arrive">
-        <Toggle value={newEmail} onChange={setNewEmail} />
+        <Switch checked={newEmail} onCheckedChange={setNewEmail} />
       </Row>
       <Row label="AI action notifications" description="Notify when the AI completes a task" last>
-        <Toggle value={aiActions} onChange={setAiActions} />
+        <Switch checked={aiActions} onCheckedChange={setAiActions} />
       </Row>
     </Section>
   );
@@ -415,10 +417,33 @@ function ShortcutsTab() {
 // ─── Appearance tab ───────────────────────────────────────────────────────────
 
 function AppearanceTab() {
+  const { theme } = useTheme();
+
   return (
-    <Section title="Appearance" description="Theme settings — more options coming soon.">
-      <Row label="Theme" description="Dark mode is the only available theme currently.">
-        <span className="text-xs text-zinc-500 bg-zinc-800 px-3 py-1.5 rounded-lg">Dark</span>
+    <Section title="Appearance" description="Choose your preferred theme.">
+      <Row label="Theme" description="Switch between dark and light mode.">
+        <div className="flex items-center gap-1 bg-zinc-800 rounded-lg p-1">
+          <button
+            onClick={() => applyTheme('dark')}
+            className={`px-3 py-1 text-xs rounded-md transition-colors ${
+              theme === 'dark'
+                ? 'bg-zinc-600 text-white'
+                : 'text-zinc-400 hover:text-zinc-200'
+            }`}
+          >
+            Dark
+          </button>
+          <button
+            onClick={() => applyTheme('light')}
+            className={`px-3 py-1 text-xs rounded-md transition-colors ${
+              theme === 'light'
+                ? 'bg-zinc-600 text-white'
+                : 'text-zinc-400 hover:text-zinc-200'
+            }`}
+          >
+            Light
+          </button>
+        </div>
       </Row>
       <Row label="Density" description="Compact email list layout" last>
         <span className="text-xs text-zinc-500 bg-zinc-800 px-3 py-1.5 rounded-lg">Default</span>
@@ -427,19 +452,3 @@ function AppearanceTab() {
   );
 }
 
-// ─── Toggle ───────────────────────────────────────────────────────────────────
-
-function Toggle({ value, onChange }: { value: boolean; onChange: (v: boolean) => void }) {
-  return (
-    <button
-      onClick={() => onChange(!value)}
-      className={`relative w-9 h-5 rounded-full transition-colors duration-200 focus:outline-none
-        ${value ? 'bg-blue-500' : 'bg-zinc-700'}`}
-    >
-      <span
-        className={`absolute top-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform duration-200
-          ${value ? 'translate-x-4' : 'translate-x-0.5'}`}
-      />
-    </button>
-  );
-}

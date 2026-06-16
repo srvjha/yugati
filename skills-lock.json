@@ -7,6 +7,12 @@
       "skillPath": "skills/corsair/SKILL.md",
       "computedHash": "1035052660d4ed4ee1f10719f2d40af0a902d735a5da3744ae8d220f3d889f93"
     },
+    "shadcn": {
+      "source": "shadcn/ui",
+      "sourceType": "github",
+      "skillPath": "skills/shadcn/SKILL.md",
+      "computedHash": "ac9d0d69caac7de1d1e5647f3db3bcd2f13af355d6b3a78780fbf7fc80e8dca0"
+    },
     "supabase": {
       "source": "supabase/agent-skills",
       "sourceType": "github",

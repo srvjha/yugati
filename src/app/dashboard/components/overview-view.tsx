@@ -149,37 +149,33 @@ function usePromptAnalysis() {
 export function OverviewView({ userName }: { userName?: string }) {
   const trpc = useTRPC();
 
-  const overviewQ = useQuery({
+  const { data: overview, isLoading: overviewLoading, isFetching: overviewFetching } = useQuery({
     ...trpc.stats.overview.queryOptions(),
     refetchInterval: REFETCH,
   });
 
-  const emailQ = useQuery({
+  const { data: email, isLoading: emailLoading, isFetching: emailFetching } = useQuery({
     ...trpc.stats.emailActivity.queryOptions(),
     refetchInterval: REFETCH,
   });
 
-  const calQ = useQuery({
+  const { data: cal, isLoading: calLoading } = useQuery({
     ...trpc.stats.calendarActivity.queryOptions(),
     refetchInterval: REFETCH,
   });
 
-  const insightsQ = useQuery({
+  const { data: insightsData, isLoading: insightsLoading, isFetching: insightsFetching, refetch: refetchInsights } = useQuery({
     ...trpc.stats.aiInsights.queryOptions(),
     staleTime:       5 * 60 * 1000,
     refetchInterval: false,
   });
 
-  const planQ = useQuery({
+  const { data: planData, isLoading: planLoading } = useQuery({
     ...trpc.plans.getMyPlan.queryOptions(),
     staleTime: 60_000,
   });
 
   const promptAnalysis = usePromptAnalysis();
-
-  const overview = overviewQ.data;
-  const email    = emailQ.data;
-  const cal      = calQ.data;
 
   const lastUpdated = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 
@@ -204,7 +200,7 @@ export function OverviewView({ userName }: { userName?: string }) {
             <p className="text-sm text-zinc-500 mt-1">Here&apos;s your communication overview</p>
           </div>
           <div className="flex items-center gap-2 text-xs text-zinc-600">
-            <RefreshCw size={11} className={overviewQ.isFetching || emailQ.isFetching ? 'animate-spin' : ''} />
+            <RefreshCw size={11} className={overviewFetching || emailFetching ? 'animate-spin' : ''} />
             <span>Updated {lastUpdated}</span>
             <span className="w-1.5 h-1.5 rounded-full bg-green-400 shadow-[0_0_4px_rgba(74,222,128,0.6)]" />
             <span className="text-green-500">Live</span>
@@ -213,12 +209,12 @@ export function OverviewView({ userName }: { userName?: string }) {
 
         {/* ── Stat cards ── */}
         <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-3">
-          <StatCard label="Inbox"    value={overview?.inboxTotal ?? 0}          sub="total messages"     icon={Inbox}    accent="bg-blue-500/15 text-blue-400"    loading={overviewQ.isLoading} />
-          <StatCard label="Unread"   value={overview?.unreadCount ?? 0}         sub="need attention"     icon={Mail}     accent="bg-violet-500/15 text-violet-400" loading={overviewQ.isLoading} />
-          <StatCard label="Sent"     value={overview?.sentTotal ?? 0}           sub="all time"           icon={Send}     accent="bg-emerald-500/15 text-emerald-400" loading={overviewQ.isLoading} />
-          <StatCard label="Drafts"   value={overview?.draftCount ?? 0}          sub="unsent"             icon={FileText} accent="bg-amber-500/15 text-amber-400"  loading={overviewQ.isLoading} />
-          <StatCard label="Meetings" value={overview?.meetingsThisWeek ?? 0}    sub="this week"          icon={Calendar} accent="bg-rose-500/15 text-rose-400"    loading={overviewQ.isLoading} />
-          <StatCard label="Meet hrs" value={`${overview?.meetingHoursThisWeek ?? 0}h`} sub="this week"  icon={Clock}    accent="bg-cyan-500/15 text-cyan-400"     loading={overviewQ.isLoading} />
+          <StatCard label="Inbox"    value={overview?.inboxTotal ?? 0}          sub="total messages"     icon={Inbox}    accent="bg-blue-500/15 text-blue-400"    loading={overviewLoading} />
+          <StatCard label="Unread"   value={overview?.unreadCount ?? 0}         sub="need attention"     icon={Mail}     accent="bg-violet-500/15 text-violet-400" loading={overviewLoading} />
+          <StatCard label="Sent"     value={overview?.sentTotal ?? 0}           sub="all time"           icon={Send}     accent="bg-emerald-500/15 text-emerald-400" loading={overviewLoading} />
+          <StatCard label="Drafts"   value={overview?.draftCount ?? 0}          sub="unsent"             icon={FileText} accent="bg-amber-500/15 text-amber-400"  loading={overviewLoading} />
+          <StatCard label="Meetings" value={overview?.meetingsThisWeek ?? 0}    sub="this week"          icon={Calendar} accent="bg-rose-500/15 text-rose-400"    loading={overviewLoading} />
+          <StatCard label="Meet hrs" value={`${overview?.meetingHoursThisWeek ?? 0}h`} sub="this week"  icon={Clock}    accent="bg-cyan-500/15 text-cyan-400"     loading={overviewLoading} />
         </div>
 
         {/* ── AI Insights + Usage + Prompt Quality ── */}
@@ -235,20 +231,20 @@ export function OverviewView({ userName }: { userName?: string }) {
                 <p className="text-xs text-zinc-600 mt-0.5">Generated from your inbox &amp; calendar</p>
               </div>
               <button
-                onClick={() => void insightsQ.refetch()}
+                onClick={() => void refetchInsights()}
                 className="p-1.5 text-zinc-600 hover:text-zinc-300 hover:bg-zinc-800 rounded-lg transition-colors"
                 title="Refresh insights"
               >
-                <RefreshCw size={12} className={insightsQ.isFetching ? 'animate-spin' : ''} />
+                <RefreshCw size={12} className={insightsFetching ? 'animate-spin' : ''} />
               </button>
             </div>
-            {insightsQ.isLoading ? (
+            {insightsLoading ? (
               <div className="space-y-2">
                 {[1,2,3].map((i) => <Skeleton key={i} className="h-5 w-full" />)}
               </div>
-            ) : (insightsQ.data?.insights ?? []).length > 0 ? (
+            ) : (insightsData?.insights ?? []).length > 0 ? (
               <ul className="space-y-2.5">
-                {(insightsQ.data?.insights ?? []).map((insight, i) => (
+                {(insightsData?.insights ?? []).map((insight, i) => (
                   <li key={i} className="flex items-start gap-2.5 text-xs text-zinc-400 leading-relaxed">
                     <span className="shrink-0 w-4 h-4 rounded-full bg-violet-500/15 text-violet-400 flex items-center justify-center text-[9px] font-bold mt-0.5">{i + 1}</span>
                     {insight}
@@ -268,17 +264,17 @@ export function OverviewView({ userName }: { userName?: string }) {
                 AI Usage
               </p>
               <p className="text-xs text-zinc-600 mt-0.5">
-                {planQ.data ? `${planQ.data.planName} plan · resets ${new Date(planQ.data.resetAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}` : 'Loading…'}
+                {planData ? `${planData.planName} plan · resets ${new Date(planData.resetAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}` : 'Loading…'}
               </p>
             </div>
-            {planQ.isLoading ? (
+            {planLoading ? (
               <div className="space-y-3">{[1,2,3].map((i) => <Skeleton key={i} className="h-8 w-full" />)}</div>
-            ) : planQ.data ? (
+            ) : planData ? (
               <div className="space-y-3.5">
                 {[
-                  { label: 'AI Messages', icon: MessageSquare, used: planQ.data.usage.messages.used, limit: planQ.data.usage.messages.limit, color: 'bg-blue-500' },
-                  { label: 'Voice',       icon: Mic,           used: planQ.data.usage.voice.used,    limit: planQ.data.usage.voice.limit,    color: 'bg-emerald-500' },
-                  { label: 'Composes',    icon: Edit3,         used: planQ.data.usage.compose.used,  limit: planQ.data.usage.compose.limit,  color: 'bg-amber-500' },
+                  { label: 'AI Messages', icon: MessageSquare, used: planData.usage.messages.used, limit: planData.usage.messages.limit, color: 'bg-blue-500' },
+                  { label: 'Voice',       icon: Mic,           used: planData.usage.voice.used,    limit: planData.usage.voice.limit,    color: 'bg-emerald-500' },
+                  { label: 'Composes',    icon: Edit3,         used: planData.usage.compose.used,  limit: planData.usage.compose.limit,  color: 'bg-amber-500' },
                 ].map(({ label, icon: Icon, used, limit, color }) => {
                   const pct = Math.min(100, Math.round(used / limit * 100));
                   return (
@@ -342,7 +338,7 @@ export function OverviewView({ userName }: { userName?: string }) {
         <div className="grid grid-cols-1 xl:grid-cols-3 gap-4">
 
           <div className="xl:col-span-2">
-            <Section title="Email Volume" sub="Received emails — last 30 days" loading={emailQ.isLoading} skeletonH="h-56">
+            <Section title="Email Volume" sub="Received emails — last 30 days" loading={emailLoading} skeletonH="h-56">
               <ResponsiveContainer width="100%" height={220}>
                 <AreaChart data={email?.byDay ?? []} margin={{ top: 4, right: 4, bottom: 0, left: -20 }}>
                   <defs>
@@ -370,7 +366,7 @@ export function OverviewView({ userName }: { userName?: string }) {
             </Section>
           </div>
 
-          <Section title="Email Categories" sub="From last 100 emails" loading={emailQ.isLoading} skeletonH="h-56">
+          <Section title="Email Categories" sub="From last 100 emails" loading={emailLoading} skeletonH="h-56">
             {email?.byCategory && email.byCategory.length > 0 ? (
               <div className="flex flex-col gap-4">
                 <ResponsiveContainer width="100%" height={140}>
@@ -402,7 +398,7 @@ export function OverviewView({ userName }: { userName?: string }) {
         {/* ── Row 3: Top senders + Hourly pattern ── */}
         <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
 
-          <Section title="Top Senders" sub="Most frequent senders in last 100 emails" loading={emailQ.isLoading} skeletonH="h-64">
+          <Section title="Top Senders" sub="Most frequent senders in last 100 emails" loading={emailLoading} skeletonH="h-64">
             {email?.topSenders && email.topSenders.length > 0 ? (
               <div className="space-y-2">
                 {email.topSenders.slice(0, 8).map((s, i) => {
@@ -432,7 +428,7 @@ export function OverviewView({ userName }: { userName?: string }) {
             )}
           </Section>
 
-          <Section title="Emails by Time of Day" sub="When do you receive most emails" loading={emailQ.isLoading} skeletonH="h-64">
+          <Section title="Emails by Time of Day" sub="When do you receive most emails" loading={emailLoading} skeletonH="h-64">
             <ResponsiveContainer width="100%" height={200}>
               <BarChart data={hourlyData} margin={{ top: 4, right: 4, bottom: 0, left: -20 }}>
                 <CartesianGrid stroke={GRID_COLOR} strokeDasharray="3 3" vertical={false} />
@@ -448,7 +444,7 @@ export function OverviewView({ userName }: { userName?: string }) {
         {/* ── Row 4: Country breakdown + Calendar meetings ── */}
         <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
 
-          <Section title="Sender Countries" sub="Based on email domain TLDs" loading={emailQ.isLoading} skeletonH="h-64">
+          <Section title="Sender Countries" sub="Based on email domain TLDs" loading={emailLoading} skeletonH="h-64">
             {email?.byCountry && email.byCountry.length > 0 ? (
               <div className="space-y-2">
                 {email.byCountry.map((c, i) => {
@@ -477,7 +473,7 @@ export function OverviewView({ userName }: { userName?: string }) {
             )}
           </Section>
 
-          <Section title="Meetings This Month" sub="Timed calendar events — last 30 days" loading={calQ.isLoading} skeletonH="h-64">
+          <Section title="Meetings This Month" sub="Timed calendar events — last 30 days" loading={calLoading} skeletonH="h-64">
             <ResponsiveContainer width="100%" height={200}>
               <AreaChart data={cal?.byDay ?? []} margin={{ top: 4, right: 4, bottom: 0, left: -20 }}>
                 <defs>
@@ -508,7 +504,7 @@ export function OverviewView({ userName }: { userName?: string }) {
         {/* ── Row 5: Day-of-week + Meeting types + Duration + Top attendees ── */}
         <div className="grid grid-cols-1 xl:grid-cols-3 gap-4">
 
-          <Section title="Meetings by Day" sub="Which days are busiest" loading={calQ.isLoading} skeletonH="h-48">
+          <Section title="Meetings by Day" sub="Which days are busiest" loading={calLoading} skeletonH="h-48">
             <ResponsiveContainer width="100%" height={160}>
               <BarChart data={cal?.byDow ?? []} margin={{ top: 4, right: 4, bottom: 0, left: -20 }}>
                 <CartesianGrid stroke={GRID_COLOR} strokeDasharray="3 3" vertical={false} />
@@ -520,7 +516,7 @@ export function OverviewView({ userName }: { userName?: string }) {
             </ResponsiveContainer>
           </Section>
 
-          <Section title="Meeting Types" sub="Last 30 days" loading={calQ.isLoading} skeletonH="h-48">
+          <Section title="Meeting Types" sub="Last 30 days" loading={calLoading} skeletonH="h-48">
             {cal?.meetingTypes && cal.meetingTypes.length > 0 ? (
               <div className="flex flex-col gap-4">
                 <ResponsiveContainer width="100%" height={110}>
@@ -538,7 +534,7 @@ export function OverviewView({ userName }: { userName?: string }) {
             )}
           </Section>
 
-          <Section title="Meeting Duration" sub="Distribution of meeting lengths" loading={calQ.isLoading} skeletonH="h-48">
+          <Section title="Meeting Duration" sub="Distribution of meeting lengths" loading={calLoading} skeletonH="h-48">
             <ResponsiveContainer width="100%" height={160}>
               <BarChart data={cal?.durationDist ?? []} layout="vertical" margin={{ top: 4, right: 24, bottom: 0, left: 8 }}>
                 <CartesianGrid stroke={GRID_COLOR} strokeDasharray="3 3" horizontal={false} />
@@ -553,7 +549,7 @@ export function OverviewView({ userName }: { userName?: string }) {
 
         {/* ── Row 6: Top meeting attendees ── */}
         {(cal?.topAttendees?.length ?? 0) > 0 && (
-          <Section title="Top Meeting Partners" sub="Most frequent attendees in your events" loading={calQ.isLoading} skeletonH="h-32">
+          <Section title="Top Meeting Partners" sub="Most frequent attendees in your events" loading={calLoading} skeletonH="h-32">
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
               {(cal?.topAttendees ?? []).slice(0, 8).map((a) => (
                 <div key={a.email} className="flex items-center gap-2.5 bg-zinc-900/60 border border-zinc-800/60 rounded-xl px-3 py-2.5">

@@ -92,7 +92,8 @@ export function MailView({ message }: { message: GmailMessage }) {
       }
     };
     iframe.onload = resize;
-    setTimeout(resize, 100);
+    const timerId = setTimeout(resize, 100);
+    return () => clearTimeout(timerId);
   }, [html]);
 
   return (
