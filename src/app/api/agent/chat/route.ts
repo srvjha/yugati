@@ -3,7 +3,7 @@ import { runChat } from '@/features/agent/agent';
 import type { ChatMessage } from '@/features/agent/types';
 import { initCorsair } from '@/server/corsair';
 import { headers } from 'next/headers';
-import { rateLimiter } from '@/lib/rate-limit';
+import { rateLimiters } from '@/lib/rate-limit';
 import { checkAndIncrement, getUserPlan } from '@/lib/usage';
 import { PLANS } from '@/lib/plans';
 import type { PlanId } from '@/lib/plans';
@@ -40,7 +40,7 @@ export async function POST(request: Request) {
   }
 
   // Per-plan rate limit
-  const { success, limit, reset } = await rateLimiter.limit(session.user.id);
+  const { success, limit, reset } = await rateLimiters[planId].limit(session.user.id);
   if (!success) {
     const retryAfterSec = Math.ceil((reset - Date.now()) / 1000);
     return Response.json(

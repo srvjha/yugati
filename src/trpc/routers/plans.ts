@@ -20,6 +20,7 @@ export const plansRouter = createTRPCRouter({
       subscriptionStatus: row.subscriptionStatus,
       currentPeriodEnd:   row.currentPeriodEnd,
       resetAt:            row.usageResetAt,
+      charLimit: limits.charLimit,
       usage: {
         messages: { used: row.messagesUsed, limit: limits.messages  },
         voice:    { used: row.voiceUsed,    limit: limits.voice     },

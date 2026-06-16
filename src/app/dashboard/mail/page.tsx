@@ -1,6 +1,9 @@
 'use client';
 
 import { useState, useMemo, useEffect, useRef } from 'react';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { z } from 'zod';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { useQuery, useMutation } from '@tanstack/react-query';
 import { toast } from 'sonner';
@@ -389,6 +392,7 @@ export default function MailPage() {
           <ComposeModal
             onClose={() => setComposing(false)}
             onSwitchToAI={() => { setComposing(false); setChatMode(true); }}
+            senders={senders}
           />
         )}
       </div>
@@ -1214,13 +1218,14 @@ type AiActionId = (typeof AI_ACTIONS)[number]['id'];
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[a-zA-Z]{2,}$/;
 const TLD_TYPOS: Record<string, string> = {
-  copm: 'com', cmo: 'com', ocm: 'com', con: 'com', comn: 'com', coom: 'com',
+  copm: 'com', cmo: 'com', ocm: 'com', con: 'com', comn: 'com', coom: 'com', conm: 'com', cpm: 'com',
   nete: 'net', nett: 'net', nte: 'net',
   ogr: 'org',  orgg: 'org',
   eud: 'edu',  eud2: 'edu',
 };
 
-function validateEmails(emails: string[]): string | null {
+function checkEmailTypos(raw: string): string | null {
+  const emails = raw.split(/[,;]/).map((e) => e.trim()).filter(Boolean);
   for (const email of emails) {
     if (!EMAIL_RE.test(email)) return `"${email}" doesn't look like a valid email address`;
     const tld = email.split('.').pop()?.toLowerCase() ?? '';
@@ -1230,14 +1235,151 @@ function validateEmails(emails: string[]): string | null {
   return null;
 }
 
-function ComposeModal({ onClose, onSwitchToAI }: {
+const composeSchema = z.object({
+  to: z.string()
+    .min(1, 'At least one recipient is required')
+    .superRefine((v, ctx) => {
+      const err = checkEmailTypos(v);
+      if (err) ctx.addIssue({ code: z.ZodIssueCode.custom, message: err });
+    }),
+  cc: z.string()
+    .optional()
+    .superRefine((v, ctx) => {
+      if (!v) return;
+      const err = checkEmailTypos(v);
+      if (err) ctx.addIssue({ code: z.ZodIssueCode.custom, message: err });
+    }),
+  subject: z.string().optional(),
+});
+type ComposeFields = z.infer<typeof composeSchema>;
+
+// ─── Recipient pill input ──────────────────────────────────────────────────────
+
+function RecipientInput({ pills, onChange, suggestions, placeholder = 'Recipients', error }: {
+  pills: string[];
+  onChange: (pills: string[]) => void;
+  suggestions: Sender[];
+  placeholder?: string;
+  error?: string;
+}) {
+  const [inputVal, setInputVal] = useState('');
+  const [showSug,  setShowSug]  = useState(false);
+  const inputRef = useRef<HTMLInputElement>(null);
+  const wrapRef  = useRef<HTMLDivElement>(null);
+
+  const filtered = inputVal.trim()
+    ? suggestions.filter((s) =>
+        !pills.includes(s.email) &&
+        (s.email.toLowerCase().includes(inputVal.toLowerCase()) ||
+         s.name.toLowerCase().includes(inputVal.toLowerCase())),
+      ).slice(0, 6)
+    : [];
+
+  function commit(raw: string) {
+    const val = raw.trim().replace(/,+$/, '');
+    if (!val || pills.includes(val)) { setInputVal(''); return; }
+    onChange([...pills, val]);
+    setInputVal('');
+  }
+
+  function removeLast() {
+    if (pills.length > 0) onChange(pills.slice(0, -1));
+  }
+
+  return (
+    <div ref={wrapRef} className="relative flex-1">
+      <div
+        className={`flex flex-wrap items-center gap-1.5 min-h-[38px] py-1.5 cursor-text`}
+        onClick={() => inputRef.current?.focus()}
+      >
+        {pills.map((p) => (
+          <span key={p} className="inline-flex items-center gap-1 bg-zinc-800 border border-zinc-700 text-zinc-200 text-xs rounded-full px-2.5 py-0.5 leading-none">
+            {p}
+            <button
+              type="button"
+              onClick={(e) => { e.stopPropagation(); onChange(pills.filter((x) => x !== p)); }}
+              className="text-zinc-500 hover:text-zinc-200 transition-colors ml-0.5"
+            >×</button>
+          </span>
+        ))}
+        <input
+          ref={inputRef}
+          value={inputVal}
+          autoComplete="off"
+          autoCorrect="off"
+          spellCheck={false}
+          placeholder={pills.length === 0 ? placeholder : ''}
+          className="flex-1 min-w-[120px] bg-transparent text-sm text-zinc-200 placeholder-zinc-600 focus:outline-none"
+          onChange={(e) => { setInputVal(e.target.value); setShowSug(true); }}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' || e.key === 'Tab' || e.key === ',') {
+              e.preventDefault();
+              commit(inputVal);
+            }
+            if (e.key === 'Backspace' && !inputVal) removeLast();
+          }}
+          onBlur={() => {
+            setTimeout(() => setShowSug(false), 150);
+            if (inputVal.trim()) commit(inputVal);
+          }}
+          onFocus={() => setShowSug(true)}
+        />
+      </div>
+      {error && <p className="text-[10px] text-red-400 pb-1">{error}</p>}
+
+      {/* Suggestion dropdown */}
+      {showSug && filtered.length > 0 && (
+        <div className="absolute left-0 right-0 top-full mt-1 z-50 bg-zinc-900 border border-zinc-700 rounded-xl shadow-2xl overflow-hidden">
+          {filtered.map((s) => (
+            <button
+              key={s.email}
+              type="button"
+              onMouseDown={(e) => { e.preventDefault(); commit(s.email); setShowSug(false); }}
+              className="w-full flex items-center gap-2.5 px-3 py-2 hover:bg-zinc-800 transition-colors text-left"
+            >
+              <div className="w-6 h-6 rounded-full bg-zinc-700 border border-zinc-600 flex items-center justify-center text-[10px] font-bold text-zinc-300 shrink-0 uppercase">
+                {s.name[0] ?? '?'}
+              </div>
+              <div className="min-w-0">
+                <p className="text-xs text-zinc-200 font-medium truncate">{s.name}</p>
+                <p className="text-[10px] text-zinc-500 truncate">{s.email}</p>
+              </div>
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── Compose modal ─────────────────────────────────────────────────────────────
+
+function ComposeModal({ onClose, onSwitchToAI, senders = [] }: {
   onClose: () => void;
   onSwitchToAI?: () => void;
+  senders?: Sender[];
 }) {
-  const trpc        = useTRPC();
-  const [to,        setTo]        = useState('');
-  const [cc,        setCc]        = useState('');
-  const [subject,   setSubject]   = useState('');
+  const trpc = useTRPC();
+
+  const { register, handleSubmit, setValue, watch, formState: { errors } } = useForm<ComposeFields>({
+    resolver: zodResolver(composeSchema),
+    defaultValues: { to: '', cc: '', subject: '' },
+  });
+
+  const [toPills, setToPills] = useState<string[]>([]);
+  const [ccPills, setCcPills] = useState<string[]>([]);
+
+  function syncTo(pills: string[]) {
+    setToPills(pills);
+    setValue('to', pills.join(', '), { shouldValidate: pills.length > 0 });
+  }
+  function syncCc(pills: string[]) {
+    setCcPills(pills);
+    setValue('cc', pills.join(', '), { shouldValidate: false });
+  }
+
+  const subjectValue = watch('subject') ?? '';
+
   const [showCc,    setShowCc]    = useState(false);
   const [minimized, setMinimized] = useState(false);
   const [maximized, setMaximized] = useState(false);
@@ -1294,8 +1436,8 @@ function ComposeModal({ onClose, onSwitchToAI }: {
       if (action.id === 'generate') {
         prompt = [
           `Write a professional email body for the following context.`,
-          `To: ${to || 'the recipient'}`,
-          `Subject: ${subject || '(no subject)'}`,
+          `To: ${toPills.join(', ') || 'the recipient'}`,
+          `Subject: ${subjectValue || '(no subject)'}`,
           `Intent: ${intent ?? aiIntent}`,
           bodyText ? `Additional notes: ${bodyText}` : '',
           ``,
@@ -1305,14 +1447,39 @@ function ComposeModal({ onClose, onSwitchToAI }: {
         prompt = (action.prompt as (b: string) => string)(bodyText);
       }
 
-      const res  = await fetch('/api/agent/chat', {
+      const res = await fetch('/api/agent/chat', {
         method:  'POST',
         headers: { 'Content-Type': 'application/json' },
         body:    JSON.stringify({ messages: [{ role: 'user', content: prompt }] }),
       });
-      const data = await res.json() as { output?: string; error?: string };
-      if (data.output && editorRef.current) {
-        editorRef.current.innerText = data.output;
+
+      if (!res.ok) {
+        const err = await res.json() as { error?: string };
+        toast.error(err.error ?? 'AI failed — please try again.');
+        return;
+      }
+
+      // Read SSE stream and accumulate delta text
+      const reader  = res.body!.getReader();
+      const decoder = new TextDecoder();
+      let buffer = '', output = '';
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split('\n');
+        buffer = lines.pop() ?? '';
+        for (const line of lines) {
+          if (!line.startsWith('data: ')) continue;
+          try {
+            const data = JSON.parse(line.slice(6)) as { type: string; text?: string };
+            if (data.type === 'delta' && data.text) output += data.text;
+          } catch { /* partial */ }
+        }
+      }
+
+      if (output && editorRef.current) {
+        editorRef.current.innerText = output;
         toast.success(`${action.label} applied`);
       } else {
         toast.error('AI returned an empty response — try again.');
@@ -1325,28 +1492,24 @@ function ComposeModal({ onClose, onSwitchToAI }: {
     }
   }
 
-  async function handleSend() {
-    const toList = to.split(/[,;]/).map((e) => e.trim()).filter(Boolean);
-    if (!toList.length) { toast.error('Please add at least one recipient'); return; }
-    const emailErr = validateEmails(toList);
-    if (emailErr) { toast.error(emailErr); return; }
+  const onSubmit = async (fields: ComposeFields) => {
     const htmlBody = editorRef.current?.innerHTML ?? '';
     const body     = editorRef.current?.innerText ?? '';
     await sendMutation.mutateAsync({
-      to:      toList,
-      cc:      showCc && cc ? cc.split(/[,;]/).map((e) => e.trim()).filter(Boolean) : undefined,
-      subject: subject || '(no subject)',
+      to:      toPills,
+      cc:      showCc && ccPills.length ? ccPills : undefined,
+      subject: fields.subject || '(no subject)',
       body,
       htmlBody,
     });
-  }
+  };
 
   // Minimized pill
   if (minimized) {
     return (
       <div className="fixed bottom-0 right-6 z-50">
         <div className="w-64 bg-zinc-900 border border-zinc-700 border-b-0 rounded-t-xl shadow-2xl flex items-center justify-between px-4 py-2.5">
-          <span className="text-xs font-medium text-zinc-300 truncate">{subject || 'New message'}</span>
+          <span className="text-xs font-medium text-zinc-300 truncate">{subjectValue || 'New message'}</span>
           <div className="flex items-center gap-0.5 shrink-0 ml-2">
             <button onClick={() => setMinimized(false)} className="p-1 text-zinc-500 hover:text-zinc-200 hover:bg-zinc-800 rounded transition-colors"><Maximize2 size={12} /></button>
             <button onClick={onClose} className="p-1 text-zinc-500 hover:text-zinc-200 hover:bg-zinc-800 rounded transition-colors"><X size={12} /></button>
@@ -1357,61 +1520,59 @@ function ComposeModal({ onClose, onSwitchToAI }: {
   }
 
   return (
-    <div className={`fixed bottom-0 right-6 z-50 flex flex-col bg-zinc-950 border border-zinc-800 border-b-0 shadow-2xl rounded-t-2xl overflow-hidden transition-all duration-200
-      ${maximized ? 'w-[720px] h-[600px]' : 'w-[560px] h-[520px]'}`}
+    <div className={`fixed bottom-0 right-6 z-50 flex flex-col bg-zinc-950 border border-zinc-800/80 border-b-0 shadow-[0_-8px_40px_rgba(0,0,0,0.6)] rounded-t-2xl overflow-visible transition-all duration-200
+      ${maximized ? 'w-[680px] h-[580px]' : 'w-[540px] h-[500px]'}`}
     >
       {/* Header */}
-      <div className="flex items-center justify-between px-4 py-3 bg-zinc-900 border-b border-zinc-800 shrink-0">
-        <span className="text-sm font-semibold text-zinc-100">New message</span>
+      <div className="flex items-center justify-between px-5 py-3.5 bg-zinc-900/80 border-b border-zinc-800/60 shrink-0 rounded-t-2xl">
+        <span className="text-xs font-semibold text-zinc-200 tracking-wide">New message</span>
         <div className="flex items-center gap-0.5">
-          <button onClick={() => setMinimized(true)} className="p-1.5 text-zinc-500 hover:text-zinc-200 hover:bg-zinc-800 rounded-md transition-colors" title="Minimise"><Minimize2 size={13} /></button>
-          <button onClick={() => setMaximized((m) => !m)} className="p-1.5 text-zinc-500 hover:text-zinc-200 hover:bg-zinc-800 rounded-md transition-colors" title="Expand"><Maximize2 size={13} /></button>
-          <button onClick={onClose} className="p-1.5 text-zinc-500 hover:text-zinc-200 hover:bg-zinc-800 rounded-md transition-colors" title="Close"><X size={13} /></button>
+          <button type="button" onClick={() => setMinimized(true)} className="p-1.5 text-zinc-600 hover:text-zinc-300 hover:bg-zinc-800 rounded-lg transition-colors" title="Minimise"><Minimize2 size={12} /></button>
+          <button type="button" onClick={() => setMaximized((m) => !m)} className="p-1.5 text-zinc-600 hover:text-zinc-300 hover:bg-zinc-800 rounded-lg transition-colors" title="Expand"><Maximize2 size={12} /></button>
+          <button type="button" onClick={onClose} className="p-1.5 text-zinc-600 hover:text-zinc-300 hover:bg-zinc-800 rounded-lg transition-colors" title="Close"><X size={12} /></button>
         </div>
       </div>
 
       {/* Address fields */}
-      <div className="shrink-0 border-b border-zinc-800">
+      <div className="shrink-0 border-b border-zinc-800/60">
         {/* To */}
-        <div className="flex items-center gap-2 px-4 border-b border-zinc-800/60">
-          <span className="text-[11px] font-semibold text-zinc-500 uppercase tracking-wider w-10 shrink-0 py-2.5">To</span>
-          <input
-            value={to}
-            onChange={(e) => setTo(e.target.value)}
-            placeholder="Recipients"
-            className="flex-1 bg-transparent py-2.5 text-sm text-zinc-200 placeholder-zinc-600 focus:outline-none"
+        <div className={`flex items-start gap-3 px-4 border-b ${errors.to ? 'border-red-800/60' : 'border-zinc-800/40'}`}>
+          <span className="text-[10px] font-bold text-zinc-600 uppercase tracking-widest shrink-0 pt-3">To</span>
+          <RecipientInput
+            pills={toPills}
+            onChange={syncTo}
+            suggestions={senders}
+            error={errors.to?.message}
           />
           {!showCc && (
-            <button
-              onClick={() => setShowCc(true)}
-              className="text-[10px] font-medium text-zinc-600 hover:text-zinc-300 px-2 py-1 rounded-md hover:bg-zinc-800 transition-colors shrink-0"
-            >
+            <button type="button" onClick={() => setShowCc(true)}
+              className="text-[10px] font-semibold text-zinc-600 hover:text-zinc-300 px-2 py-1 rounded-md hover:bg-zinc-800 transition-colors shrink-0 mt-2">
               Cc
             </button>
           )}
         </div>
         {/* Cc */}
         {showCc && (
-          <div className="flex items-center gap-2 px-4 border-b border-zinc-800/60">
-            <span className="text-[11px] font-semibold text-zinc-500 uppercase tracking-wider w-10 shrink-0 py-2.5">Cc</span>
-            <input
-              value={cc}
-              onChange={(e) => setCc(e.target.value)}
-              placeholder="Cc recipients"
-              autoFocus
-              className="flex-1 bg-transparent py-2.5 text-sm text-zinc-200 placeholder-zinc-600 focus:outline-none"
+          <div className={`flex items-start gap-3 px-4 border-b ${errors.cc ? 'border-red-800/60' : 'border-zinc-800/40'}`}>
+            <span className="text-[10px] font-bold text-zinc-600 uppercase tracking-widest shrink-0 pt-3">Cc</span>
+            <RecipientInput
+              pills={ccPills}
+              onChange={syncCc}
+              suggestions={senders}
+              error={errors.cc?.message}
             />
-            <button onClick={() => { setShowCc(false); setCc(''); }} className="p-1 text-zinc-600 hover:text-zinc-300 rounded transition-colors shrink-0"><X size={12} /></button>
+            <button type="button" onClick={() => { setShowCc(false); syncCc([]); }}
+              className="p-1 text-zinc-600 hover:text-zinc-300 rounded transition-colors shrink-0 mt-2.5"><X size={11} /></button>
           </div>
         )}
         {/* Subject */}
-        <div className="flex items-center gap-2 px-4">
-          <span className="text-[11px] font-semibold text-zinc-500 uppercase tracking-wider w-10 shrink-0 py-2.5">Sub</span>
+        <div className="flex items-center gap-3 px-4">
+          <span className="text-[10px] font-bold text-zinc-600 uppercase tracking-widest shrink-0">Sub</span>
           <input
-            value={subject}
-            onChange={(e) => setSubject(e.target.value)}
+            {...register('subject')}
             placeholder="Subject"
-            className="flex-1 bg-transparent py-2.5 text-sm font-medium text-zinc-200 placeholder-zinc-600 focus:outline-none"
+            autoComplete="off"
+            className="flex-1 bg-transparent py-2.5 text-sm text-zinc-200 placeholder-zinc-600 focus:outline-none"
           />
         </div>
       </div>
@@ -1584,8 +1745,8 @@ function ComposeModal({ onClose, onSwitchToAI }: {
             <Trash2 size={14} />
           </button>
           <button
-            onClick={() => void handleSend()}
-            disabled={!to.trim() || sendMutation.isPending || !!aiLoading}
+            onClick={() => void handleSubmit(onSubmit)()}
+            disabled={toPills.length === 0 || sendMutation.isPending || !!aiLoading}
             className="btn-cal-new flex items-center gap-2 px-4 py-2 bg-white text-black text-xs font-bold rounded-lg hover:bg-zinc-100 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
           >
             {sendMutation.isPending

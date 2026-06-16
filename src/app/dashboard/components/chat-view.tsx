@@ -8,6 +8,8 @@ import {
   Copy, RefreshCw, Pencil, Check, Plus, MessageSquare,
   Maximize2, Minimize2, Trash2, X, Mic, MicOff, Square,
 } from 'lucide-react';
+import { useQuery } from '@tanstack/react-query';
+import { useTRPC }  from '@/trpc/client';
 
 type AgentMode = 'guided' | 'auto';
 import { MAX_PROMPT_CHARS } from '@/lib/constants';
@@ -416,6 +418,10 @@ export function ChatView({
   const [agentMode,        setAgentMode]        = useState<AgentMode>(() => {
     try { return (localStorage.getItem('yugati_agent_mode') as AgentMode) ?? 'guided'; } catch { return 'guided'; }
   });
+
+  const trpc      = useTRPC();
+  const { data: planData } = useQuery(trpc.plans.getMyPlan.queryOptions());
+  const charLimit = planData?.charLimit ?? MAX_PROMPT_CHARS;
 
   const voice = useVoiceInput((transcript) => { void submit(transcript); });
   const [copiedId,         setCopiedId]         = useState<string | null>(null);
@@ -977,7 +983,7 @@ export function ChatView({
         <div className="shrink-0 px-4 pb-4 pt-2">
           <div className="max-w-2xl mx-auto">
             <div className={`flex flex-col bg-zinc-900 border rounded-2xl transition-colors
-              ${input.length > MAX_PROMPT_CHARS
+              ${input.length > charLimit
                 ? 'border-red-500/60'
                 : voice.state === 'recording'    ? 'border-red-500/60'
                 : voice.state === 'transcribing' ? 'border-blue-500/40'
@@ -1022,12 +1028,12 @@ export function ChatView({
                 <div className="flex-1" />
                 {/* Char counter */}
                 <span className={`text-[10px] font-mono tabular-nums transition-colors
-                  ${input.length > MAX_PROMPT_CHARS
+                  ${input.length > charLimit
                     ? 'text-red-400 font-semibold'
-                    : input.length > MAX_PROMPT_CHARS * 0.8
+                    : input.length > charLimit * 0.8
                       ? 'text-zinc-400'
                       : 'text-zinc-700'}`}>
-                  {input.length}/{MAX_PROMPT_CHARS}
+                  {input.length}/{charLimit}
                 </span>
                 {/* Mic button */}
                 <button
@@ -1057,7 +1063,7 @@ export function ChatView({
                 ) : (
                   <button
                     onClick={() => void submit(input)}
-                    disabled={!input.trim() || voice.state !== 'idle' || input.length > MAX_PROMPT_CHARS}
+                    disabled={!input.trim() || voice.state !== 'idle' || input.length > charLimit}
                     className="shrink-0 w-7 h-7 rounded-lg bg-white text-black flex items-center justify-center hover:bg-zinc-100 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
                   >
                     <ArrowUp size={13} />
