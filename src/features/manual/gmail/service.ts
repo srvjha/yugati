@@ -16,26 +16,39 @@ export class GmailService {
   async listInbox(opts: { maxResults?: number; q?: string } = {}) {
     const limit = opts.maxResults ?? 20;
 
-    // Serve from Corsair entity DB when no search query and cache is fresh
     if (!opts.q) {
       const cached = await this.c.gmail.db.messages.list({ limit });
 
       if (cached.length > 0) {
+        const sorted = [...cached]
+          .sort((a, b) => Number(b.data.internalDate ?? 0) - Number(a.data.internalDate ?? 0))
+          .map((e) => e.data);
+
+        // Revalidate in background when stale — caller gets instant response
         const newestUpdatedAt = Math.max(...cached.map((e) => new Date(e.updated_at).getTime()));
-        if (Date.now() - newestUpdatedAt < CACHE_TTL_MS) {
-          const sorted = [...cached]
-            .sort((a, b) => Number(b.data.internalDate ?? 0) - Number(a.data.internalDate ?? 0))
-            .map((e) => e.data);
-          return { messages: sorted, nextPageToken: null };
+        if (Date.now() - newestUpdatedAt >= CACHE_TTL_MS) {
+          void this.revalidateInbox(limit);
         }
+
+        return { messages: sorted, nextPageToken: null };
       }
     }
 
-    // Fetch fresh from Gmail API
+    // Cold start or search — fetch live
+    return this.fetchFromApi(limit, opts.q);
+  }
+
+  private async revalidateInbox(limit: number) {
+    try {
+      await this.fetchFromApi(limit);
+    } catch { /* silent */ }
+  }
+
+  private async fetchFromApi(limit: number, q?: string) {
     const list = await this.c.gmail.api.messages.list({
       maxResults: limit,
       labelIds: ['INBOX'],
-      q: opts.q,
+      q,
     });
     if (!list.messages?.length) return { messages: [], nextPageToken: list.nextPageToken };
 
@@ -45,8 +58,7 @@ export class GmailService {
       )
     );
 
-    // Upsert into Corsair entity DB (only for non-search fetches)
-    if (!opts.q && messages.length > 0) {
+    if (!q && messages.length > 0) {
       await Promise.all(
         messages.map((m) => {
           const msg = m as { id: string } & Record<string, unknown>;
