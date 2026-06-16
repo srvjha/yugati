@@ -9,7 +9,7 @@ export default async function CalendarPage() {
     <div className="flex h-screen overflow-hidden bg-black text-white">
       <SidebarNav user={session!.user} />
       <div className="flex-1 min-w-0 overflow-hidden">
-        <CalendarView />
+        <CalendarView userName={session?.user?.name ?? undefined} />
       </div>
     </div>
   );

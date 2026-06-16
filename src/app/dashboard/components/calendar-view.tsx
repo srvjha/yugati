@@ -1,9 +1,9 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useRef, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useTRPC } from '@/trpc/client';
-import { ChevronLeft, ChevronRight, Plus, Plug, Video, X, Clock, MapPin, Users, Trash2, ExternalLink, AlignLeft, UserPlus, ChevronDown } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Plus, Plug, Video, X, Clock, MapPin, Users, Trash2, ExternalLink, AlignLeft, UserPlus, ChevronDown, ArrowUp, Loader2 } from 'lucide-react';
 import { ThemeToggle } from '@/components/theme-toggle';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -100,7 +100,7 @@ function eventColor(id?: string) {
 
 // ─── Main component ───────────────────────────────────────────────────────────
 
-export function CalendarView() {
+export function CalendarView({ userName }: { userName?: string }) {
   const trpc = useTRPC();
   const qc   = useQueryClient();
 
@@ -108,7 +108,9 @@ export function CalendarView() {
   const [year,  setYear]  = useState(today.getFullYear());
   const [month, setMonth] = useState(today.getMonth());
 
-  const [createOpen,   setCreateOpen]   = useState(false);
+  const [modeOpen,     setModeOpen]     = useState(false);
+  const [aiOpen,       setAiOpen]       = useState(false);
+  const [formOpen,     setFormOpen]     = useState(false);
   const [defaultDate,  setDefaultDate]  = useState('');
   const [selectedEvent, setSelectedEvent] = useState<CalEvent | null>(null);
 
@@ -151,7 +153,7 @@ export function CalendarView() {
 
   function openCreate(date?: Date) {
     setDefaultDate(date ? isoDate(date) : isoDate(today));
-    setCreateOpen(true);
+    setModeOpen(true);
   }
 
   // ── Render ────────────────────────────────────────────────────────────────
@@ -290,14 +292,33 @@ export function CalendarView() {
         )}
       </div>
 
-      {/* Create event modal */}
-      {createOpen && (
+      {/* Mode picker */}
+      {modeOpen && (
+        <CreateModePicker
+          onAI={() => { setModeOpen(false); setAiOpen(true); }}
+          onManual={() => { setModeOpen(false); setFormOpen(true); }}
+          onClose={() => setModeOpen(false)}
+        />
+      )}
+
+      {/* AI event creation panel */}
+      {aiOpen && (
+        <CalendarAIPanel
+          defaultDate={defaultDate}
+          userName={userName}
+          onClose={() => setAiOpen(false)}
+          onRefresh={() => void qc.invalidateQueries({ queryKey: trpc.calendar.listEvents.queryKey() })}
+        />
+      )}
+
+      {/* Manual form modal */}
+      {formOpen && (
         <CreateEventModal
           defaultDate={defaultDate}
-          onClose={() => setCreateOpen(false)}
+          onClose={() => setFormOpen(false)}
           onCreated={() => {
             void qc.invalidateQueries({ queryKey: trpc.calendar.listEvents.queryKey() });
-            setCreateOpen(false);
+            setFormOpen(false);
           }}
         />
       )}
@@ -312,6 +333,72 @@ export function CalendarView() {
         />
       )}
     </div>
+  );
+}
+
+// ─── Create Mode Picker ───────────────────────────────────────────────────────
+
+function CreateModePicker({
+  onAI,
+  onManual,
+  onClose,
+}: {
+  onAI: () => void;
+  onManual: () => void;
+  onClose: () => void;
+}) {
+  return (
+    <Overlay onClose={onClose}>
+      <div
+        className="bg-zinc-950 border border-zinc-800 rounded-2xl w-full max-w-sm shadow-2xl overflow-hidden"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex items-center justify-between px-5 pt-5 pb-3">
+          <h3 className="text-sm font-semibold text-white">Create event</h3>
+          <button
+            onClick={onClose}
+            className="w-7 h-7 flex items-center justify-center rounded-lg text-zinc-500 hover:text-white hover:bg-zinc-800 transition-colors"
+          >
+            <X size={14} />
+          </button>
+        </div>
+        <p className="px-5 pb-4 text-xs text-zinc-500">How would you like to create this event?</p>
+
+        <div className="px-4 pb-5 flex flex-col gap-2.5">
+          {/* AI option */}
+          <button
+            onClick={onAI}
+            className="group w-full flex items-start gap-4 px-4 py-4 rounded-xl border border-zinc-800 hover:border-zinc-600 bg-zinc-900/50 hover:bg-zinc-900 transition-all text-left"
+          >
+            <div className="w-9 h-9 rounded-xl bg-zinc-800 group-hover:bg-zinc-700 flex items-center justify-center shrink-0 transition-colors">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className="text-zinc-300">
+                <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
+              </svg>
+            </div>
+            <div className="min-w-0">
+              <p className="text-sm font-medium text-white">Ask AI</p>
+              <p className="text-xs text-zinc-500 mt-0.5 leading-relaxed">Describe what you need in plain language and let the assistant handle the details.</p>
+            </div>
+          </button>
+
+          {/* Manual option */}
+          <button
+            onClick={onManual}
+            className="group w-full flex items-start gap-4 px-4 py-4 rounded-xl border border-zinc-800 hover:border-zinc-600 bg-zinc-900/50 hover:bg-zinc-900 transition-all text-left"
+          >
+            <div className="w-9 h-9 rounded-xl bg-zinc-800 group-hover:bg-zinc-700 flex items-center justify-center shrink-0 transition-colors">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className="text-zinc-300">
+                <rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>
+              </svg>
+            </div>
+            <div className="min-w-0">
+              <p className="text-sm font-medium text-white">Fill in manually</p>
+              <p className="text-xs text-zinc-500 mt-0.5 leading-relaxed">Set the title, time, guests, and other details yourself using a form.</p>
+            </div>
+          </button>
+        </div>
+      </div>
+    </Overlay>
   );
 }
 
@@ -654,6 +741,230 @@ function EventDetail({
         </div>
       </div>
     </Overlay>
+  );
+}
+
+// ─── Calendar AI Panel ────────────────────────────────────────────────────────
+
+type AIPanelMsg = { id: string; role: 'user' | 'assistant'; content: string; streaming?: boolean };
+
+function uid() { return Math.random().toString(36).slice(2, 10); }
+
+const CAL_CHIPS = [
+  { label: 'Summarize unread emails',       prompt: 'Summarize my unread emails'                              },
+  { label: 'Draft replies',                 prompt: 'Help me draft replies to my recent emails'               },
+  { label: 'Find unanswered conversations', prompt: 'Find email conversations that need my reply'             },
+  { label: "Today's agenda",                prompt: "What's on my calendar today?"                            },
+  { label: 'Schedule meeting',              prompt: 'Help me schedule a meeting'                              },
+  { label: 'Create tasks from emails',      prompt: 'Create a task list from my recent emails'                },
+];
+
+function CalendarAIPanel({
+  defaultDate,
+  userName,
+  onClose,
+  onRefresh,
+}: {
+  defaultDate: string;
+  userName?: string;
+  onClose: () => void;
+  onRefresh: () => void;
+}) {
+  const firstName = userName?.split(' ')[0];
+  const h = new Date().getHours();
+  const tod = h >= 22 || h < 5 ? 'night' : h < 12 ? 'morning' : h < 17 ? 'afternoon' : 'evening';
+  const timeGreet = { night: 'Good evening', morning: 'Good morning', afternoon: 'Good afternoon', evening: 'Good evening' }[tod];
+  const initGreet = firstName ? `${timeGreet}, ${firstName}.` : `${timeGreet}.`;
+
+  const formattedDate = defaultDate
+    ? new Date(`${defaultDate}T12:00:00`).toLocaleDateString([], { weekday: 'short', month: 'short', day: 'numeric' })
+    : '';
+
+  const [messages, setMessages] = useState<AIPanelMsg[]>([
+    { id: 'init', role: 'assistant', content: `${initGreet}\nHow can I help with your calendar?` },
+  ]);
+  const [input,   setInput]   = useState('');
+  const [loading, setLoading] = useState(false);
+  const bottomRef = useRef<HTMLDivElement>(null);
+  const abortRef  = useRef<AbortController | null>(null);
+
+  useEffect(() => {
+    bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [messages]);
+
+  async function submit(text: string) {
+    if (!text.trim() || loading) return;
+    setInput('');
+
+    const context = defaultDate
+      ? `[Context: selected calendar date is ${formattedDate}]\n\n${text.trim()}`
+      : text.trim();
+
+    const userMsg: AIPanelMsg      = { id: uid(), role: 'user',      content: text.trim() };
+    const assistantMsg: AIPanelMsg = { id: uid(), role: 'assistant', content: '', streaming: true };
+
+    setMessages((prev) => [...prev, userMsg, assistantMsg]);
+    setLoading(true);
+
+    const abort = new AbortController();
+    abortRef.current = abort;
+
+    try {
+      const history = [...messages, userMsg]
+        .filter((m) => !m.streaming)
+        .map((m) => ({
+          role: m.role as 'user' | 'assistant',
+          content: m.id === 'init' ? m.content : m.role === 'user' && m.id === userMsg.id ? context : m.content,
+        }));
+
+      const res = await fetch('/api/agent/chat', {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json' },
+        signal:  abort.signal,
+        body: JSON.stringify({ messages: history, agentMode: 'auto' }),
+      });
+
+      if (!res.ok) {
+        const err = await res.json() as { error?: string };
+        setMessages((prev) => prev.map((m) =>
+          m.id === assistantMsg.id
+            ? { ...m, content: err.error ?? 'Something went wrong.', streaming: false }
+            : m,
+        ));
+        return;
+      }
+
+      const reader  = res.body!.getReader();
+      const decoder = new TextDecoder();
+      let buffer = '', accumulated = '';
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split('\n');
+        buffer = lines.pop() ?? '';
+
+        for (const line of lines) {
+          if (!line.startsWith('data: ')) continue;
+          try {
+            const data = JSON.parse(line.slice(6)) as { type: string; text?: string };
+            if (data.type === 'delta' && data.text) {
+              accumulated += data.text;
+              const snap = accumulated;
+              setMessages((prev) => prev.map((m) =>
+                m.id === assistantMsg.id ? { ...m, content: snap } : m,
+              ));
+            }
+          } catch { /* partial JSON */ }
+        }
+      }
+
+      setMessages((prev) => prev.map((m) =>
+        m.id === assistantMsg.id ? { ...m, streaming: false } : m,
+      ));
+      onRefresh();
+    } catch (err) {
+      if ((err as Error).name !== 'AbortError') {
+        setMessages((prev) => prev.map((m) =>
+          m.id === assistantMsg.id
+            ? { ...m, content: 'Request failed. Please try again.', streaming: false }
+            : m,
+        ));
+      }
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  return (
+    <div
+      className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex flex-col items-center"
+      onClick={onClose}
+    >
+      {/* Close button top-right */}
+      <button
+        onClick={onClose}
+        className="absolute top-5 right-5 w-8 h-8 flex items-center justify-center rounded-full text-zinc-400 hover:text-white hover:bg-white/10 transition-colors z-10"
+      >
+        <X size={16} />
+      </button>
+
+      {/* Scrollable content area */}
+      <div
+        className="flex-1 overflow-y-auto p-8 w-full max-w-2xl"
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* Breadcrumb pill */}
+        <div className="inline-flex items-center gap-1.5 text-xs text-zinc-300 border border-zinc-700 rounded-full px-3 py-1.5 mb-6">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-zinc-500 shrink-0">
+            <rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>
+          </svg>
+          <span>Viewing · Calendar</span>
+          {formattedDate && <><span className="text-zinc-600">·</span><span>{formattedDate}</span></>}
+        </div>
+
+        {/* Chips */}
+        <div className="flex flex-wrap gap-2.5 mb-6">
+          {CAL_CHIPS.map(({ label, prompt }) => (
+            <button
+              key={label}
+              onClick={() => void submit(prompt)}
+              disabled={loading}
+              className="px-4 py-2 rounded-xl border border-zinc-700 text-sm text-zinc-200 hover:bg-zinc-800 hover:border-zinc-500 hover:text-white transition-colors disabled:opacity-40"
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+
+        {/* Messages */}
+        <div className="space-y-4">
+          {messages.map((msg) => (
+            <div key={msg.id} className={msg.role === 'user' ? 'flex justify-end' : ''}>
+              {msg.role === 'assistant' ? (
+                <div className="bg-zinc-900/80 border border-zinc-800/60 rounded-2xl px-5 py-4 max-w-2xl">
+                  <p className="text-[10px] font-semibold tracking-widest text-zinc-500 mb-2 uppercase">Assistant</p>
+                  <div className="text-sm text-zinc-100 whitespace-pre-wrap leading-relaxed">
+                    {msg.content || (msg.streaming && <span className="text-zinc-500">Thinking…</span>)}
+                    {msg.streaming && msg.content && (
+                      <span className="inline-block w-1.5 h-4 bg-zinc-400 ml-0.5 animate-pulse align-middle" />
+                    )}
+                  </div>
+                </div>
+              ) : (
+                <div className="max-w-xs bg-zinc-700/70 rounded-2xl rounded-tr-sm px-4 py-2.5 text-sm text-zinc-100">
+                  {msg.content}
+                </div>
+              )}
+            </div>
+          ))}
+          <div ref={bottomRef} />
+        </div>
+      </div>
+
+      {/* Input pinned to bottom */}
+      <div className="px-8 py-5 max-w-2xl w-full shrink-0" onClick={(e) => e.stopPropagation()}>
+        <div className="flex items-center gap-2 bg-zinc-900/80 border border-zinc-700 rounded-2xl px-4 py-3">
+          <input
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); void submit(input); } }}
+            placeholder={`Ask about your calendar${formattedDate ? ` for ${formattedDate}` : ''}…`}
+            disabled={loading}
+            autoFocus
+            className="flex-1 bg-transparent text-sm text-zinc-100 placeholder:text-zinc-500 outline-none disabled:opacity-50"
+          />
+          <button
+            onClick={() => void submit(input)}
+            disabled={loading || !input.trim()}
+            className="w-7 h-7 rounded-lg bg-white text-black flex items-center justify-center hover:bg-zinc-200 transition-colors disabled:opacity-30 shrink-0"
+          >
+            {loading ? <Loader2 size={13} className="animate-spin" /> : <ArrowUp size={13} />}
+          </button>
+        </div>
+      </div>
+    </div>
   );
 }
 
