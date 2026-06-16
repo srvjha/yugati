@@ -107,4 +107,14 @@ export const gmailRouter = createTRPCRouter({
     .input(z.object({ id: idSchema }))
     .mutation(({ ctx, input }) => new GmailService(ctx.tenantId).deleteLabel(input.id)),
 
+  // ─── Subscriptions ─────────────────────────────────────────────────────────
+
+  listSubscriptions: protectedProcedure
+    .input(z.object({ maxResults: z.number().int().min(1).max(150).default(50) }).optional())
+    .query(({ ctx, input }) => new GmailService(ctx.tenantId).listSubscriptions(input?.maxResults)),
+
+  unsubscribeViaEmail: protectedProcedure
+    .input(z.object({ mailtoUrl: z.string().min(1) }))
+    .mutation(({ ctx, input }) => new GmailService(ctx.tenantId).unsubscribeViaEmail(input.mailtoUrl)),
+
 });

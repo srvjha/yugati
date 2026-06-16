@@ -259,14 +259,6 @@ const SUGGESTIONS = [
     iconBg:   'bg-blue-500/15 text-blue-400',
   },
   {
-    icon:     Calendar,
-    label:    "This week's calendar",
-    detail:   'Review your upcoming meetings',
-    prompt:   'What meetings do I have this week?',
-    gradient: 'from-violet-500/10 to-purple-500/5',
-    iconBg:   'bg-violet-500/15 text-violet-400',
-  },
-  {
     icon:     Zap,
     label:    'Quick summary',
     detail:   'Catch up on your last 5 emails',
@@ -275,12 +267,20 @@ const SUGGESTIONS = [
     iconBg:   'bg-amber-500/15 text-amber-400',
   },
   {
-    icon:     Mail,
-    label:    'Draft a reply',
-    detail:   'Reply to your most recent email',
-    prompt:   'Draft a reply to my most recent email',
-    gradient: 'from-emerald-500/10 to-teal-500/5',
-    iconBg:   'bg-emerald-500/15 text-emerald-400',
+    icon:     Calendar,
+    label:    'Schedule a meeting',
+    detail:   'Create a calendar event with invites',
+    prompt:   'Schedule a 30-minute meeting for tomorrow at 2pm and send an invite',
+    gradient: 'from-rose-500/10 to-pink-500/5',
+    iconBg:   'bg-rose-500/15 text-rose-400',
+  },
+  {
+    icon:     Calendar,
+    label:    "Today's agenda",
+    detail:   'See all events on your calendar today',
+    prompt:   "What's on my calendar today? Give me a full rundown of today's events.",
+    gradient: 'from-cyan-500/10 to-sky-500/5',
+    iconBg:   'bg-cyan-500/15 text-cyan-400',
   },
 ];
 

@@ -2,6 +2,17 @@ import { corsair } from '@/server/corsair';
 
 const CACHE_TTL_MS = 3 * 60 * 1000; // 3 minutes
 
+export interface Subscription {
+  messageId:   string;
+  senderName:  string;
+  senderEmail: string;
+  domain:      string;
+  subject:     string;
+  mailtoUrl?:  string;
+  httpsUrl?:   string;
+  oneClick:    boolean;
+}
+
 export class GmailService {
   private readonly c: ReturnType<typeof corsair.withTenant>;
 
@@ -121,6 +132,80 @@ export class GmailService {
 
   listLabels() {
     return this.c.gmail.api.labels.list({});
+  }
+
+  async listSubscriptions(maxResults = 50) {
+    // Search multiple categories since Gmail routes subscription emails to Promotions/Updates
+    const [inboxList, promoList, updatesList] = await Promise.allSettled([
+      this.c.gmail.api.messages.list({ q: 'has:unsubscribe', maxResults }),
+      this.c.gmail.api.messages.list({ labelIds: ['CATEGORY_PROMOTIONS'], maxResults }),
+      this.c.gmail.api.messages.list({ labelIds: ['CATEGORY_UPDATES'], maxResults }),
+    ]);
+
+    const allIds = new Set<string>();
+    for (const result of [inboxList, promoList, updatesList]) {
+      if (result.status === 'fulfilled') {
+        const r = result.value as { messages?: Array<{ id?: string }> };
+        for (const m of r.messages ?? []) {
+          if (m.id) allIds.add(m.id);
+        }
+      }
+    }
+
+    if (!allIds.size) return { subscriptions: [] as Subscription[] };
+
+    const details = await Promise.all(
+      [...allIds].slice(0, maxResults).map((id) =>
+        this.c.gmail.api.messages.get({ id, format: 'full' })
+      )
+    );
+
+    const seen = new Map<string, Subscription>();
+    for (const msg of details) {
+      const m = msg as Record<string, unknown>;
+      const headers = ((m.payload as Record<string, unknown>)?.headers ?? []) as Array<{ name?: string; value?: string }>;
+      const get = (name: string) =>
+        headers.find((h) => h.name?.toLowerCase() === name.toLowerCase())?.value ?? '';
+
+      const unsubHeader = get('List-Unsubscribe');
+      if (!unsubHeader) continue;
+
+      const from = get('From');
+      const nameMatch = from.match(/^"?([^"<,]+)"?\s*</);
+      const emailMatch = from.match(/<([^>]+)>/) ?? [null, from];
+      const senderEmail = ((emailMatch[1] as string) ?? from).trim().toLowerCase();
+      const senderName  = (nameMatch?.[1] ?? senderEmail).trim().replace(/"/g, '');
+      const domain      = senderEmail.split('@')[1] ?? senderEmail;
+      if (!domain || seen.has(domain)) continue;
+
+      const mailtoMatch = unsubHeader.match(/<mailto:([^>]+)>/i);
+      const httpsMatch  = unsubHeader.match(/<(https?:\/\/[^>]+)>/i);
+      const unsubPost   = get('List-Unsubscribe-Post');
+
+      seen.set(domain, {
+        messageId:   String(m.id ?? ''),
+        senderName,
+        senderEmail,
+        domain,
+        subject:     get('Subject'),
+        mailtoUrl:   mailtoMatch?.[1],
+        httpsUrl:    httpsMatch?.[1],
+        oneClick:    unsubPost.toLowerCase().includes('one-click'),
+      });
+    }
+
+    return { subscriptions: Array.from(seen.values()) };
+  }
+
+  async unsubscribeViaEmail(mailtoUrl: string) {
+    const [address, ...rest] = mailtoUrl.split('?');
+    const params = new URLSearchParams(rest.join('?'));
+    await this.sendMessage({
+      to:      [address.trim()],
+      subject: params.get('subject') ?? 'Unsubscribe',
+      body:    params.get('body') ?? '',
+    });
+    return { success: true };
   }
 
   async trashMessage(id: string) {
