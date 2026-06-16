@@ -29,8 +29,6 @@ export default async function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  // Render the persisted theme on the server so it's correct before first
-  // paint and survives every navigation / reload. Defaults to dark.
   const theme = (await cookies()).get("theme")?.value === "light" ? "light" : "dark";
 
   return (

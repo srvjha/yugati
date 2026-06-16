@@ -208,6 +208,25 @@ export default function MailPage() {
   useEffect(() => {
     if (connectedParam) { toast.success('Gmail connected!'); router.replace('/dashboard/mail'); }
     if (errorParam)     { toast.error('Failed to connect Gmail account.'); router.replace('/dashboard/mail'); }
+
+    // Pick up Reply context set by the email view
+    const raw = sessionStorage.getItem('yugati_reply_context');
+    if (raw) {
+      sessionStorage.removeItem('yugati_reply_context');
+      try {
+        const ctx = JSON.parse(raw) as { from: string; to: string; subject: string; snippet: string; replyAll?: boolean };
+        // Extract readable sender name from "Name <email>" format
+        const senderName = ctx.from.match(/^"?([^"<]+)"?\s*</)?.[1]?.trim() || ctx.from;
+        const action = ctx.replyAll ? 'reply all' : 'reply';
+        const prompt = `Draft a professional ${action} to ${senderName} regarding: "${ctx.subject}".
+
+Context — they wrote: ${ctx.snippet.slice(0, 300)}${ctx.snippet.length > 300 ? '…' : ''}
+
+Keep it concise and address them by name.`;
+        setSummarizePrompt(prompt);
+        setChatMode(true);
+      } catch { /* ignore */ }
+    }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
