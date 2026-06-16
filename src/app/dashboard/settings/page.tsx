@@ -327,7 +327,7 @@ function IntegrationsTab() {
         <Zap size={13} className="text-amber-400 shrink-0 mt-0.5" />
         <p className="text-xs text-zinc-500">
           Disconnecting an integration will prevent Yugati from accessing that data.
-          Your data is never stored — it's fetched live from Google on each request.
+          Your data is never stored — it&apos;s fetched live from Google on each request.
         </p>
       </div>
     </>

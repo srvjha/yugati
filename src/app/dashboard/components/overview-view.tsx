@@ -161,7 +161,7 @@ export function OverviewView({ userName }: { userName?: string }) {
         <div className="flex items-start justify-between">
           <div>
             <h1 className="text-2xl font-bold text-white">{greeting}</h1>
-            <p className="text-sm text-zinc-500 mt-1">Here's your communication overview</p>
+            <p className="text-sm text-zinc-500 mt-1">Here&apos;s your communication overview</p>
           </div>
           <div className="flex items-center gap-2 text-xs text-zinc-600">
             <RefreshCw size={11} className={overviewQ.isFetching || emailQ.isFetching ? 'animate-spin' : ''} />

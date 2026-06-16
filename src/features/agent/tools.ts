@@ -2,6 +2,11 @@ import { tool } from '@openai/agents';
 import { z } from 'zod';
 import { corsair } from '@/server/corsair';
 
+function encodeSubject(s: string): string {
+  if (/^[\x00-\x7F]*$/.test(s)) return s;
+  return `=?utf-8?B?${Buffer.from(s).toString('base64')}?=`;
+}
+
 function buildRfc2822(opts: {
   to: string | string[];
   cc?: string[];
@@ -14,7 +19,7 @@ function buildRfc2822(opts: {
     `To: ${toHeader}`,
     ...(opts.cc?.length  ? [`Cc: ${opts.cc.join(', ')}`]   : []),
     ...(opts.bcc?.length ? [`Bcc: ${opts.bcc.join(', ')}`] : []),
-    `Subject: ${opts.subject ?? ''}`,
+    `Subject: ${encodeSubject(opts.subject ?? '')}`,
     'MIME-Version: 1.0',
     'Content-Type: text/plain; charset=utf-8',
   ];

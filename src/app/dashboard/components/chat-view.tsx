@@ -6,8 +6,10 @@ import remarkGfm from 'remark-gfm';
 import {
   ArrowUp, Loader2, Mail, Calendar, Zap,
   Copy, RefreshCw, Pencil, Check, Plus, MessageSquare,
-  Maximize2, Minimize2, Trash2, X, Mic, MicOff,
+  Maximize2, Minimize2, Trash2, X, Mic, MicOff, Square,
 } from 'lucide-react';
+
+type AgentMode = 'guided' | 'auto';
 import { MAX_PROMPT_CHARS } from '@/lib/constants';
 
 // ─── Voice input — OpenAI Whisper via /api/voice/transcribe ──────────────────
@@ -384,6 +386,9 @@ export function ChatView({
   const [editingMsgId,     setEditingMsgId]     = useState<string | null>(null);
   const [editMsgText,      setEditMsgText]      = useState('');
   const [showClearDialog,  setShowClearDialog]  = useState(false);
+  const [agentMode,        setAgentMode]        = useState<AgentMode>(() => {
+    try { return (localStorage.getItem('yugati_agent_mode') as AgentMode) ?? 'guided'; } catch { return 'guided'; }
+  });
 
   const voice = useVoiceInput((transcript) => { void submit(transcript); });
   const [copiedId,         setCopiedId]         = useState<string | null>(null);
@@ -394,6 +399,7 @@ export function ChatView({
   const textareaRef    = useRef<HTMLTextAreaElement>(null);
   const editMsgRef     = useRef<HTMLTextAreaElement>(null);
   const editSessionRef = useRef<HTMLInputElement>(null);
+  const abortRef       = useRef<AbortController | null>(null);
 
 
   const activeSession  = sessions.find((s) => s.id === activeId);
@@ -516,15 +522,20 @@ export function ChatView({
     setEditingMsgId(null);
     setLoading(true);
 
+    const abort = new AbortController();
+    abortRef.current = abort;
+
     try {
       const res = await fetch('/api/agent/chat', {
         method:  'POST',
         headers: { 'Content-Type': 'application/json' },
+        signal:  abort.signal,
         body: JSON.stringify({
           messages: nextMessages
             .filter((m) => !m.streaming)
             .map((m) => ({ role: m.role, content: m.content })),
           conversationId,
+          agentMode,
         }),
       });
 
@@ -594,20 +605,33 @@ export function ChatView({
           } catch { /* malformed chunk */ }
         }
       }
-    } catch {
-      updateSession(currentId, (s) => ({
-        ...s,
-        messages: s.messages.map((m) =>
-          m.id === assistantMsg.id
-            ? { ...m, content: 'Network error — please try again.', streaming: false }
-            : m,
-        ),
-      }));
+    } catch (err) {
+      if ((err as { name?: string }).name === 'AbortError') {
+        // User stopped — remove the incomplete assistant message
+        updateSession(currentId, (s) => ({
+          ...s,
+          messages: s.messages.filter((m) => m.id !== assistantMsg.id),
+        }));
+      } else {
+        updateSession(currentId, (s) => ({
+          ...s,
+          messages: s.messages.map((m) =>
+            m.id === assistantMsg.id
+              ? { ...m, content: 'Network error — please try again.', streaming: false }
+              : m,
+          ),
+        }));
+      }
     } finally {
+      abortRef.current = null;
       setLoading(false);
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeId, isLoading, sessions]);
+
+  function stopGeneration() {
+    abortRef.current?.abort();
+  }
 
   async function copyMessage(id: string, content: string) {
     await navigator.clipboard.writeText(content);
@@ -910,12 +934,13 @@ export function ChatView({
         {/* Input */}
         <div className="shrink-0 px-4 pb-4 pt-2">
           <div className="max-w-2xl mx-auto">
-            <div className={`flex items-end gap-2 bg-zinc-900 border rounded-2xl px-4 py-3 transition-colors
+            <div className={`flex flex-col bg-zinc-900 border rounded-2xl transition-colors
               ${input.length > MAX_PROMPT_CHARS
                 ? 'border-red-500/60'
                 : voice.state === 'recording'    ? 'border-red-500/60'
                 : voice.state === 'transcribing' ? 'border-blue-500/40'
                 : 'border-zinc-700 focus-within:border-zinc-500'}`}>
+              {/* Textarea row */}
               <textarea
                 ref={textareaRef}
                 value={input}
@@ -929,42 +954,74 @@ export function ChatView({
                   'Ask anything about your email or calendar…'
                 }
                 rows={1}
-                disabled={isLoading || voice.state === 'transcribing'}
-                className="flex-1 bg-transparent text-sm resize-none outline-none placeholder-zinc-600 min-h-5 max-h-40 leading-5 disabled:opacity-50"
+                disabled={voice.state === 'transcribing'}
+                className="bg-transparent text-sm resize-none outline-none placeholder-zinc-600 min-h-5 max-h-40 leading-5 px-4 pt-3 pb-2"
               />
-              {/* Char counter — always visible, escalates as limit approaches */}
-              <span className={`shrink-0 self-end text-[10px] font-mono tabular-nums mb-0.5 transition-colors
-                ${input.length > MAX_PROMPT_CHARS
-                  ? 'text-red-400 font-semibold'
-                  : input.length > MAX_PROMPT_CHARS * 0.8
-                    ? 'text-zinc-400'
-                    : 'text-zinc-700'}`}>
-                {input.length}/{MAX_PROMPT_CHARS}
-              </span>
-              {/* Mic button */}
-              <button
-                onClick={() => void voice.start()}
-                disabled={isLoading || voice.state === 'transcribing'}
-                title={voice.state === 'recording' ? `Stop (${voice.timeLeft}s left)` : 'Voice input — powered by OpenAI Whisper'}
-                className={`shrink-0 w-7 h-7 rounded-lg flex items-center justify-center transition-all disabled:opacity-30 disabled:cursor-not-allowed
-                  ${voice.state === 'recording'
-                    ? 'bg-red-500 text-white animate-pulse'
-                    : voice.state === 'transcribing'
-                      ? 'bg-blue-500/20 text-blue-400'
-                      : 'text-zinc-500 hover:text-zinc-300 hover:bg-zinc-800'}`}
-              >
-                {voice.state === 'transcribing' ? <Loader2 size={13} className="animate-spin" /> :
-                 voice.state === 'recording'    ? <MicOff size={13} /> :
-                 <Mic size={13} />}
-              </button>
-              {/* Send button */}
-              <button
-                onClick={() => void submit(input)}
-                disabled={!input.trim() || isLoading || voice.state !== 'idle' || input.length > MAX_PROMPT_CHARS}
-                className="shrink-0 w-7 h-7 rounded-lg bg-white text-black flex items-center justify-center hover:bg-zinc-100 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
-              >
-                {isLoading ? <Loader2 size={13} className="animate-spin" /> : <ArrowUp size={13} />}
-              </button>
+              {/* Bottom toolbar */}
+              <div className="flex items-center gap-2 px-3 pb-2.5">
+                {/* Mode toggle */}
+                <div className="flex items-center bg-zinc-800/60 rounded-lg p-0.5 gap-0.5">
+                  <button
+                    onClick={() => { setAgentMode('guided'); try { localStorage.setItem('yugati_agent_mode', 'guided'); } catch {} }}
+                    className={`flex items-center px-2.5 py-1 rounded-md text-[11px] font-medium transition-all
+                      ${agentMode === 'guided' ? 'bg-zinc-700 text-zinc-200' : 'text-zinc-600 hover:text-zinc-400'}`}
+                  >
+                    Guided
+                  </button>
+                  <button
+                    onClick={() => { setAgentMode('auto'); try { localStorage.setItem('yugati_agent_mode', 'auto'); } catch {} }}
+                    className={`flex items-center gap-1 px-2.5 py-1 rounded-md text-[11px] font-medium transition-all
+                      ${agentMode === 'auto' ? 'bg-zinc-700 text-zinc-200' : 'text-zinc-600 hover:text-zinc-400'}`}
+                  >
+                    <Zap size={9} className={agentMode === 'auto' ? 'text-amber-400' : ''} />
+                    Auto
+                  </button>
+                </div>
+                <div className="flex-1" />
+                {/* Char counter */}
+                <span className={`text-[10px] font-mono tabular-nums transition-colors
+                  ${input.length > MAX_PROMPT_CHARS
+                    ? 'text-red-400 font-semibold'
+                    : input.length > MAX_PROMPT_CHARS * 0.8
+                      ? 'text-zinc-400'
+                      : 'text-zinc-700'}`}>
+                  {input.length}/{MAX_PROMPT_CHARS}
+                </span>
+                {/* Mic button */}
+                <button
+                  onClick={() => void voice.start()}
+                  disabled={isLoading || voice.state === 'transcribing'}
+                  title={voice.state === 'recording' ? `Stop (${voice.timeLeft}s left)` : 'Voice input'}
+                  className={`shrink-0 w-7 h-7 rounded-lg flex items-center justify-center transition-all disabled:opacity-30 disabled:cursor-not-allowed
+                    ${voice.state === 'recording'
+                      ? 'bg-red-500 text-white animate-pulse'
+                      : voice.state === 'transcribing'
+                        ? 'bg-blue-500/20 text-blue-400'
+                        : 'text-zinc-500 hover:text-zinc-300 hover:bg-zinc-800'}`}
+                >
+                  {voice.state === 'transcribing' ? <Loader2 size={13} className="animate-spin" /> :
+                   voice.state === 'recording'    ? <MicOff size={13} /> :
+                   <Mic size={13} />}
+                </button>
+                {/* Stop / Send button */}
+                {isLoading ? (
+                  <button
+                    onClick={stopGeneration}
+                    title="Stop generating"
+                    className="shrink-0 w-7 h-7 rounded-lg bg-white text-black flex items-center justify-center hover:bg-zinc-100 transition-colors"
+                  >
+                    <Square size={11} fill="currentColor" />
+                  </button>
+                ) : (
+                  <button
+                    onClick={() => void submit(input)}
+                    disabled={!input.trim() || voice.state !== 'idle' || input.length > MAX_PROMPT_CHARS}
+                    className="shrink-0 w-7 h-7 rounded-lg bg-white text-black flex items-center justify-center hover:bg-zinc-100 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+                  >
+                    <ArrowUp size={13} />
+                  </button>
+                )}
+              </div>
             </div>
             <p className="text-center text-[10px] text-zinc-700 mt-2">
               Yugati can make mistakes. Verify important actions before confirming.

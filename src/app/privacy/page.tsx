@@ -33,7 +33,7 @@ export default function PrivacyPage() {
 
           <Section title="1. Introduction">
             <p>
-              Yugati ("we", "our", or "us") is an AI productivity platform operated by Saurav Jha,
+              Yugati (&quot;we&quot;, &quot;our&quot;, or &quot;us&quot;) is an AI productivity platform operated by Saurav Jha,
               based in India. This Privacy Policy explains how we collect, use, store, and protect
               your personal information when you use our service at{' '}
               <a href="https://www.yugati.in" className="text-white hover:text-zinc-300">

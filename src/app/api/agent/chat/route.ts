@@ -21,9 +21,10 @@ export async function POST(request: Request) {
   const session = await auth.api.getSession({ headers: await headers() });
   if (!session) return Response.json({ error: 'Unauthorized' }, { status: 401 });
 
-  const { messages, conversationId } = await request.json() as {
+  const { messages, conversationId, agentMode } = await request.json() as {
     messages:        ChatMessage[];
     conversationId?: string;
+    agentMode?:      'guided' | 'auto';
   };
 
   // Per-plan character limit
@@ -65,6 +66,7 @@ export async function POST(request: Request) {
           messages,
           conversationId,
           session.user.name ?? undefined,
+          agentMode ?? 'guided',
         );
 
         if (result.status === 'blocked') {

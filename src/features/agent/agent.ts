@@ -8,7 +8,7 @@ import { buildAgentInstructions } from './prompts/agent';
 import { buildGmailTools } from './tools';
 import type { ChatMessage } from './types';
 
-function createAgent(tenantId: string, userName: string) {
+function createAgent(tenantId: string, userName: string, mode: 'guided' | 'auto') {
   const provider    = new OpenAIAgentsProvider();
   const corsairTools = provider.build({ corsair: corsair.withTenant(tenantId), tool });
   const gmailTools  = buildGmailTools(tenantId);
@@ -16,7 +16,7 @@ function createAgent(tenantId: string, userName: string) {
   return new Agent({
     name:             'yugati',
     model:            'gpt-4.1-mini',
-    instructions:     buildAgentInstructions(userName),
+    instructions:     buildAgentInstructions(userName, mode),
     tools:            [...corsairTools, ...gmailTools],
     inputGuardrails:  [safetyGuardrail],
     outputGuardrails: [sensitiveDataGuardrail],
@@ -33,6 +33,7 @@ export async function runChat(
   messages:        ChatMessage[],
   conversationId?: string,
   userName?:       string,
+  mode:            'guided' | 'auto' = 'guided',
 ): Promise<ChatResult> {
   const { session, id } = await loadSession(tenantId, conversationId);
 
@@ -40,7 +41,7 @@ export async function runChat(
   const enhanced = await enhancePrompt(raw, messages);
 
   try {
-    const result = await run(createAgent(tenantId, userName ?? 'User'), enhanced, { session });
+    const result = await run(createAgent(tenantId, userName ?? 'User', mode), enhanced, { session });
     await saveSession(tenantId, id, session);
 
     return {

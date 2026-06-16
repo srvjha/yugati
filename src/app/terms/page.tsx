@@ -37,11 +37,11 @@ export default function TermsPage() {
               <a href="https://www.yugati.in" className="text-white hover:text-zinc-300 underline underline-offset-2">
                 www.yugati.in
               </a>{' '}
-              ("the Service"), you agree to be bound by these Terms of Service ("Terms"). If you
+              (&quot;the Service&quot;), you agree to be bound by these Terms of Service (&quot;Terms&quot;). If you
               do not agree to these Terms, do not use the Service.
             </p>
             <p>
-              Yugati is operated by Saurav Jha ("we", "us", or "our"), an individual operating
+              Yugati is operated by Saurav Jha (&quot;we&quot;, &quot;us&quot;, or &quot;our&quot;), an individual operating
               from India.
             </p>
           </Section>
@@ -169,7 +169,7 @@ export default function TermsPage() {
 
           <Section title="10. Disclaimer of Warranties">
             <p>
-              The Service is provided "as is" without warranties of any kind, express or
+              The Service is provided &quot;as is&quot; without warranties of any kind, express or
               implied. We do not warrant that the Service will be uninterrupted, error-free,
               or that AI-generated responses will be accurate or appropriate for your needs.
             </p>

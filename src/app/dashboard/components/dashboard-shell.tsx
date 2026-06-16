@@ -90,7 +90,7 @@ export function DashboardShell({ user, connected, connectError }: { user: User; 
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-xl font-semibold">Good morning, {user.name.split(' ')[0]}</h1>
-            <p className="text-sm text-zinc-500 mt-0.5">Here's what's going on today</p>
+            <p className="text-sm text-zinc-500 mt-0.5">Here&apos;s what&apos;s going on today</p>
           </div>
         </div>
 

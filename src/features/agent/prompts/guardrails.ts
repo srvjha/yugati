@@ -20,6 +20,6 @@ Reply with ONLY valid JSON: { "safe": true/false, "reason": "one sentence" }`;
 
 export const SENSITIVE_PATTERNS: RegExp[] = [
   /Bearer\s+[A-Za-z0-9\-._~+/]+=*/,
-  /[A-Za-z0-9+/]{40,}={0,2}/,   // long base64-like strings (tokens)
+  /(?:[A-Za-z0-9+/]{40,}={1,2}|[A-Za-z0-9+/]*[+/][A-Za-z0-9+/]{39,})/,  // base64 with padding or special chars (not plain IDs)
   /-----BEGIN .+?-----/,          // PEM headers
 ];
