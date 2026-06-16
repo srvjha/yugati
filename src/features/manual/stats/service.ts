@@ -1,4 +1,5 @@
-import { corsair } from '@/server/corsair';
+import OpenAI       from 'openai';
+import { corsair }  from '@/server/corsair';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -69,7 +70,7 @@ export class StatsService {
   // ── Overview: counts + this-week calendar summary ──────────────────────────
 
   async getOverview() {
-    const now     = new Date();
+    const now      = new Date();
     const weekStart = new Date(now);
     weekStart.setDate(now.getDate() - now.getDay());
     weekStart.setHours(0, 0, 0, 0);
@@ -77,8 +78,13 @@ export class StatsService {
     weekEnd.setDate(weekStart.getDate() + 6);
     weekEnd.setHours(23, 59, 59, 999);
 
-    const [labelsRes, calThisWeek] = await Promise.all([
-      this.c.gmail.api.labels.list({}).catch(() => ({ labels: [] })),
+    type LabelDetail = { messagesTotal?: number; messagesUnread?: number };
+
+    // labels.list does NOT return messagesTotal/Unread — must call labels.get per label
+    const [inbox, sent, draft, calThisWeek] = await Promise.all([
+      this.c.gmail.api.labels.get({ id: 'INBOX' }).catch(() => null) as Promise<LabelDetail | null>,
+      this.c.gmail.api.labels.get({ id: 'SENT'  }).catch(() => null) as Promise<LabelDetail | null>,
+      this.c.gmail.api.labels.get({ id: 'DRAFT' }).catch(() => null) as Promise<LabelDetail | null>,
       this.c.googlecalendar.api.events.getMany({
         calendarId:   'primary',
         timeMin:      weekStart.toISOString(),
@@ -88,12 +94,7 @@ export class StatsService {
       }).catch(() => ({ items: [] })),
     ]);
 
-    const labels = (labelsRes as { labels?: { id?: string; messagesTotal?: number; messagesUnread?: number }[] }).labels ?? [];
-    const inbox  = labels.find((l) => l.id === 'INBOX');
-    const sent   = labels.find((l) => l.id === 'SENT');
-    const draft  = labels.find((l) => l.id === 'DRAFT');
-
-    const calItems = (calThisWeek as { items?: { start?: { dateTime?: string }; end?: { dateTime?: string }; hangoutLink?: string }[] }).items ?? [];
+    const calItems = (calThisWeek as { items?: { start?: { dateTime?: string }; end?: { dateTime?: string } }[] }).items ?? [];
     const timedMeetings = calItems.filter((e) => e.start?.dateTime);
     const meetingMinutes = timedMeetings.reduce(
       (sum, e) => sum + minutesBetween(e.start?.dateTime, e.end?.dateTime),
@@ -101,11 +102,11 @@ export class StatsService {
     );
 
     return {
-      inboxTotal:          inbox?.messagesTotal   ?? 0,
-      unreadCount:         inbox?.messagesUnread  ?? 0,
-      sentTotal:           sent?.messagesTotal    ?? 0,
-      draftCount:          draft?.messagesTotal   ?? 0,
-      meetingsThisWeek:    timedMeetings.length,
+      inboxTotal:           inbox?.messagesTotal  ?? 0,
+      unreadCount:          inbox?.messagesUnread ?? 0,
+      sentTotal:            sent?.messagesTotal   ?? 0,
+      draftCount:           draft?.messagesTotal  ?? 0,
+      meetingsThisWeek:     timedMeetings.length,
       meetingHoursThisWeek: Math.round(meetingMinutes / 60 * 10) / 10,
     };
   }
@@ -113,36 +114,37 @@ export class StatsService {
   // ── Email activity: volume, senders, hourly, categories ───────────────────
 
   async getEmailActivity() {
-    const thirtyDaysAgo = new Date();
-    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-    const afterQuery = `after:${Math.floor(thirtyDaysAgo.getTime() / 1000)}`;
+    // Try DB cache first (fast, no live API calls)
+    type DbMsg = { id?: string; internalDate?: string; labelIds?: string[]; from?: string; payload?: { headers?: { name?: string; value?: string }[] } };
+    let msgs: DbMsg[] = [];
 
-    // Fetch recent message IDs (inbox last 30 days)
-    const listRes = await this.c.gmail.api.messages.list({
-      maxResults: 100,
-      labelIds:   ['INBOX'],
-      q:          afterQuery,
-    }).catch(() => ({ messages: [] }));
+    const dbRes = await (this.c.gmail.db as unknown as { messages?: { search?: (opts: { limit: number }) => Promise<DbMsg[]> } })
+      .messages?.search?.({ limit: 100 }).catch(() => null);
 
-    const ids = ((listRes as { messages?: { id?: string }[] }).messages ?? [])
-      .map((m) => m.id)
-      .filter(Boolean) as string[];
+    if (dbRes && dbRes.length > 0) {
+      msgs = dbRes;
+    } else {
+      // Fall back to live API — fetch IDs then metadata (capped at 30 to limit latency)
+      const thirtyDaysAgo = new Date();
+      thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+      const afterQuery = `after:${Math.floor(thirtyDaysAgo.getTime() / 1000)}`;
 
-    // Fetch metadata for all in parallel (capped at 80 to stay within limits)
-    const metaItems = await Promise.all(
-      ids.slice(0, 80).map((id) =>
-        this.c.gmail.api.messages.get({ id, format: 'metadata' }).catch(() => null),
-      ),
-    );
+      const listRes = await this.c.gmail.api.messages.list({
+        maxResults: 50,
+        labelIds:   ['INBOX'],
+        q:          afterQuery,
+      }).catch(() => ({ messages: [] }));
 
-    type GmailMessage = {
-      id?: string;
-      internalDate?: string;
-      labelIds?: string[];
-      payload?: { headers?: { name?: string; value?: string }[] };
-    };
+      const ids = ((listRes as { messages?: { id?: string }[] }).messages ?? [])
+        .map((m) => m.id).filter(Boolean) as string[];
 
-    const msgs = metaItems.filter(Boolean) as GmailMessage[];
+      const metaItems = await Promise.all(
+        ids.slice(0, 30).map((id) =>
+          this.c.gmail.api.messages.get({ id, format: 'metadata' }).catch(() => null),
+        ),
+      );
+      msgs = metaItems.filter(Boolean) as DbMsg[];
+    }
 
     // ── Daily volume ──
     const dayMap: Record<string, number> = {};
@@ -335,6 +337,41 @@ export class StatsService {
           .reduce((s, e) => s + minutesBetween(e.start?.dateTime, e.end?.dateTime), 0) / 60 * 10,
       ) / 10,
     };
+  }
+
+  // ── AI Insights ───────────────────────────────────────────────────────────
+
+  async getAiInsights() {
+    const overview = await this.getOverview().catch(() => null);
+    if (!overview) return { insights: [] };
+
+    const prompt = `You are an assistant summarising a user's email and calendar stats. Be concise and actionable.
+
+Stats:
+- Inbox total: ${overview.inboxTotal} messages
+- Unread: ${overview.unreadCount} messages
+- Sent all-time: ${overview.sentTotal}
+- Drafts: ${overview.draftCount}
+- Meetings this week: ${overview.meetingsThisWeek}
+- Meeting hours this week: ${overview.meetingHoursThisWeek}h
+
+Give exactly 3 short insight bullets (one sentence each, no markdown). Each should be specific and actionable based on the numbers above. Do not use bullet characters — return a JSON array of strings.`;
+
+    const client = new OpenAI();
+    const res = await client.chat.completions.create({
+      model:           'gpt-4o-mini',
+      temperature:     0.4,
+      max_tokens:      200,
+      response_format: { type: 'json_object' },
+      messages:        [{ role: 'user', content: prompt }],
+    });
+
+    try {
+      const parsed = JSON.parse(res.choices[0]?.message?.content ?? '{}') as { insights?: string[] };
+      return { insights: parsed.insights ?? [] };
+    } catch {
+      return { insights: [] };
+    }
   }
 
   // ── Connection status ─────────────────────────────────────────────────────

@@ -1,5 +1,6 @@
 'use client';
 
+import React from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useTRPC } from '@/trpc/client';
 import {
@@ -9,6 +10,7 @@ import {
 import {
   Mail, Inbox, Send, FileText, Calendar, Clock,
   TrendingUp, RefreshCw, Users, Globe, Loader2,
+  Sparkles, MessageSquare, Mic, Edit3,
 } from 'lucide-react';
 
 // ─── Refresh interval: 60 seconds ────────────────────────────────────────────
@@ -119,6 +121,31 @@ function fmtDay(dateStr: string) {
 
 // ─── Main component ───────────────────────────────────────────────────────────
 
+// ─── Prompt quality analysis (client-side from localStorage) ─────────────────
+function usePromptAnalysis() {
+  return React.useState(() => {
+    if (typeof window === 'undefined') return null;
+    try {
+      const raw = localStorage.getItem('yugati_chat_sessions');
+      if (!raw) return null;
+      const sessions = JSON.parse(raw) as { messages?: { role: string; content: string }[] }[];
+      const userMsgs = sessions.flatMap((s) => (s.messages ?? []).filter((m) => m.role === 'user').map((m) => m.content));
+      if (!userMsgs.length) return null;
+
+      const actionWords  = /\b(send|schedule|delete|archive|find|search|summarize|summarise|reply|draft|create|show|list|check|move|mark|forward|cancel|reschedule)\b/i;
+      const specificWords = /@|\d{1,2}[\/\-]\d{1,2}|\b(today|tomorrow|monday|tuesday|wednesday|thursday|friday|yesterday|last week|next week)\b/i;
+
+      return {
+        total:           userMsgs.length,
+        avgLength:       Math.round(userMsgs.reduce((s, m) => s + m.length, 0) / userMsgs.length),
+        actionRate:      Math.round(userMsgs.filter((m) => actionWords.test(m)).length  / userMsgs.length * 100),
+        questionRate:    Math.round(userMsgs.filter((m) => m.includes('?')).length       / userMsgs.length * 100),
+        specificityRate: Math.round(userMsgs.filter((m) => specificWords.test(m)).length / userMsgs.length * 100),
+      };
+    } catch { return null; }
+  })[0];
+}
+
 export function OverviewView({ userName }: { userName?: string }) {
   const trpc = useTRPC();
 
@@ -136,6 +163,19 @@ export function OverviewView({ userName }: { userName?: string }) {
     ...trpc.stats.calendarActivity.queryOptions(),
     refetchInterval: REFETCH,
   });
+
+  const insightsQ = useQuery({
+    ...trpc.stats.aiInsights.queryOptions(),
+    staleTime:       5 * 60 * 1000,
+    refetchInterval: false,
+  });
+
+  const planQ = useQuery({
+    ...trpc.plans.getMyPlan.queryOptions(),
+    staleTime: 60_000,
+  });
+
+  const promptAnalysis = usePromptAnalysis();
 
   const overview = overviewQ.data;
   const email    = emailQ.data;
@@ -179,6 +219,123 @@ export function OverviewView({ userName }: { userName?: string }) {
           <StatCard label="Drafts"   value={overview?.draftCount ?? 0}          sub="unsent"             icon={FileText} accent="bg-amber-500/15 text-amber-400"  loading={overviewQ.isLoading} />
           <StatCard label="Meetings" value={overview?.meetingsThisWeek ?? 0}    sub="this week"          icon={Calendar} accent="bg-rose-500/15 text-rose-400"    loading={overviewQ.isLoading} />
           <StatCard label="Meet hrs" value={`${overview?.meetingHoursThisWeek ?? 0}h`} sub="this week"  icon={Clock}    accent="bg-cyan-500/15 text-cyan-400"     loading={overviewQ.isLoading} />
+        </div>
+
+        {/* ── AI Insights + Usage + Prompt Quality ── */}
+        <div className="grid grid-cols-1 xl:grid-cols-3 gap-4">
+
+          {/* AI Insights */}
+          <div className="bg-zinc-950 border border-zinc-800/80 rounded-2xl p-5 flex flex-col gap-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-semibold text-zinc-200 flex items-center gap-1.5">
+                  <Sparkles size={13} className="text-violet-400" />
+                  AI Insights
+                </p>
+                <p className="text-xs text-zinc-600 mt-0.5">Generated from your inbox &amp; calendar</p>
+              </div>
+              <button
+                onClick={() => void insightsQ.refetch()}
+                className="p-1.5 text-zinc-600 hover:text-zinc-300 hover:bg-zinc-800 rounded-lg transition-colors"
+                title="Refresh insights"
+              >
+                <RefreshCw size={12} className={insightsQ.isFetching ? 'animate-spin' : ''} />
+              </button>
+            </div>
+            {insightsQ.isLoading ? (
+              <div className="space-y-2">
+                {[1,2,3].map((i) => <Skeleton key={i} className="h-5 w-full" />)}
+              </div>
+            ) : (insightsQ.data?.insights ?? []).length > 0 ? (
+              <ul className="space-y-2.5">
+                {(insightsQ.data?.insights ?? []).map((insight, i) => (
+                  <li key={i} className="flex items-start gap-2.5 text-xs text-zinc-400 leading-relaxed">
+                    <span className="shrink-0 w-4 h-4 rounded-full bg-violet-500/15 text-violet-400 flex items-center justify-center text-[9px] font-bold mt-0.5">{i + 1}</span>
+                    {insight}
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p className="text-xs text-zinc-600">No insights available yet.</p>
+            )}
+          </div>
+
+          {/* AI Usage */}
+          <div className="bg-zinc-950 border border-zinc-800/80 rounded-2xl p-5 flex flex-col gap-4">
+            <div>
+              <p className="text-sm font-semibold text-zinc-200 flex items-center gap-1.5">
+                <MessageSquare size={13} className="text-blue-400" />
+                AI Usage
+              </p>
+              <p className="text-xs text-zinc-600 mt-0.5">
+                {planQ.data ? `${planQ.data.planName} plan · resets ${new Date(planQ.data.resetAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}` : 'Loading…'}
+              </p>
+            </div>
+            {planQ.isLoading ? (
+              <div className="space-y-3">{[1,2,3].map((i) => <Skeleton key={i} className="h-8 w-full" />)}</div>
+            ) : planQ.data ? (
+              <div className="space-y-3.5">
+                {[
+                  { label: 'AI Messages', icon: MessageSquare, used: planQ.data.usage.messages.used, limit: planQ.data.usage.messages.limit, color: 'bg-blue-500' },
+                  { label: 'Voice',       icon: Mic,           used: planQ.data.usage.voice.used,    limit: planQ.data.usage.voice.limit,    color: 'bg-emerald-500' },
+                  { label: 'Composes',    icon: Edit3,         used: planQ.data.usage.compose.used,  limit: planQ.data.usage.compose.limit,  color: 'bg-amber-500' },
+                ].map(({ label, icon: Icon, used, limit, color }) => {
+                  const pct = Math.min(100, Math.round(used / limit * 100));
+                  return (
+                    <div key={label}>
+                      <div className="flex items-center justify-between mb-1.5">
+                        <span className="text-xs text-zinc-400 flex items-center gap-1.5"><Icon size={11} />{label}</span>
+                        <span className="text-xs font-medium text-zinc-300 tabular-nums">{used} <span className="text-zinc-600">/ {limit}</span></span>
+                      </div>
+                      <div className="h-1.5 bg-zinc-800 rounded-full overflow-hidden">
+                        <div className={`h-full rounded-full ${color} transition-all`} style={{ width: `${pct}%` }} />
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            ) : null}
+          </div>
+
+          {/* Prompt Quality */}
+          <div className="bg-zinc-950 border border-zinc-800/80 rounded-2xl p-5 flex flex-col gap-4">
+            <div>
+              <p className="text-sm font-semibold text-zinc-200 flex items-center gap-1.5">
+                <Edit3 size={13} className="text-amber-400" />
+                Prompt Quality
+              </p>
+              <p className="text-xs text-zinc-600 mt-0.5">Analysed from your chat history</p>
+            </div>
+            {!promptAnalysis ? (
+              <p className="text-xs text-zinc-600">Start chatting to see prompt analysis.</p>
+            ) : (
+              <div className="space-y-3.5">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs text-zinc-500">Total prompts</span>
+                  <span className="text-sm font-bold text-white">{promptAnalysis.total}</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-xs text-zinc-500">Avg length</span>
+                  <span className="text-sm font-bold text-white">{promptAnalysis.avgLength} chars</span>
+                </div>
+                {[
+                  { label: 'Action-oriented', value: promptAnalysis.actionRate,      color: 'bg-blue-500',    tip: 'Prompts with action words (send, schedule, find…)' },
+                  { label: 'With context',    value: promptAnalysis.specificityRate,  color: 'bg-emerald-500', tip: 'Prompts with dates, emails, or specifics' },
+                  { label: 'Questions',       value: promptAnalysis.questionRate,     color: 'bg-violet-500',  tip: 'Prompts ending with ?' },
+                ].map(({ label, value, color, tip }) => (
+                  <div key={label} title={tip}>
+                    <div className="flex items-center justify-between mb-1.5">
+                      <span className="text-xs text-zinc-400">{label}</span>
+                      <span className="text-xs font-medium text-zinc-300 tabular-nums">{value}%</span>
+                    </div>
+                    <div className="h-1.5 bg-zinc-800 rounded-full overflow-hidden">
+                      <div className={`h-full rounded-full ${color}`} style={{ width: `${value}%` }} />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
 
         {/* ── Row 2: Email volume + Category donut ── */}

@@ -12,6 +12,9 @@ export const statsRouter = createTRPCRouter({
   calendarActivity: protectedProcedure
     .query(({ ctx }) => new StatsService(ctx.tenantId).getCalendarActivity()),
 
+  aiInsights: protectedProcedure
+    .query(({ ctx }) => new StatsService(ctx.tenantId).getAiInsights()),
+
   connectionStatus: protectedProcedure
     .query(({ ctx }) => new StatsService(ctx.tenantId).getConnectionStatus()),
 
