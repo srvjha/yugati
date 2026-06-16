@@ -13,7 +13,11 @@ import Link from 'next/link';
 import Image from 'next/image';
 import * as Tooltip from '@radix-ui/react-tooltip';
 import * as ScrollArea from '@radix-ui/react-scroll-area';
-import { ChatView }   from '../components/chat-view';
+import dynamic from 'next/dynamic';
+const ChatView = dynamic(
+  () => import('../components/chat-view').then((m) => ({ default: m.ChatView })),
+  { ssr: false, loading: () => null },
+);
 import { UsagePill }  from '../components/usage-pill';
 import {
   Inbox, Star, Send, FileText, AlertCircle, Trash2,

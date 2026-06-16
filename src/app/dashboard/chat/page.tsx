@@ -1,7 +1,12 @@
-import { ChatView } from '../components/chat-view';
+import dynamic from 'next/dynamic';
 import { SidebarNav } from '../components/sidebar-nav';
 import { auth } from '@/lib/auth';
 import { headers } from 'next/headers';
+
+const ChatView = dynamic(
+  () => import('../components/chat-view').then((m) => ({ default: m.ChatView })),
+  { ssr: false, loading: () => null },
+);
 
 export default async function ChatPage() {
   const session = await auth.api.getSession({ headers: await headers() });
