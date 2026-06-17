@@ -14,6 +14,14 @@ import {
 } from 'lucide-react';
 import type { PlanId } from '@/lib/plans';
 
+type SessionUser = {
+  id: string;
+  name: string;
+  email: string;
+  image?: string | null;
+  role?: string;
+};
+
 const PLAN_FEATURES: Record<PlanId, string[]> = {
   free:       ['30 AI messages / month', '1 voice message / month', '10 email compose / month', 'Gmail + Calendar access', '1,000 char message limit'],
   standard:   ['150 AI messages / month', '15 voice messages / month', '50 email compose / month', 'Gmail + Calendar access', '2,000 char message limit', 'Email support'],
@@ -76,7 +84,8 @@ export default function BillingPage() {
   const router       = useRouter();
   const searchParams = useSearchParams();
   const { data: authData } = useSession();
-  const user = authData?.user;
+  const user = authData?.user as SessionUser | undefined;
+  const isAdmin = user?.role === 'admin';
 
   const { data: plan, refetch } = useQuery({ ...trpc.plans.getMyPlan.queryOptions(), staleTime: 0 });
   const { data: orderHistory }  = useQuery(trpc.plans.getOrders.queryOptions());
@@ -104,7 +113,7 @@ export default function BillingPage() {
 
   return (
     <div className="flex h-screen overflow-hidden bg-black text-white">
-      <SidebarNav user={user} isAdmin={user.role === 'admin'} />
+      <SidebarNav user={user} isAdmin={isAdmin} />
 
       <div className="flex-1 overflow-y-auto bg-black">
         {/* Page header */}

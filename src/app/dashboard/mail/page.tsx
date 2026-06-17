@@ -69,12 +69,20 @@ const ChatView = dynamic(
   { ssr: false, loading: () => null },
 );
 
+type SessionUser = {
+  id: string;
+  name: string;
+  email: string;
+  image?: string | null;
+  role?: string;
+};
+
 export default function MailPage() {
   const trpc = useTRPC();
   const searchParams = useSearchParams();
   const router = useRouter();
   const { data: authData } = useSession();
-  const user = authData?.user;
+  const user = authData?.user as SessionUser | undefined;
 
   const [collapsed, setCollapsed] = useState(false);
 
