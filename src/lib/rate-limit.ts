@@ -20,5 +20,3 @@ export const rateLimiters: Record<PlanId, Ratelimit> = {
   premium:    makeRl(60),
   enterprise: makeRl(120),
 };
-
-export { MAX_PROMPT_CHARS } from './constants';

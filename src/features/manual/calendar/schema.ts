@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import { emailSchema, idSchema, isoDateSchema, isoDateTimeSchema } from '@/features/schemas';
 
-export const EventTimeSchema = z
+const EventTimeSchema = z
   .object({
     dateTime: isoDateTimeSchema.optional(),
     date:     isoDateSchema.optional(),
@@ -16,7 +16,7 @@ export const EventTimeSchema = z
     { message: "'timeZone' is required for timed events", path: ['timeZone'] },
   );
 
-export const AttendeeSchema = z.object({
+const AttendeeSchema = z.object({
   email:       emailSchema,
   displayName: z.string().max(100).optional(),
   optional:    z.boolean().optional(),
@@ -96,7 +96,3 @@ export const AvailabilitySchema = z
     { message: 'Window cannot exceed 7 days', path: ['timeMax'] },
   );
 
-export type CreateEventInput  = z.infer<typeof CreateEventSchema>;
-export type UpdateEventInput  = z.infer<typeof UpdateEventSchema>;
-export type ListEventsInput   = z.infer<typeof ListEventsSchema>;
-export type AvailabilityInput = z.infer<typeof AvailabilitySchema>;

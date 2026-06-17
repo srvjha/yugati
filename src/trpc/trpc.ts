@@ -64,8 +64,5 @@ function createTRPC() {
 
 const t = createTRPC();
 
-export const createTRPCRouter    = t.router;
-export const publicProcedure     = t.publicProcedure;
-export const protectedProcedure  = t.protectedProcedure;
-export const createCallerFactory = t.createCallerFactory;
-export const mergeRouters        = t.mergeRouters;
+export const createTRPCRouter   = t.router;
+export const protectedProcedure = t.protectedProcedure;

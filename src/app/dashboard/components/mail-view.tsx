@@ -80,10 +80,9 @@ function getHeader(headers: Header[], name: string) {
   return headers.find((h) => h.name?.toLowerCase() === name.toLowerCase())?.value ?? '';
 }
 
-// Storage key shared with mail page
-export const REPLY_CTX_KEY = 'yugati_reply_context';
+const REPLY_CTX_KEY = 'yugati_reply_context';
 
-export type ReplyContext = {
+type ReplyContext = {
   from: string;
   to: string;
   subject: string;

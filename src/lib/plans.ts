@@ -42,5 +42,3 @@ export const PLANS = {
 } as const;
 
 export type PlanId = keyof typeof PLANS;
-
-export const PLAN_IDS = Object.keys(PLANS) as PlanId[];

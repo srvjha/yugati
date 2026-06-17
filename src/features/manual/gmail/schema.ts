@@ -88,6 +88,3 @@ export const CreateLabelSchema = z.object({
 
 export const UpdateLabelSchema = CreateLabelSchema.partial().extend({ id: idSchema });
 
-export type SendMessageInput   = z.infer<typeof SendMessageSchema>;
-export type ModifyMessageInput = z.infer<typeof ModifyMessageSchema>;
-export type ListMessagesInput  = z.infer<typeof ListMessagesSchema>;

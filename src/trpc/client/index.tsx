@@ -9,7 +9,9 @@ import { useState } from 'react';
 import { makeQueryClient } from '../query-client';
 import type { AppRouter } from '../types';
 
-export const { TRPCProvider, useTRPC } = createTRPCContext<AppRouter>();
+const { TRPCProvider, useTRPC: useTRPCInternal } = createTRPCContext<AppRouter>();
+
+export const useTRPC = useTRPCInternal;
 
 // Singleton on the browser — avoids recreating on every render.
 let browserQueryClient: ReturnType<typeof makeQueryClient> | undefined;

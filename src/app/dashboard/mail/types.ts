@@ -1,4 +1,4 @@
-export type MsgHeader = { name?: string; value?: string };
+type MsgHeader = { name?: string; value?: string };
 
 export type EmailMsg = {
   id?: string | null;
