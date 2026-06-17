@@ -1,11 +1,15 @@
 'use client';
 
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { ArrowLeft, Trash2, Archive, Reply, Forward, MoreHorizontal, ReplyAll, Bot } from 'lucide-react';
+import { ArrowLeft, Trash2, Archive, Reply, Forward, MoreHorizontal, ReplyAll, Bot, Star, CheckCheck } from 'lucide-react';
+import { useMutation } from '@tanstack/react-query';
+import { toast } from 'sonner';
 import type { inferRouterOutputs } from '@trpc/server';
 import type { AppRouter } from '@/trpc/types';
+import { useTRPC } from '@/trpc/client';
+import { ThemeToggle } from '@/components/theme-toggle';
 
 type GmailMessage = inferRouterOutputs<AppRouter>['gmail']['getMessage'];
 type Part = NonNullable<GmailMessage['payload']>;
@@ -86,11 +90,16 @@ export type ReplyContext = {
   snippet: string;
   threadId?: string | null;
   replyAll?: boolean;
+  forward?: boolean;
 };
 
 export function MailView({ message }: { message: GmailMessage }) {
   const router = useRouter();
+  const trpc   = useTRPC();
   const headers = message.payload?.headers ?? [];
+
+  // Optimistic star — instant visual feedback, API runs in background
+  const [starred, setStarred] = useState(message.labelIds?.includes('STARRED') ?? false);
   const subject  = getHeader(headers, 'Subject') || '(no subject)';
   const from     = getHeader(headers, 'From');
   const to       = getHeader(headers, 'To');
@@ -112,6 +121,40 @@ export function MailView({ message }: { message: GmailMessage }) {
   const fromEmail = fromMatch[2] || from;
 
   const iframeRef = useRef<HTMLIFrameElement>(null);
+  const [moreOpen, setMoreOpen] = useState(false);
+
+  const trashMutation = useMutation(
+    trpc.gmail.trashMessage.mutationOptions({
+      onSuccess: () => {
+        toast.success('Moved to Trash');
+        router.push('/dashboard/mail');
+      },
+      onError: () => toast.error('Failed to move to Trash'),
+    }),
+  );
+
+  const archiveMutation = useMutation(
+    trpc.gmail.modifyMessage.mutationOptions({
+      onSuccess: () => {
+        toast.success('Archived');
+        router.push('/dashboard/mail');
+      },
+      onError: () => toast.error('Failed to archive'),
+    }),
+  );
+
+  const markReadMutation = useMutation(
+    trpc.gmail.modifyMessage.mutationOptions({
+      onSuccess: () => toast.success('Marked as read'),
+      onError:   () => toast.error('Failed to mark as read'),
+    }),
+  );
+
+  const starMutation = useMutation(
+    trpc.gmail.modifyMessage.mutationOptions({
+      onError: () => setStarred((s) => !s), // revert on failure
+    }),
+  );
 
   useEffect(() => {
     if (!iframeRef.current || !html) return;
@@ -119,11 +162,6 @@ export function MailView({ message }: { message: GmailMessage }) {
     const doc = iframe.contentDocument;
     if (!doc) return;
 
-    const isLight = document.documentElement.getAttribute('data-theme') === 'light';
-    const bodyColor = isLight ? '#2c2620' : '#e4e4e7';
-    const linkColor = isLight ? '#1d4ed8' : '#60a5fa';
-
-    // Replace cid: references with inline data URLs
     let processedHtml = html;
     for (const img of inlineImages) {
       const dataUrl = `data:${img.mimeType};base64,${toPlainBase64(img.data)}`;
@@ -134,26 +172,40 @@ export function MailView({ message }: { message: GmailMessage }) {
     doc.write(`<!DOCTYPE html><html><head>
       <meta charset="utf-8">
       <style>
-        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-               font-size: 14px; color: ${bodyColor}; background: transparent;
-               margin: 0; padding: 0; word-break: break-word; }
-        a { color: ${linkColor}; }
-        img { max-width: 100%; height: auto; display: block; }
+        html, body {
+          font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+          font-size: 14px; color: #111827;
+          margin: 0; padding: 20px 24px;
+          word-break: break-word; background: #ffffff;
+        }
         * { box-sizing: border-box; }
+        a { color: #2563eb; }
+        img, video { max-width: 100%; height: auto; }
       </style>
     </head><body>${processedHtml}</body></html>`);
     doc.close();
 
     const resize = () => {
       if (iframe.contentDocument?.body) {
-        iframe.style.height = iframe.contentDocument.body.scrollHeight + 32 + 'px';
+        iframe.style.height = iframe.contentDocument.body.scrollHeight + 'px';
       }
     };
     iframe.onload = resize;
-    const timerId = setTimeout(resize, 200);
+    const timerId = setTimeout(resize, 300);
     return () => clearTimeout(timerId);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [html]);
+
+  // Close more dropdown on outside click
+  useEffect(() => {
+    if (!moreOpen) return;
+    function handler(e: MouseEvent) {
+      const target = e.target as HTMLElement;
+      if (!target.closest('[data-more-menu]')) setMoreOpen(false);
+    }
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [moreOpen]);
 
   function openReply(replyAll = false) {
     const cleanSnippet = decodeHtmlEntities(message.snippet ?? '');
@@ -169,119 +221,229 @@ export function MailView({ message }: { message: GmailMessage }) {
     router.push('/dashboard/mail');
   }
 
+  function openForward() {
+    const cleanSnippet = decodeHtmlEntities(message.snippet ?? '');
+    const ctx: ReplyContext = {
+      from,
+      to: '',
+      subject: subject.startsWith('Fwd:') ? subject : `Fwd: ${subject}`,
+      snippet: cleanSnippet,
+      threadId: message.threadId,
+      forward: true,
+    };
+    sessionStorage.setItem(REPLY_CTX_KEY, JSON.stringify(ctx));
+    router.push('/dashboard/mail');
+  }
+
+  function handleTrash() {
+    if (!message.id) return;
+    trashMutation.mutate({ id: message.id });
+  }
+
+  function handleArchive() {
+    if (!message.id) return;
+    archiveMutation.mutate({ id: message.id, removeLabelIds: ['INBOX'] });
+  }
+
+  function handleStar() {
+    if (!message.id) return;
+    const next = !starred;
+    setStarred(next); // instant visual update
+    starMutation.mutate(
+      next
+        ? { id: message.id, addLabelIds:    ['STARRED'] }
+        : { id: message.id, removeLabelIds: ['STARRED'] },
+    );
+  }
+
+  function handleMarkRead() {
+    if (!message.id) return;
+    markReadMutation.mutate({ id: message.id, removeLabelIds: ['UNREAD'] });
+    setMoreOpen(false);
+  }
+
+  const isBusy = trashMutation.isPending || archiveMutation.isPending;
+
   return (
-    <div className="h-full flex flex-col bg-black text-white">
+    <div className="h-full flex flex-col bg-zinc-950 text-white">
 
       {/* Topbar */}
-      <header className="border-b border-zinc-800 sticky top-0 z-10 bg-black">
-        <div className="max-w-4xl mx-auto px-6 h-14 flex items-center gap-4">
+      <header className="shrink-0 border-b border-zinc-800/60 sticky top-0 z-10 bg-zinc-950/80 backdrop-blur-md">
+        <div className="max-w-3xl mx-auto px-5 h-13 flex items-center gap-3">
           <Link
             href="/dashboard/mail"
-            className="flex items-center gap-1.5 text-zinc-500 hover:text-white transition-colors text-sm"
+            className="flex items-center gap-1.5 text-zinc-400 hover:text-white transition-colors text-sm font-medium"
           >
-            <ArrowLeft size={15} />
+            <ArrowLeft size={14} />
             Inbox
           </Link>
           <div className="flex-1" />
-          <div className="flex items-center gap-1">
-            <ActionBtn icon={<Reply size={14} />}         label="Reply"      onClick={() => openReply(false)} />
-            <ActionBtn icon={<ReplyAll size={14} />}      label="Reply All"  onClick={() => openReply(true)} />
-            <ActionBtn icon={<Forward size={14} />}       label="Forward" />
-            <ActionBtn icon={<Archive size={14} />}       label="Archive" />
-            <ActionBtn icon={<Trash2 size={14} />}        label="Trash" />
-            <ActionBtn icon={<MoreHorizontal size={14} />} label="More" />
+          <ThemeToggle />
+          <div className="flex items-center gap-0.5">
+            {/* Star — optimistic, instant fill */}
+            <button
+              title={starred ? 'Unstar' : 'Star'}
+              onClick={handleStar}
+              className={`p-2 rounded-lg transition-colors ${
+                starred ? 'text-yellow-400 hover:text-yellow-300' : 'text-zinc-500 hover:text-yellow-400'
+              }`}
+            >
+              <Star size={14} className={starred ? 'fill-yellow-400' : ''} />
+            </button>
+            <div className="w-px h-4 bg-zinc-800 mx-1" />
+            <ActionBtn icon={<Reply size={14} />}          label="Reply"      onClick={() => openReply(false)} />
+            <ActionBtn icon={<ReplyAll size={14} />}       label="Reply All"  onClick={() => openReply(true)} />
+            <ActionBtn icon={<Forward size={14} />}        label="Forward"    onClick={openForward} />
+            <div className="w-px h-4 bg-zinc-800 mx-1" />
+            <ActionBtn
+              icon={<Archive size={14} />}
+              label="Archive"
+              onClick={handleArchive}
+              loading={archiveMutation.isPending}
+              disabled={isBusy}
+            />
+            <ActionBtn
+              icon={<Trash2 size={14} />}
+              label="Trash"
+              onClick={handleTrash}
+              loading={trashMutation.isPending}
+              disabled={isBusy}
+              danger
+            />
+            {/* More dropdown */}
+            <div className="relative" data-more-menu>
+              <button
+                title="More"
+                onClick={() => setMoreOpen((o) => !o)}
+                className="p-2 rounded-lg text-zinc-500 hover:text-white hover:bg-zinc-800 transition-colors"
+              >
+                <MoreHorizontal size={14} />
+              </button>
+              {moreOpen && (
+                <div className="absolute right-0 top-full mt-1 z-50 w-44 bg-zinc-900 border border-zinc-700 rounded-xl shadow-2xl overflow-hidden">
+                  <button
+                    onClick={handleMarkRead}
+                    disabled={markReadMutation.isPending}
+                    className="w-full flex items-center gap-2.5 px-3 py-2.5 text-xs text-zinc-300 hover:text-white hover:bg-zinc-800 transition-colors disabled:opacity-50"
+                  >
+                    <CheckCheck size={13} className="text-zinc-500" />
+                    Mark as read
+                  </button>
+                </div>
+              )}
+            </div>
           </div>
         </div>
       </header>
 
-      {/* Email content */}
-      <main className="max-w-4xl mx-auto px-6 py-8 w-full flex-1 overflow-y-auto pb-32">
+      {/* Scrollable body */}
+      <main className="flex-1 overflow-y-auto">
+        <div className="max-w-3xl mx-auto px-5 pt-8 pb-32">
 
-        {/* Subject */}
-        <h1 className="text-2xl font-semibold mb-6 leading-tight">{subject}</h1>
+          {/* Subject */}
+          <h1 className="text-[22px] font-bold leading-snug text-white mb-5">{subject}</h1>
 
-        {/* Sender card */}
-        <div className="flex items-start gap-4 mb-6">
-          <div className="w-10 h-10 rounded-full bg-zinc-800 border border-zinc-700 flex items-center justify-center text-sm font-semibold shrink-0">
-            {(fromName[0] ?? fromEmail[0] ?? '?').toUpperCase()}
-          </div>
-          <div className="flex-1 min-w-0">
-            <div className="flex items-center justify-between gap-4">
-              <div>
-                <span className="font-medium text-sm">{fromName}</span>
+          {/* Sender row */}
+          <div className="flex items-center gap-3 mb-6">
+            <div className="w-9 h-9 rounded-full bg-zinc-800 border border-zinc-700 flex items-center justify-center text-sm font-bold shrink-0 text-zinc-200">
+              {(fromName[0] ?? fromEmail[0] ?? '?').toUpperCase()}
+            </div>
+            <div className="flex-1 min-w-0">
+              <div className="flex items-baseline gap-1.5 flex-wrap">
+                <span className="text-sm font-semibold text-zinc-100">{fromName}</span>
                 {fromEmail && fromEmail !== fromName && (
-                  <span className="text-zinc-500 text-sm ml-2">&lt;{fromEmail}&gt;</span>
+                  <span className="text-xs text-zinc-500">&lt;{fromEmail}&gt;</span>
                 )}
               </div>
-              <span className="text-xs text-zinc-500 shrink-0">{date}</span>
+              <div className="text-[11px] text-zinc-600 mt-0.5">
+                {to && <span>To: {to}</span>}
+                {cc && <span className="ml-2">· Cc: {cc}</span>}
+              </div>
             </div>
-            <div className="text-xs text-zinc-600 mt-0.5">
-              {to && <span>To: {to}</span>}
-              {cc && <span className="ml-3">Cc: {cc}</span>}
-            </div>
+            <span className="text-xs text-zinc-500 shrink-0">{date}</span>
           </div>
-        </div>
 
-        {/* Divider */}
-        <div className="border-t border-zinc-800 mb-6" />
+          {/* Email document card */}
+          <div className="rounded-2xl overflow-hidden
+            ring-1 ring-white/[0.07]
+            shadow-[0_0_0_1px_rgba(0,0,0,0.3),0_24px_80px_rgba(0,0,0,0.6)]">
+            {html ? (
+              <iframe
+                ref={iframeRef}
+                sandbox="allow-same-origin allow-popups allow-popups-to-escape-sandbox"
+                referrerPolicy="no-referrer"
+                className="w-full border-0 block"
+                style={{ minHeight: '300px' }}
+                title="Email content"
+              />
+            ) : text ? (
+              <pre className="whitespace-pre-wrap font-sans text-sm leading-relaxed p-6 bg-white text-zinc-800">
+                {text}
+              </pre>
+            ) : (
+              <p className="p-6 bg-white text-zinc-400 italic text-sm">
+                {message.snippet ?? 'No content'}
+              </p>
+            )}
+          </div>
 
-        {/* Body */}
-        <div className="text-sm text-zinc-300 leading-relaxed">
-          {html ? (
-            <iframe
-              ref={iframeRef}
-              sandbox="allow-same-origin allow-popups allow-popups-to-escape-sandbox"
-              referrerPolicy="no-referrer"
-              className="w-full border-0 bg-transparent"
-              style={{ minHeight: '200px' }}
-              title="Email content"
-            />
-          ) : text ? (
-            <pre className="whitespace-pre-wrap font-sans">{text}</pre>
-          ) : (
-            <p className="text-zinc-600 italic">{message.snippet ?? 'No content'}</p>
-          )}
         </div>
       </main>
 
-      {/* Reply action bar — sticky at bottom */}
-      <div className="fixed bottom-0 left-0 right-0 bg-black/90 backdrop-blur-md border-t border-zinc-800/70 z-20">
-        <div className="max-w-4xl mx-auto px-6 py-4 flex items-center gap-3">
+      {/* Reply bar */}
+      <div className="shrink-0 border-t border-zinc-800/60 bg-zinc-950/90 backdrop-blur-md">
+        <div className="max-w-3xl mx-auto px-5 py-3.5 flex items-center gap-2">
           <button
             onClick={() => openReply(false)}
-            className="flex items-center gap-2 px-5 py-2.5 bg-zinc-900 border border-zinc-700 text-zinc-200 hover:border-zinc-500 hover:text-white rounded-xl text-sm font-medium transition-colors"
+            className="flex items-center gap-2 px-4 py-2 bg-zinc-900 border border-zinc-700/80 text-zinc-200 hover:border-zinc-500 hover:text-white rounded-xl text-sm font-medium transition-colors"
           >
-            <Reply size={14} />
+            <Reply size={13} />
             Reply
           </button>
           <button
             onClick={() => openReply(true)}
-            className="flex items-center gap-2 px-5 py-2.5 bg-zinc-900 border border-zinc-700 text-zinc-200 hover:border-zinc-500 hover:text-white rounded-xl text-sm font-medium transition-colors"
+            className="flex items-center gap-2 px-4 py-2 bg-zinc-900 border border-zinc-700/80 text-zinc-200 hover:border-zinc-500 hover:text-white rounded-xl text-sm font-medium transition-colors"
           >
-            <ReplyAll size={14} />
+            <ReplyAll size={13} />
             Reply All
           </button>
+          <button
+            onClick={openForward}
+            className="flex items-center gap-2 px-4 py-2 bg-zinc-900 border border-zinc-700/80 text-zinc-200 hover:border-zinc-500 hover:text-white rounded-xl text-sm font-medium transition-colors"
+          >
+            <Forward size={13} />
+            Forward
+          </button>
           <div className="flex-1" />
-          <p className="text-[11px] text-zinc-600 flex items-center gap-1.5">
+          <span className="text-[11px] text-zinc-600 flex items-center gap-1.5">
             <Bot size={11} />
-            Opens AI assistant
-          </p>
+            AI can help draft replies
+          </span>
         </div>
       </div>
+
     </div>
   );
 }
 
-function ActionBtn({ icon, label, onClick }: {
+function ActionBtn({ icon, label, onClick, loading, disabled, danger }: {
   icon: React.ReactNode;
   label: string;
   onClick?: () => void;
+  loading?: boolean;
+  disabled?: boolean;
+  danger?: boolean;
 }) {
   return (
     <button
       title={label}
       onClick={onClick}
-      className="p-2 rounded-lg text-zinc-500 hover:text-white hover:bg-zinc-800 transition-colors"
+      disabled={disabled || loading}
+      className={`p-2 rounded-lg transition-colors disabled:opacity-40
+        ${danger
+          ? 'text-zinc-500 hover:text-red-400 hover:bg-red-950/30'
+          : 'text-zinc-500 hover:text-white hover:bg-zinc-800'
+        } ${loading ? 'animate-pulse' : ''}`}
     >
       {icon}
     </button>

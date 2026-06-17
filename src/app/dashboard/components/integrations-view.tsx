@@ -135,11 +135,19 @@ function IntegrationCard({
   );
 }
 
-export function IntegrationsView() {
+export function IntegrationsView({
+  initialGmail = false,
+  initialCalendar = false,
+}: {
+  initialGmail?: boolean;
+  initialCalendar?: boolean;
+}) {
   const trpc = useTRPC();
-  const { data, isLoading, refetch, isFetching } = useQuery({
+  const { data, isFetching, refetch } = useQuery({
     ...trpc.stats.connectionStatus.queryOptions(),
-    staleTime: 0,
+    initialData: { gmail: initialGmail, googlecalendar: initialCalendar },
+    initialDataUpdatedAt: () => Date.now(),
+    staleTime: 30_000,
   });
 
   return (
@@ -173,8 +181,8 @@ export function IntegrationsView() {
             <IntegrationCard
               key={intg.id}
               integration={intg}
-              connected={isLoading ? false : (intg.id === 'gmail' ? (data?.gmail ?? false) : (data?.googlecalendar ?? false))}
-              loading={isLoading}
+              connected={intg.id === 'gmail' ? (data?.gmail ?? false) : (data?.googlecalendar ?? false)}
+              loading={false}
             />
           ))}
         </div>

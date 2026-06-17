@@ -101,12 +101,14 @@ function getGroupLabel(internalDate: string | null | undefined): string {
 
 function formatTimestamp(internalDate: string | null | undefined): string {
   if (!internalDate) return '';
-  const d   = new Date(Number(internalDate));
-  const now = new Date();
-  if (d >= new Date(now.getFullYear(), now.getMonth(), now.getDate())) {
-    return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  const d     = new Date(Number(internalDate));
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  if (d >= today) {
+    return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false });
   }
-  return d.toLocaleDateString([], { month: 'short', day: 'numeric' });
+  // "16 Jun" — matches Gmail date format
+  return d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
 }
 
 // ─── Main page ─────────────────────────────────────────────────────────────────
@@ -119,7 +121,9 @@ export default function MailPage() {
   const user = authData?.user;
 
   const [collapsed,    setCollapsed]    = useState(false);
-  const [chatMode,     setChatMode]     = useState(true);
+  const [chatMode,     setChatMode]     = useState(() => {
+    try { return localStorage.getItem('yugati_mail_mode') !== 'manual'; } catch { return false; }
+  });
   const [activeFolder, setActiveFolder] = useState<SidebarFolder>('inbox');
   const [activeTab,    setActiveTab]    = useState<InboxTab>('all');
   const [searchQuery,  setSearchQuery]  = useState('');
@@ -130,6 +134,10 @@ export default function MailPage() {
   const [summarizePrompt,  setSummarizePrompt]  = useState<string | undefined>();
   const [showSubscriptions, setShowSubscriptions] = useState(false);
 
+  useEffect(() => {
+    try { localStorage.setItem('yugati_mail_mode', chatMode ? 'chat' : 'manual'); } catch { /* ignore */ }
+  }, [chatMode]);
+
   const isInbox   = activeFolder === 'inbox';
   const tabQ      = INBOX_TABS.find((t) => t.id === activeTab)!.q;
   const folderQ   = SIDEBAR_FOLDERS.find((f) => f.id === activeFolder)!.q;
@@ -139,7 +147,7 @@ export default function MailPage() {
     : baseQ + (unreadOnly ? ' is:unread' : '');
 
   const { data, isLoading, error, refetch, isFetching } = useQuery(
-    trpc.gmail.listInbox.queryOptions({ maxResults: 30, q: effectiveQ }),
+    trpc.gmail.listInbox.queryOptions({ maxResults: 15, q: effectiveQ }),
   );
 
   const trashMutation = useMutation(
@@ -218,15 +226,20 @@ export default function MailPage() {
     if (raw) {
       sessionStorage.removeItem('yugati_reply_context');
       try {
-        const ctx = JSON.parse(raw) as { from: string; to: string; subject: string; snippet: string; replyAll?: boolean };
+        const ctx = JSON.parse(raw) as { from: string; to: string; subject: string; snippet: string; replyAll?: boolean; forward?: boolean };
         // Extract readable sender name from "Name <email>" format
         const senderName = ctx.from.match(/^"?([^"<]+)"?\s*</)?.[1]?.trim() || ctx.from;
-        const action = ctx.replyAll ? 'reply all' : 'reply';
-        const prompt = `Draft a professional ${action} to ${senderName} regarding: "${ctx.subject}".
+        let prompt: string;
+        if (ctx.forward) {
+          prompt = `I need to forward an email from ${senderName} with subject "${ctx.subject}". Please draft a short forwarding note explaining why I'm forwarding this and to whom. The original email said: ${ctx.snippet.slice(0, 300)}${ctx.snippet.length > 300 ? '…' : ''}`;
+        } else {
+          const action = ctx.replyAll ? 'reply all' : 'reply';
+          prompt = `Draft a professional ${action} to ${senderName} regarding: "${ctx.subject}".
 
 Context — they wrote: ${ctx.snippet.slice(0, 300)}${ctx.snippet.length > 300 ? '…' : ''}
 
 Keep it concise and address them by name.`;
+        }
         setSummarizePrompt(prompt);
         setChatMode(true);
       } catch { /* ignore */ }
@@ -404,29 +417,28 @@ Keep it concise and address them by name.`;
                     </div>
                   )}
 
-                  <ScrollArea.Root className="flex-1 overflow-hidden">
-                    <ScrollArea.Viewport className="h-full w-full">
-                      {groupedEmails.map(({ label, msgs }) => (
-                        <div key={label}>
-                          <div className="px-5 py-1.5 text-[11px] font-semibold text-zinc-500 bg-zinc-950/60 border-b border-zinc-800/30 sticky top-0 z-10">
-                            {label}
-                          </div>
-                          {msgs.map((msg) => (
-                            <EmailRow
-                              key={msg.id}
-                              msg={msg}
-                              selected={selectedIds.has(msg.id ?? '')}
-                              onSelect={() => toggleSelect(msg.id ?? '')}
-                              onDelete={() => void deleteOne(msg.id ?? '')}
-                            />
-                          ))}
+                  {/* Plain div instead of Radix ScrollArea — Radix wraps children in a
+                      display:table div that expands to content width, making overflow-x
+                      constraints impossible. A flex-child div with overflow-x:hidden is
+                      width-constrained by the flex layout, so truncation works reliably. */}
+                  <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden">
+                    {groupedEmails.map(({ label, msgs }) => (
+                      <div key={label}>
+                        <div className="px-5 py-1.5 text-[11px] font-semibold text-zinc-500 bg-zinc-950/60 border-b border-zinc-800/30 sticky top-0 z-10">
+                          {label}
                         </div>
-                      ))}
-                    </ScrollArea.Viewport>
-                    <ScrollArea.Scrollbar orientation="vertical" className="flex w-1.5 p-0.5">
-                      <ScrollArea.Thumb className="flex-1 bg-zinc-700 rounded-full" />
-                    </ScrollArea.Scrollbar>
-                  </ScrollArea.Root>
+                        {msgs.map((msg) => (
+                          <EmailRow
+                            key={msg.id}
+                            msg={msg}
+                            selected={selectedIds.has(msg.id ?? '')}
+                            onSelect={() => toggleSelect(msg.id ?? '')}
+                            onDelete={() => void deleteOne(msg.id ?? '')}
+                          />
+                        ))}
+                      </div>
+                    ))}
+                  </div>
                 </div>
 
                 <CalendarMini />
@@ -863,13 +875,13 @@ function NavItem({ icon: Icon, label, active = false, collapsed, onClick, href, 
   icon: React.ElementType; label: string; active?: boolean;
   collapsed: boolean; onClick?: () => void; href?: string; badge?: number; isNew?: boolean;
 }) {
-  const cls = `mx-1.5 flex items-center gap-2.5 px-2 py-2 text-xs font-medium rounded-lg transition-colors text-left overflow-hidden
-    ${active ? 'bg-zinc-800 text-white' : 'text-zinc-500 hover:text-zinc-200 hover:bg-zinc-900'}
+  const cls = `mx-1.5 flex items-center gap-2.5 px-2 py-2.5 text-xs font-medium rounded-lg transition-colors text-left overflow-hidden
+    ${active ? 'bg-zinc-800 text-white' : 'text-zinc-200 hover:text-white hover:bg-zinc-900'}
     ${collapsed ? 'justify-center' : ''}`;
 
   const inner = (
     <>
-      <Icon size={14} className={`shrink-0 ${active ? 'text-blue-400' : 'text-zinc-600'}`} />
+      <Icon size={15} className={`shrink-0 ${active ? 'text-blue-400' : 'text-zinc-400'}`} />
       <span className={`flex-1 whitespace-nowrap overflow-hidden transition-[max-width,opacity] duration-300 ease-in-out
         ${collapsed ? 'max-w-0 opacity-0' : 'max-w-full opacity-100'}`}>
         {label}
@@ -957,7 +969,7 @@ function MailTopBar({
         {!chatMode && (
           <>
             {/* Search */}
-            <div className="relative w-56">
+            <div className="relative w-36 sm:w-44 md:w-56">
               <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500 pointer-events-none" />
               <input
                 value={searchQuery}
@@ -980,7 +992,8 @@ function MailTopBar({
               )}
             </div>
 
-            {/* Senders dropdown */}
+            {/* Senders dropdown — hidden on small screens */}
+            <div className="hidden lg:block">
             <DropdownMenu
               trigger={
                 <span className="flex items-center gap-1.5">
@@ -1026,7 +1039,10 @@ function MailTopBar({
                 </div>
               )}
             </DropdownMenu>
+            </div>
 
+            {/* Labels + Quick Filters — hidden on small screens */}
+            <div className="hidden xl:flex items-center gap-2">
             {/* Labels dropdown */}
             <DropdownMenu
               trigger={
@@ -1109,6 +1125,7 @@ function MailTopBar({
                 );
               }}
             </DropdownMenu>
+            </div>
           </>
         )}
       </div>
@@ -1162,6 +1179,7 @@ function EmailRow({ msg, selected, onSelect, onDelete }: {
   onSelect: () => void;
   onDelete: () => void;
 }) {
+  const [hovered, setHovered] = useState(false);
   const subject  = getHeader(msg, 'subject') || '(no subject)';
   const from     = getHeader(msg, 'from');
   const fromName = from.replace(/<[^>]+>/, '').trim() || from;
@@ -1169,43 +1187,51 @@ function EmailRow({ msg, selected, onSelect, onDelete }: {
   const time     = formatTimestamp(msg.internalDate);
 
   return (
-    <div className={`group relative flex items-center border-b border-zinc-800/40 hover:bg-zinc-900/50 transition-colors
-      ${selected ? 'bg-zinc-900/40' : isUnread ? 'bg-white/[0.025]' : ''}`}>
-
-      {/* Checkbox area */}
-      <div className="w-10 flex items-center justify-center py-3 shrink-0">
+    <div
+      className={`relative flex items-center border-b border-zinc-800/40 hover:bg-zinc-900/50 transition-colors overflow-hidden
+        ${selected ? 'bg-zinc-900/40' : isUnread ? 'bg-white/[0.025]' : ''}`}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+    >
+      {/* Checkbox */}
+      <div className="w-9 shrink-0 flex items-center justify-center py-3">
         <button
           onClick={onSelect}
-          className="opacity-0 group-hover:opacity-100 transition-opacity duration-150 text-zinc-500 hover:text-zinc-200"
+          className={`transition-opacity text-zinc-500 hover:text-zinc-200 ${hovered || selected ? 'opacity-100' : 'opacity-0'}`}
         >
-          {selected
-            ? <SquareCheck size={14} className="text-blue-400" />
-            : <Square size={14} />}
+          {selected ? <SquareCheck size={14} className="text-blue-400" /> : <Square size={14} />}
         </button>
       </div>
 
-      {/* Email content */}
-      <Link href={`/dashboard/mail/${msg.id}`} className="flex-1 flex items-center gap-3 pr-4 py-3 min-w-0">
-        <div className="w-36 shrink-0 truncate">
-          <span className={`text-sm ${isUnread ? 'font-semibold text-white' : 'text-zinc-300'}`}>{fromName}</span>
-        </div>
-        <div className="flex-1 min-w-0 flex items-baseline gap-2 overflow-hidden">
-          <span className={`text-sm shrink-0 max-w-[40%] truncate ${isUnread ? 'font-semibold text-white' : 'text-zinc-300'}`}>
-            {subject}
-          </span>
-          <span className="text-xs text-zinc-500 truncate">{msg.snippet}</span>
-        </div>
-        <div className="flex items-center gap-2 shrink-0 ml-2">
-          {/* Trash icon on hover — always shown on hover, calls actual delete */}
-          <button
-            onClick={(e) => { e.preventDefault(); onDelete(); }}
-            className="opacity-0 group-hover:opacity-100 transition-opacity p-1 text-zinc-600 hover:text-red-400"
-          >
-            <Trash2 size={13} />
-          </button>
-          <span className={`text-xs ${isUnread ? 'text-zinc-200 font-medium' : 'text-zinc-500'}`}>{time}</span>
-        </div>
+      {/* Link — fills all remaining space between checkbox and date column */}
+      <Link href={`/dashboard/mail/${msg.id}`} className="min-w-0 flex-1 flex items-center py-3 pl-1">
+        {/* Sender — responsive fixed width */}
+        <p className={`w-28 sm:w-36 lg:w-44 shrink-0 truncate text-sm pr-4 ${
+          isUnread ? 'font-semibold text-white' : 'font-medium text-zinc-400'
+        }`}>
+          {fromName}
+        </p>
+        {/* Subject — snippet as ONE truncating line */}
+        <p className="min-w-0 flex-1 truncate text-sm">
+          <span className={isUnread ? 'font-semibold text-white' : 'text-zinc-300'}>{subject}</span>
+          {msg.snippet && <span className="text-zinc-500 font-normal"> — {msg.snippet}</span>}
+        </p>
       </Link>
+
+      {/* Date / Trash — fixed width OUTSIDE the link, always visible */}
+      <div className="w-14 shrink-0 flex items-center justify-end pr-3 relative">
+        <span className={`text-xs transition-opacity ${hovered ? 'opacity-0' : 'opacity-100'} ${
+          isUnread ? 'font-medium text-zinc-200' : 'text-zinc-500'
+        }`}>
+          {time}
+        </span>
+        <button
+          onClick={onDelete}
+          className={`absolute right-3 transition-opacity ${hovered ? 'opacity-100' : 'opacity-0'} text-zinc-500 hover:text-red-400`}
+        >
+          <Trash2 size={13} />
+        </button>
+      </div>
     </div>
   );
 }
@@ -1266,7 +1292,7 @@ function CalendarMini() {
   function isoDate(d: Date) { return d.toISOString().split('T')[0]; }
 
   return (
-    <aside className="w-60 shrink-0 flex flex-col bg-zinc-950/80 border-l border-zinc-800/50 overflow-hidden">
+    <aside className="hidden xl:flex xl:flex-col w-60 shrink-0 bg-zinc-950/80 border-l border-zinc-800/50 overflow-hidden">
       {/* Header */}
       <div className="flex items-center justify-between px-4 py-3 border-b border-zinc-800/50 shrink-0">
         <span className="text-xs font-semibold text-zinc-300">Calendar</span>

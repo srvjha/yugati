@@ -1,6 +1,12 @@
-import { corsair } from '@/server/corsair';
+import { corsair }         from '@/server/corsair';
+import { db }              from '@/server/db';
+import { corsairAccounts, corsairIntegrations } from '@/server/db/schema';
+import { eq, and }         from 'drizzle-orm';
 
-const CACHE_TTL_MS = 3 * 60 * 1000; // 3 minutes
+// Cache is considered warm after this window following first integration connect.
+// Corsair background sync typically completes well within this time.
+const CACHE_WARM_AFTER_MS = 10 * 60 * 1000; // 10 minutes
+const CACHE_TTL_MS        = 3 * 60 * 1000;  // 3 minutes
 
 export interface Subscription {
   messageId:   string;
@@ -14,10 +20,30 @@ export interface Subscription {
 }
 
 export class GmailService {
-  private readonly c: ReturnType<typeof corsair.withTenant>;
+  private readonly c:        ReturnType<typeof corsair.withTenant>;
+  private readonly tenantId: string;
 
   constructor(tenantId: string) {
+    this.tenantId = tenantId;
     this.c = corsair.withTenant(tenantId);
+  }
+
+  // Returns true when the Gmail integration is old enough that Corsair's
+  // background sync has had time to warm the local DB cache.
+  private async isCacheWarm(): Promise<boolean> {
+    const row = await db
+      .select({ createdAt: corsairAccounts.createdAt })
+      .from(corsairAccounts)
+      .innerJoin(corsairIntegrations, eq(corsairAccounts.integrationId, corsairIntegrations.id))
+      .where(and(
+        eq(corsairAccounts.tenantId, this.tenantId),
+        eq(corsairIntegrations.name, 'gmail'),
+      ))
+      .limit(1)
+      .then((r) => r[0] ?? null);
+
+    if (!row) return false;
+    return Date.now() - new Date(row.createdAt).getTime() > CACHE_WARM_AFTER_MS;
   }
 
   listMessages(opts: { q?: string; maxResults?: number; labelIds?: string[] } = {}) {
@@ -25,34 +51,33 @@ export class GmailService {
   }
 
   async listInbox(opts: { maxResults?: number; q?: string } = {}) {
-    const limit = opts.maxResults ?? 20;
+    const limit = opts.maxResults ?? 15;
 
-    if (!opts.q) {
-      const cached = await this.c.gmail.db.messages.list({ limit });
+    // Search always hits the live API for accurate results.
+    if (opts.q) return this.fetchFromApi(limit, opts.q);
 
-      if (cached.length > 0) {
-        const sorted = [...cached]
-          .sort((a, b) => Number(b.data.internalDate ?? 0) - Number(a.data.internalDate ?? 0))
-          .map((e) => e.data);
+    // New integration: cache hasn't been bootstrapped yet → go straight to API.
+    const warm = await this.isCacheWarm();
+    if (!warm) return this.fetchFromApi(limit);
 
-        // Revalidate in background when stale — caller gets instant response
-        const newestUpdatedAt = Math.max(...cached.map((e) => new Date(e.updated_at).getTime()));
-        if (Date.now() - newestUpdatedAt >= CACHE_TTL_MS) {
-          void this.revalidateInbox(limit);
-        }
+    // Returning user: serve from DB cache (fast, no Gmail quota used).
+    const cached = await this.c.gmail.db.messages.list({ limit });
+    if (cached.length > 0) {
+      const sorted = [...cached]
+        .sort((a, b) => Number(b.data.internalDate ?? 0) - Number(a.data.internalDate ?? 0))
+        .map((e) => e.data);
 
-        return { messages: sorted, nextPageToken: null };
+      // Background revalidate when stale so next load is instant too.
+      const newest = Math.max(...cached.map((e) => new Date(e.updated_at).getTime()));
+      if (Date.now() - newest >= CACHE_TTL_MS) {
+        void this.fetchFromApi(limit);
       }
+
+      return { messages: sorted, nextPageToken: null };
     }
 
-    // Cold start or search — fetch live
-    return this.fetchFromApi(limit, opts.q);
-  }
-
-  private async revalidateInbox(limit: number) {
-    try {
-      await this.fetchFromApi(limit);
-    } catch { /* silent */ }
+    // Cache warm but empty (edge case) — fall through to API.
+    return this.fetchFromApi(limit);
   }
 
   private async fetchFromApi(limit: number, q?: string) {

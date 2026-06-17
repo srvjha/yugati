@@ -10,6 +10,8 @@ import {
 } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 import { useTRPC }  from '@/trpc/client';
+import { toast }    from 'sonner';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
 type AgentMode = 'guided' | 'auto';
 import { MAX_PROMPT_CHARS } from '@/lib/constants';
@@ -425,6 +427,7 @@ export function ChatView({
 
   const voice = useVoiceInput((transcript) => { void submit(transcript); });
   const [copiedId,         setCopiedId]         = useState<string | null>(null);
+  const [hoveredMsgId,     setHoveredMsgId]     = useState<string | null>(null);
   const [editingSessionId, setEditingSessionId] = useState<string | null>(null);
   const [editSessionTitle, setEditSessionTitle] = useState('');
 
@@ -669,6 +672,7 @@ export function ChatView({
   async function copyMessage(id: string, content: string) {
     await navigator.clipboard.writeText(content);
     setCopiedId(id);
+    toast.success('Copied');
     setTimeout(() => setCopiedId(null), 2000);
   }
 
@@ -728,7 +732,7 @@ export function ChatView({
           <div className="px-2 pt-2.5 pb-1.5 shrink-0 flex gap-1.5">
             <button
               onClick={startNewChat}
-              className="flex-1 flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-medium bg-zinc-800 hover:bg-zinc-700 text-zinc-200 transition-colors"
+              className="flex-1 flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-semibold bg-white text-black hover:bg-zinc-100 transition-colors"
             >
               <Plus size={13} className="shrink-0" />
               New chat
@@ -737,7 +741,7 @@ export function ChatView({
               onClick={() => setShowClearDialog(true)}
               disabled={!activeSession?.messages.length}
               title="Clear current chat"
-              className="flex items-center justify-center w-8 h-8 rounded-lg text-zinc-600 hover:text-red-400 hover:bg-red-500/10 border border-transparent hover:border-red-500/20 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+              className="flex items-center justify-center w-8 h-8 rounded-lg text-zinc-300 hover:text-red-400 hover:bg-red-500/10 border border-zinc-700 hover:border-red-500/20 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
             >
               <Trash2 size={13} />
             </button>
@@ -776,15 +780,15 @@ export function ChatView({
                         <div className="shrink-0 flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
                           <button
                             onClick={(e) => startEditSession(s, e)}
-                            className="p-0.5 text-zinc-600 hover:text-zinc-300 rounded"
+                            className="p-1 text-zinc-400 hover:text-white rounded"
                           >
-                            <Pencil size={10} />
+                            <Pencil size={11} />
                           </button>
                           <button
                             onClick={(e) => deleteSession(s.id, e)}
-                            className="p-0.5 text-zinc-600 hover:text-red-400 rounded"
+                            className="p-1 text-zinc-400 hover:text-red-400 rounded"
                           >
-                            <Trash2 size={10} />
+                            <Trash2 size={11} />
                           </button>
                         </div>
                       </>
@@ -815,10 +819,10 @@ export function ChatView({
             {messages.length === 0 ? 'Chat' : (activeSession?.title ?? 'Chat')}
           </span>
           <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-zinc-800 text-zinc-400 uppercase tracking-wider">AI</span>
-          <div className="ml-auto flex items-center gap-1">
+          <div className="ml-auto flex items-center gap-1.5">
             <button
               onClick={startNewChat}
-              className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs text-zinc-400 hover:text-white hover:bg-zinc-800 rounded-lg transition-colors"
+              className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold bg-white text-black hover:bg-zinc-100 rounded-lg transition-colors"
             >
               <Plus size={13} />
               New chat
@@ -827,7 +831,7 @@ export function ChatView({
               onClick={() => setShowClearDialog(true)}
               disabled={!activeSession?.messages.length}
               title="Clear current chat"
-              className="flex items-center justify-center w-7 h-7 rounded-lg text-zinc-600 hover:text-red-400 hover:bg-red-500/10 border border-transparent hover:border-red-500/20 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+              className="flex items-center justify-center w-7 h-7 rounded-lg text-zinc-300 hover:text-red-400 hover:bg-red-500/10 border border-zinc-700 hover:border-red-500/20 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
             >
               <Trash2 size={13} />
             </button>
@@ -867,7 +871,12 @@ export function ChatView({
 
             <div className="max-w-2xl mx-auto w-full px-4 py-6 space-y-6">
               {messages.map((msg, i) => (
-                <div key={msg.id} className="group">
+                <div
+                  key={msg.id}
+                  className="group"
+                  onMouseEnter={() => setHoveredMsgId(msg.id)}
+                  onMouseLeave={() => setHoveredMsgId(null)}
+                >
                   {msg.role === 'user' ? (
 
                     <div className="flex justify-end">
@@ -904,12 +913,12 @@ export function ChatView({
                             <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/[0.2] to-transparent pointer-events-none" />
                             {msg.content}
                           </div>
-                          <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                          <div className={`flex items-center gap-0.5 overflow-hidden transition-all duration-150 ${hoveredMsgId === msg.id ? 'max-h-8 opacity-100' : 'max-h-0 opacity-0 pointer-events-none'}`}>
                             <MsgBtn onClick={() => void copyMessage(msg.id, msg.content)} title="Copy">
-                              {copiedId === msg.id ? <Check size={12} className="text-green-400" /> : <Copy size={12} />}
+                              {copiedId === msg.id ? <Check size={14} className="text-green-400" /> : <Copy size={14} />}
                             </MsgBtn>
                             <MsgBtn onClick={() => startEditMsg(msg)} title="Edit">
-                              <Pencil size={12} />
+                              <Pencil size={14} />
                             </MsgBtn>
                           </div>
                         </div>
@@ -956,13 +965,13 @@ export function ChatView({
                           </div>
                         )}
                         {!msg.streaming && msg.content && (
-                          <div className="flex items-center gap-0.5 mt-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                          <div className="flex items-center gap-0.5 mt-1.5">
                             <MsgBtn onClick={() => void copyMessage(msg.id, msg.content)} title="Copy">
-                              {copiedId === msg.id ? <Check size={12} className="text-green-400" /> : <Copy size={12} />}
+                              {copiedId === msg.id ? <Check size={14} className="text-green-400" /> : <Copy size={14} />}
                             </MsgBtn>
                             {i === messages.length - 1 && (
                               <MsgBtn onClick={regenerate} title="Regenerate" disabled={isLoading}>
-                                <RefreshCw size={12} className={isLoading ? 'animate-spin' : ''} />
+                                <RefreshCw size={14} />
                               </MsgBtn>
                             )}
                           </div>
@@ -1008,23 +1017,39 @@ export function ChatView({
               {/* Bottom toolbar */}
               <div className="flex items-center gap-2 px-3 pb-2.5">
                 {/* Mode toggle */}
+                <TooltipProvider>
                 <div className="flex items-center bg-zinc-800/60 rounded-lg p-0.5 gap-0.5">
-                  <button
-                    onClick={() => { setAgentMode('guided'); try { localStorage.setItem('yugati_agent_mode', 'guided'); } catch {} }}
-                    className={`flex items-center px-2.5 py-1 rounded-md text-[11px] font-medium transition-all
-                      ${agentMode === 'guided' ? 'bg-zinc-700 text-zinc-200' : 'text-zinc-600 hover:text-zinc-400'}`}
-                  >
-                    Guided
-                  </button>
-                  <button
-                    onClick={() => { setAgentMode('auto'); try { localStorage.setItem('yugati_agent_mode', 'auto'); } catch {} }}
-                    className={`flex items-center gap-1 px-2.5 py-1 rounded-md text-[11px] font-medium transition-all
-                      ${agentMode === 'auto' ? 'bg-zinc-700 text-zinc-200' : 'text-zinc-600 hover:text-zinc-400'}`}
-                  >
-                    <Zap size={9} className={agentMode === 'auto' ? 'text-amber-400' : ''} />
-                    Auto
-                  </button>
+                  <Tooltip>
+                    <TooltipTrigger>
+                      <button
+                        onClick={() => { setAgentMode('guided'); try { localStorage.setItem('yugati_agent_mode', 'guided'); } catch {} }}
+                        className={`flex items-center px-2.5 py-1 rounded-md text-[11px] font-medium transition-all
+                          ${agentMode === 'guided' ? 'bg-zinc-700 text-zinc-200' : 'text-zinc-600 hover:text-zinc-400'}`}
+                      >
+                        Guided
+                      </button>
+                    </TooltipTrigger>
+                    <TooltipContent side="top">
+                      Asks before sending emails or making changes
+                    </TooltipContent>
+                  </Tooltip>
+                  <Tooltip>
+                    <TooltipTrigger>
+                      <button
+                        onClick={() => { setAgentMode('auto'); try { localStorage.setItem('yugati_agent_mode', 'auto'); } catch {} }}
+                        className={`flex items-center gap-1 px-2.5 py-1 rounded-md text-[11px] font-medium transition-all
+                          ${agentMode === 'auto' ? 'bg-zinc-700 text-zinc-200' : 'text-zinc-600 hover:text-zinc-400'}`}
+                      >
+                        <Zap size={9} className={agentMode === 'auto' ? 'text-amber-400' : ''} />
+                        Auto
+                      </button>
+                    </TooltipTrigger>
+                    <TooltipContent side="top">
+                      Acts immediately without asking
+                    </TooltipContent>
+                  </Tooltip>
                 </div>
+                </TooltipProvider>
                 <div className="flex-1" />
                 {/* Char counter */}
                 <span className={`text-[10px] font-mono tabular-nums transition-colors
@@ -1092,7 +1117,7 @@ function MsgBtn({ onClick, title, children, disabled }: {
       onClick={onClick}
       title={title}
       disabled={disabled}
-      className="w-6 h-6 flex items-center justify-center text-zinc-600 hover:text-zinc-300 hover:bg-zinc-800 rounded-md transition-colors disabled:opacity-40"
+      className="w-7 h-7 flex items-center justify-center text-zinc-400 hover:text-white hover:bg-zinc-700 rounded-md transition-colors disabled:opacity-40"
     >
       {children}
     </button>

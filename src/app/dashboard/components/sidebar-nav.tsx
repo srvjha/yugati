@@ -50,16 +50,16 @@ export function SidebarNav({ user }: { user: User }) {
       {/* Navigation */}
       <div className="flex-1 py-4 px-2 space-y-0.5 overflow-y-auto">
         {NAV_ITEMS.map(({ href, label, icon: Icon, imgSrc, lightImgSrc, dot, isNew }) => {
-          const imgOpacity = (active: boolean) => active ? 'opacity-100' : 'opacity-40 group-hover:opacity-70';
+          const imgOpacity = (active: boolean) => active ? 'opacity-100' : 'opacity-65 group-hover:opacity-90';
           const active = isActive(href);
           return (
             <Link
               key={href}
               href={href}
-              className={`group flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm font-medium transition-all
+              className={`group flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-sm font-medium transition-all
                 ${active
                   ? 'bg-zinc-800 text-white'
-                  : 'text-zinc-500 hover:text-zinc-200 hover:bg-zinc-900'
+                  : 'text-zinc-300 hover:text-white hover:bg-zinc-900'
                 }`}
             >
               {imgSrc ? (
@@ -73,8 +73,8 @@ export function SidebarNav({ user }: { user: User }) {
                 </span>
               ) : Icon ? (
                 <Icon
-                  size={15}
-                  className={active ? 'text-white' : 'text-zinc-600 group-hover:text-zinc-400 transition-colors'}
+                  size={16}
+                  className={active ? 'text-white' : 'text-zinc-400 group-hover:text-zinc-200 transition-colors'}
                 />
               ) : null}
               {label}
@@ -119,7 +119,7 @@ export function SidebarNav({ user }: { user: User }) {
         </div>
         <button
           onClick={() => signOut({ fetchOptions: { onSuccess: () => router.push('/') } })}
-          className="flex items-center gap-2 text-xs text-zinc-600 hover:text-zinc-300 transition-colors w-full px-1"
+          className="flex items-center gap-2 text-xs text-zinc-400 hover:text-white transition-colors w-full px-1"
         >
           <LogOut size={12} />
           Sign out
