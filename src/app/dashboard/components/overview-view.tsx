@@ -234,104 +234,106 @@ export function OverviewView({ userName }: { userName?: string }) {
         </div>
 
         {/* ── Smart focus summary ── */}
-        {((prefs?.focuses?.length ?? 0) > 0 || editingFocuses) && (
-          <div className="bg-zinc-950 border border-zinc-800/80 rounded-2xl p-5">
-            <div className="flex items-center justify-between mb-4">
-              <div>
-                <p className="text-sm font-semibold text-zinc-200 flex items-center gap-1.5">
-                  <Sparkles size={13} className="text-violet-400" />
-                  Your Focus Areas
-                </p>
-                <p className="text-xs text-zinc-600 mt-0.5">Yugati surfaces insights for these categories</p>
-              </div>
-              {editingFocuses ? (
-                <div className="flex items-center gap-2">
-                  <button
-                    onClick={() => setEditingFocuses(false)}
-                    className="flex items-center gap-1 text-[11px] text-zinc-500 hover:text-zinc-300 px-2.5 py-1.5 rounded-lg transition-colors"
-                  >
-                    <X size={11} />
-                    Cancel
-                  </button>
-                  <button
-                    onClick={() => saveFocuses({ focuses: Array.from(draft) })}
-                    disabled={savingFocuses}
-                    className="flex items-center gap-1 text-[11px] font-semibold bg-white text-black px-3 py-1.5 rounded-lg hover:bg-zinc-100 transition-colors disabled:opacity-50"
-                  >
-                    <Check size={11} />
-                    {savingFocuses ? 'Saving…' : 'Save'}
-                  </button>
-                </div>
-              ) : (
-                <button
-                  onClick={() => {
-                    setDraft(new Set(prefs?.focuses ?? []));
-                    setEditingFocuses(true);
-                  }}
-                  className="text-[11px] text-zinc-500 hover:text-zinc-300 border border-zinc-800 hover:border-zinc-700 px-2.5 py-1.5 rounded-lg transition-colors"
-                >
-                  Edit
-                </button>
-              )}
+        <div className="bg-zinc-950 border border-zinc-800/80 rounded-2xl p-5">
+          <div className="flex items-center justify-between mb-4">
+            <div>
+              <p className="text-sm font-semibold text-zinc-200 flex items-center gap-1.5">
+                <Sparkles size={13} className="text-violet-400" />
+                Your Focus Areas
+              </p>
+              <p className="text-xs text-zinc-600 mt-0.5">Yugati surfaces insights for these categories</p>
             </div>
-
             {editingFocuses ? (
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                {Object.entries(FOCUS_META).map(([id, meta]) => {
-                  const active = draft.has(id);
-                  return (
-                    <button
-                      key={id}
-                      onClick={() => setDraft((prev) => {
-                        const next = new Set(prev);
-                        next.has(id) ? next.delete(id) : next.add(id);
-                        return next;
-                      })}
-                      className={`text-left px-4 py-3 rounded-xl border transition-all ${
-                        active
-                          ? 'bg-white/8 border-white/20 ring-1 ring-white/10'
-                          : 'bg-zinc-900/60 border-zinc-800/60 hover:border-zinc-700'
-                      }`}
-                    >
-                      <div className="flex items-center justify-between mb-1.5">
-                        <p className="text-xs font-semibold text-zinc-200">{meta.label}</p>
-                        {active && <Check size={11} className="text-green-400 shrink-0" />}
-                      </div>
-                      <ul className="space-y-0.5">
-                        {meta.bullets.map((b) => (
-                          <li key={b} className="flex items-start gap-1.5 text-[11px] text-zinc-500 leading-tight">
-                            <span className="mt-[3px] w-1 h-1 rounded-full bg-zinc-600 shrink-0" />
-                            {b}
-                          </li>
-                        ))}
-                      </ul>
-                    </button>
-                  );
-                })}
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setEditingFocuses(false)}
+                  className="flex items-center gap-1 text-[11px] text-zinc-500 hover:text-zinc-300 px-2.5 py-1.5 rounded-lg transition-colors"
+                >
+                  <X size={11} />
+                  Cancel
+                </button>
+                <button
+                  onClick={() => saveFocuses({ focuses: Array.from(draft) })}
+                  disabled={savingFocuses}
+                  className="flex items-center gap-1 text-[11px] font-semibold bg-white text-black px-3 py-1.5 rounded-lg hover:bg-zinc-100 transition-colors disabled:opacity-50"
+                >
+                  <Check size={11} />
+                  {savingFocuses ? 'Saving…' : 'Save'}
+                </button>
               </div>
             ) : (
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                {(prefs?.focuses ?? []).map((id) => {
-                  const meta = FOCUS_META[id];
-                  if (!meta) return null;
-                  return (
-                    <div key={id} className="bg-zinc-900/60 border border-zinc-800/60 rounded-xl px-4 py-3">
-                      <p className="text-xs font-semibold text-zinc-200 mb-1.5">{meta.label}</p>
-                      <ul className="space-y-0.5">
-                        {meta.bullets.map((b) => (
-                          <li key={b} className="flex items-start gap-1.5 text-[11px] text-zinc-500 leading-tight">
-                            <span className="mt-[3px] w-1 h-1 rounded-full bg-zinc-600 shrink-0" />
-                            {b}
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
-                  );
-                })}
-              </div>
+              <button
+                onClick={() => {
+                  setDraft(new Set(prefs?.focuses ?? []));
+                  setEditingFocuses(true);
+                }}
+                className="text-[11px] text-zinc-500 hover:text-zinc-300 border border-zinc-800 hover:border-zinc-700 px-2.5 py-1.5 rounded-lg transition-colors"
+              >
+                {(prefs?.focuses?.length ?? 0) === 0 ? 'Set up' : 'Edit'}
+              </button>
             )}
           </div>
-        )}
+
+          {editingFocuses ? (
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+              {Object.entries(FOCUS_META).map(([id, meta]) => {
+                const active = draft.has(id);
+                return (
+                  <button
+                    key={id}
+                    onClick={() => setDraft((prev) => {
+                      const next = new Set(prev);
+                      next.has(id) ? next.delete(id) : next.add(id);
+                      return next;
+                    })}
+                    className={`text-left px-4 py-3 rounded-xl border transition-all ${
+                      active
+                        ? 'bg-white/8 border-white/20 ring-1 ring-white/10'
+                        : 'bg-zinc-900/60 border-zinc-800/60 hover:border-zinc-700'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between mb-1.5">
+                      <p className="text-xs font-semibold text-zinc-200">{meta.label}</p>
+                      {active && <Check size={11} className="text-green-400 shrink-0" />}
+                    </div>
+                    <ul className="space-y-0.5">
+                      {meta.bullets.map((b) => (
+                        <li key={b} className="flex items-start gap-1.5 text-[11px] text-zinc-500 leading-tight">
+                          <span className="mt-[3px] w-1 h-1 rounded-full bg-zinc-600 shrink-0" />
+                          {b}
+                        </li>
+                      ))}
+                    </ul>
+                  </button>
+                );
+              })}
+            </div>
+          ) : (prefs?.focuses?.length ?? 0) === 0 ? (
+            <p className="text-xs text-zinc-600">
+              No focus areas set yet. Click <span className="text-zinc-400">Set up</span> to tell Yugati what to prioritise for you.
+            </p>
+          ) : (
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+              {(prefs?.focuses ?? []).map((id) => {
+                const meta = FOCUS_META[id];
+                if (!meta) return null;
+                return (
+                  <div key={id} className="bg-zinc-900/60 border border-zinc-800/60 rounded-xl px-4 py-3">
+                    <p className="text-xs font-semibold text-zinc-200 mb-1.5">{meta.label}</p>
+                    <ul className="space-y-0.5">
+                      {meta.bullets.map((b) => (
+                        <li key={b} className="flex items-start gap-1.5 text-[11px] text-zinc-500 leading-tight">
+                          <span className="mt-[3px] w-1 h-1 rounded-full bg-zinc-600 shrink-0" />
+                          {b}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
 
         {/* ── Stat cards ── */}
         <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-3">

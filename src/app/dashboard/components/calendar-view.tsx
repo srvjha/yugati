@@ -24,7 +24,7 @@ interface CalEvent {
   colorId?: string;
 }
 
-type CalView = 'month' | 'day';
+type CalView = 'month' | 'week' | 'day';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -49,13 +49,19 @@ function buildGrid(year: number, month: number): (Date | null)[][] {
   return weeks;
 }
 
-function isoDate(d: Date) { return d.toISOString().split('T')[0]!; }
+// Use local date parts — avoids UTC-string splitting that shifts dates across midnight
+function isoDate(d: Date) {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
 
 function eventsForDay(events: CalEvent[], date: Date): CalEvent[] {
   const ds = isoDate(date);
   return events.filter((e) => {
-    const start = e.start?.dateTime ? e.start.dateTime.split('T')[0] : e.start?.date;
-    return start === ds;
+    if (e.start?.dateTime) {
+      const local = new Date(e.start.dateTime);
+      return isoDate(local) === ds;
+    }
+    return e.start?.date === ds;
   });
 }
 
@@ -70,34 +76,90 @@ function toLocalISO(dateStr: string, timeStr: string): string {
 
 function fmtTime(dt?: string) {
   if (!dt) return '';
-  return new Date(dt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  return new Date(dt).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: false });
 }
 
 function fmtDateTime(dt?: string) {
   if (!dt) return '';
-  return new Date(dt).toLocaleString([], { weekday: 'short', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+  return new Date(dt).toLocaleString('en-IN', { weekday: 'short', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit', hour12: false });
 }
 
 // ─── Event colors ─────────────────────────────────────────────────────────────
 
-const EVENT_COLORS = [
-  'bg-blue-600',   'bg-indigo-600', 'bg-violet-600', 'bg-emerald-600',
-  'bg-rose-600',   'bg-amber-600',  'bg-cyan-600',   'bg-pink-600',
-  'bg-teal-600',   'bg-orange-600', 'bg-lime-600',
-];
-
 const EVENT_COLORS_SOLID = [
-  'bg-blue-500',   'bg-indigo-500', 'bg-violet-500', 'bg-emerald-500',
-  'bg-rose-500',   'bg-amber-500',  'bg-cyan-500',   'bg-pink-500',
-  'bg-teal-500',   'bg-orange-500', 'bg-lime-500',
+  'bg-blue-100 text-blue-900 dark:bg-blue-500 dark:text-white',
+  'bg-indigo-100 text-indigo-900 dark:bg-indigo-500 dark:text-white',
+  'bg-violet-100 text-violet-900 dark:bg-violet-500 dark:text-white',
+  'bg-emerald-100 text-emerald-900 dark:bg-emerald-500 dark:text-white',
+  'bg-rose-100 text-rose-900 dark:bg-rose-500 dark:text-white',
+  'bg-amber-100 text-amber-900 dark:bg-amber-500 dark:text-white',
+  'bg-cyan-100 text-cyan-900 dark:bg-cyan-500 dark:text-white',
+  'bg-pink-100 text-pink-900 dark:bg-pink-500 dark:text-white',
+  'bg-teal-100 text-teal-900 dark:bg-teal-500 dark:text-white',
+  'bg-orange-100 text-orange-900 dark:bg-orange-500 dark:text-white',
+  'bg-lime-100 text-lime-900 dark:bg-lime-500 dark:text-white',
 ];
 
-function eventColor(id?: string, solid = false) {
-  const palette = solid ? EVENT_COLORS_SOLID : EVENT_COLORS;
-  if (!id) return palette[0];
+function eventColor(id?: string) {
+  if (!id) return EVENT_COLORS_SOLID[0];
   let hash = 0;
   for (let i = 0; i < id.length; i++) hash = id.charCodeAt(i) + ((hash << 5) - hash);
-  return palette[Math.abs(hash) % palette.length];
+  return EVENT_COLORS_SOLID[Math.abs(hash) % EVENT_COLORS_SOLID.length];
+}
+
+// ─── Week view accent colors ──────────────────────────────────────────────────
+
+const WEEK_DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+
+const ACCENT_BORDERS = [
+  'border-l-blue-500',   'border-l-violet-500', 'border-l-emerald-500',
+  'border-l-rose-500',   'border-l-amber-500',  'border-l-cyan-500',
+  'border-l-pink-500',   'border-l-indigo-500', 'border-l-teal-500',
+  'border-l-orange-500',
+];
+const ACCENT_DOTS = [
+  'bg-blue-500', 'bg-violet-500', 'bg-emerald-500', 'bg-rose-500',
+  'bg-amber-500', 'bg-cyan-500', 'bg-pink-500', 'bg-indigo-500',
+  'bg-teal-500', 'bg-orange-500',
+];
+const CHIP_CLASSES = [
+  'bg-blue-500/15 text-blue-800 dark:bg-blue-500 dark:text-white',
+  'bg-violet-500/15 text-violet-800 dark:bg-violet-500 dark:text-white',
+  'bg-emerald-500/15 text-emerald-800 dark:bg-emerald-500 dark:text-white',
+  'bg-rose-500/15 text-rose-800 dark:bg-rose-500 dark:text-white',
+  'bg-amber-500/15 text-amber-800 dark:bg-amber-500 dark:text-white',
+  'bg-cyan-500/15 text-cyan-800 dark:bg-cyan-500 dark:text-white',
+  'bg-pink-500/15 text-pink-800 dark:bg-pink-500 dark:text-white',
+  'bg-indigo-500/15 text-indigo-800 dark:bg-indigo-500 dark:text-white',
+  'bg-teal-500/15 text-teal-800 dark:bg-teal-500 dark:text-white',
+  'bg-orange-500/15 text-orange-800 dark:bg-orange-500 dark:text-white',
+];
+
+function eventAccent(id?: string) {
+  if (!id) return { border: ACCENT_BORDERS[0]!, dot: ACCENT_DOTS[0]!, chip: CHIP_CLASSES[0]! };
+  let hash = 0;
+  for (let i = 0; i < id.length; i++) hash = id.charCodeAt(i) + ((hash << 5) - hash);
+  const idx = Math.abs(hash) % ACCENT_DOTS.length;
+  return { border: ACCENT_BORDERS[idx]!, dot: ACCENT_DOTS[idx]!, chip: CHIP_CLASSES[idx]! };
+}
+
+// ─── Week start helper ────────────────────────────────────────────────────────
+
+function getWeekStart(year: number, month: number, day: number): Date {
+  const d = new Date(year, month, day);
+  const dow = d.getDay(); // 0=Sun
+  const diff = dow === 0 ? -6 : 1 - dow;
+  return new Date(year, month, day + diff);
+}
+
+// ─── Constants ────────────────────────────────────────────────────────────────
+
+const HOUR_HEIGHT = 64;
+const HOURS = Array.from({ length: 24 }, (_, i) => i);
+
+function minutesFromMidnight(dt: string): number {
+  const d = new Date(dt);
+  return d.getHours() * 60 + d.getMinutes();
 }
 
 // ─── Main component ───────────────────────────────────────────────────────────
@@ -107,7 +169,9 @@ export function CalendarView({ userName }: { userName?: string }) {
   const qc   = useQueryClient();
 
   const today = useMemo(() => new Date(), []);
-  const [view,  setView]  = useState<CalView>('month');
+  const [view, setView] = useState<CalView>(() => {
+    try { return (localStorage.getItem('yugati_cal_view') as CalView) ?? 'month'; } catch { return 'month'; }
+  });
   const [year,  setYear]  = useState(today.getFullYear());
   const [month, setMonth] = useState(today.getMonth());
   const [day,   setDay]   = useState(today.getDate());
@@ -121,13 +185,20 @@ export function CalendarView({ userName }: { userName?: string }) {
   const [defaultTime,   setDefaultTime]   = useState('');
   const [selectedEvent, setSelectedEvent] = useState<CalEvent | null>(null);
 
-  // Fetch full month (for month view) or just the selected day (for day view)
+  const weekStart = getWeekStart(year, month, day);
+
+  // Use local midnight for range boundaries so IST events near midnight aren't cut off
   const timeMin = view === 'month'
-    ? new Date(year, month, 1).toISOString()
-    : new Date(year, month, day, 0, 0, 0).toISOString();
+    ? toLocalISO(isoDate(new Date(year, month, 1)), '00:00')
+    : view === 'week'
+      ? toLocalISO(isoDate(weekStart), '00:00')
+      : toLocalISO(isoDate(new Date(year, month, day)), '00:00');
+
   const timeMax = view === 'month'
-    ? new Date(year, month + 1, 0, 23, 59, 59).toISOString()
-    : new Date(year, month, day, 23, 59, 59).toISOString();
+    ? toLocalISO(isoDate(new Date(year, month + 1, 0)), '23:59')
+    : view === 'week'
+      ? toLocalISO(isoDate(new Date(weekStart.getFullYear(), weekStart.getMonth(), weekStart.getDate() + 6)), '23:59')
+      : toLocalISO(isoDate(new Date(year, month, day)), '23:59');
 
   const { data, isLoading, error } = useQuery(
     trpc.calendar.listEvents.queryOptions({
@@ -155,6 +226,9 @@ export function CalendarView({ userName }: { userName?: string }) {
     if (view === 'month') {
       if (month === 0) { setMonth(11); setYear((y) => y - 1); }
       else setMonth((m) => m - 1);
+    } else if (view === 'week') {
+      const d = new Date(year, month, day - 7);
+      setYear(d.getFullYear()); setMonth(d.getMonth()); setDay(d.getDate());
     } else {
       const d = new Date(year, month, day - 1);
       setYear(d.getFullYear()); setMonth(d.getMonth()); setDay(d.getDate());
@@ -165,6 +239,9 @@ export function CalendarView({ userName }: { userName?: string }) {
     if (view === 'month') {
       if (month === 11) { setMonth(0); setYear((y) => y + 1); }
       else setMonth((m) => m + 1);
+    } else if (view === 'week') {
+      const d = new Date(year, month, day + 7);
+      setYear(d.getFullYear()); setMonth(d.getMonth()); setDay(d.getDate());
     } else {
       const d = new Date(year, month, day + 1);
       setYear(d.getFullYear()); setMonth(d.getMonth()); setDay(d.getDate());
@@ -184,6 +261,7 @@ export function CalendarView({ userName }: { userName?: string }) {
   function switchToDay(d: Date) {
     setYear(d.getFullYear()); setMonth(d.getMonth()); setDay(d.getDate());
     setView('day');
+    try { localStorage.setItem('yugati_cal_view', 'day'); } catch {}
   }
 
   // ── Auth error ────────────────────────────────────────────────────────────
@@ -221,51 +299,50 @@ export function CalendarView({ userName }: { userName?: string }) {
     <div className="h-full flex flex-col">
 
       {/* Header */}
-      <header className="h-14 shrink-0 border-b border-zinc-800 px-6 flex items-center gap-3">
-        <button
-          onClick={() => openCreate()}
-          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white text-black text-xs font-medium hover:bg-zinc-200 transition-colors shrink-0"
-        >
-          <Plus size={13} />
-          New event
-        </button>
-
-        <div className="flex items-center gap-1">
-          <button onClick={prevPeriod} className="p-1.5 rounded-lg text-zinc-500 hover:text-white hover:bg-zinc-800 transition-colors">
-            <ChevronLeft size={15} />
-          </button>
-          <button onClick={nextPeriod} className="p-1.5 rounded-lg text-zinc-500 hover:text-white hover:bg-zinc-800 transition-colors">
-            <ChevronRight size={15} />
-          </button>
+      <header className="h-16 shrink-0 border-b border-zinc-800/60 px-6 flex items-center gap-4">
+        {/* Month/Year + nav */}
+        <div className="flex items-center gap-3">
+          <h2 className="text-lg font-bold text-white">
+            {MONTHS[month]}, {year}
+          </h2>
+          <div className="flex items-center gap-0.5">
+            <button onClick={prevPeriod} className="p-1.5 rounded-lg text-zinc-500 hover:text-white hover:bg-zinc-800 transition-colors">
+              <ChevronLeft size={14} />
+            </button>
+            <button onClick={nextPeriod} className="p-1.5 rounded-lg text-zinc-500 hover:text-white hover:bg-zinc-800 transition-colors">
+              <ChevronRight size={14} />
+            </button>
+          </div>
         </div>
 
-        <h2 className="text-sm font-semibold">
-          {view === 'month'
-            ? `${MONTHS[month]} ${year}`
-            : `${DAYS[selectedDate.getDay()]}, ${MONTHS_SHORT[month]} ${day}, ${year}`}
-        </h2>
-
-        <div className="ml-auto flex items-center gap-2">
-          <button
-            onClick={goToday}
-            className="text-xs text-zinc-500 hover:text-white border border-zinc-700 hover:border-zinc-500 px-2.5 py-1 rounded-lg transition-colors"
-          >
+        <div className="ml-auto flex items-center gap-3">
+          {/* Today */}
+          <button onClick={goToday} className="text-xs text-white/60 hover:text-white border border-white/15 hover:border-white/30 px-2.5 py-1.5 rounded-lg transition-colors backdrop-blur-sm">
             Today
           </button>
 
-          {/* View switcher */}
-          <div className="flex items-center bg-zinc-900 border border-zinc-800 rounded-lg p-0.5">
-            {(['month', 'day'] as CalView[]).map((v) => (
+          {/* View toggle */}
+          <div className="flex items-center bg-white/5 border border-white/10 rounded-xl p-1 gap-0.5 backdrop-blur-sm">
+            {(['month', 'week', 'day'] as CalView[]).map((v) => (
               <button
                 key={v}
-                onClick={() => setView(v)}
-                className={`px-3 py-1 rounded-md text-xs font-medium transition-all capitalize
-                  ${view === v ? 'bg-zinc-700 text-white' : 'text-zinc-500 hover:text-zinc-300'}`}
+                onClick={() => { setView(v); try { localStorage.setItem('yugati_cal_view', v); } catch {} }}
+                className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all
+                  ${view === v ? 'bg-white/20 text-white shadow-sm' : 'text-white/50 hover:text-white/80'}`}
               >
-                {v}
+                {v === 'month' ? 'Monthly' : v === 'week' ? 'Weekly' : 'Daily'}
               </button>
             ))}
           </div>
+
+          {/* New event */}
+          <button
+            onClick={() => openCreate()}
+            className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-white text-black text-xs font-semibold hover:bg-zinc-100 transition-colors shrink-0"
+          >
+            <Plus size={13} />
+            New Schedule
+          </button>
 
           <ThemeToggle />
         </div>
@@ -284,8 +361,20 @@ export function CalendarView({ userName }: { userName?: string }) {
           onEventClick={setSelectedEvent}
           onEventHover={showPreview}
           onEventHoverEnd={hidePreview}
-          onDayHover={(d, evs, pos) => showDayPreview(d, evs, pos)}
-          onDayHoverEnd={hidePreview}
+          onDayHover={() => {}}
+          onDayHoverEnd={() => {}}
+        />
+      ) : view === 'week' ? (
+        <WeekView
+          weekStart={weekStart}
+          events={events}
+          isLoading={isLoading}
+          today={today}
+          onDayClick={switchToDay}
+          onHourClick={(d, time) => openCreate(d, time)}
+          onEventClick={setSelectedEvent}
+          onEventHover={showPreview}
+          onEventHoverEnd={hidePreview}
         />
       ) : (
         <DayView
@@ -304,15 +393,6 @@ export function CalendarView({ userName }: { userName?: string }) {
       {preview?.kind === 'event' && (
         <EventPreviewCard
           event={preview.event}
-          pos={preview.pos}
-          onMouseEnter={cancelHide}
-          onMouseLeave={hidePreview}
-        />
-      )}
-      {preview?.kind === 'day' && (
-        <DayPreviewCard
-          date={preview.date}
-          events={preview.events}
           pos={preview.pos}
           onMouseEnter={cancelHide}
           onMouseLeave={hidePreview}
@@ -358,6 +438,277 @@ export function CalendarView({ userName }: { userName?: string }) {
   );
 }
 
+// ─── Week view ────────────────────────────────────────────────────────────────
+
+function WeekView({
+  weekStart, events, isLoading, today,
+  onDayClick, onHourClick, onEventClick, onEventHover, onEventHoverEnd,
+}: {
+  weekStart: Date;
+  events: CalEvent[];
+  isLoading: boolean;
+  today: Date;
+  onDayClick: (d: Date) => void;
+  onHourClick: (d: Date, time: string) => void;
+  onEventClick: (e: CalEvent) => void;
+  onEventHover: (e: CalEvent, pos: PreviewPos) => void;
+  onEventHoverEnd: () => void;
+}) {
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const now = new Date();
+  const nowMinutes = now.getHours() * 60 + now.getMinutes();
+
+  const weekDays = Array.from({ length: 7 }, (_, i) => {
+    const d = new Date(weekStart);
+    d.setDate(weekStart.getDate() + i);
+    return d;
+  });
+
+  const isToday = (d: Date) => isoDate(d) === isoDate(today);
+  const todayIdx = weekDays.findIndex((d) => isToday(d));
+  const HOURS_SHOWN = Array.from({ length: 24 }, (_, i) => i);
+
+  function fmtHourLabel(h: number) {
+    if (h === 0) return '';
+    if (h === 12) return '12 PM';
+    return h > 12 ? `${h - 12} PM` : `${h} AM`;
+  }
+
+  useEffect(() => {
+    if (scrollRef.current) {
+      scrollRef.current.scrollTop = 7 * HOUR_HEIGHT;
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isoDate(weekStart)]);
+
+  return (
+    <div className="flex-1 flex flex-col overflow-hidden">
+      {/* Day column headers */}
+      <div className="shrink-0 border-b border-zinc-800/60 flex">
+        <div className="w-16 shrink-0" />
+        {weekDays.map((d, i) => {
+          const todayCol = isToday(d);
+          return (
+            <div
+              key={i}
+              onClick={() => onDayClick(d)}
+              className={`flex-1 py-3 text-center cursor-pointer hover:bg-zinc-900/40 transition-colors border-l border-zinc-800/40 ${todayCol ? 'bg-zinc-900/60' : ''}`}
+            >
+              <p className="text-[11px] font-medium text-zinc-500 uppercase tracking-wider mb-1">
+                {WEEK_DAYS[i]}
+              </p>
+              <span className={`inline-flex items-center justify-center w-8 h-8 rounded-full text-sm font-bold transition-colors
+                ${todayCol ? 'bg-blue-500 text-white' : 'text-zinc-300 hover:bg-zinc-800'}`}>
+                {d.getDate()}
+              </span>
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Scrollable time grid */}
+      <div ref={scrollRef} className="flex-1 overflow-y-auto">
+        {isLoading ? (
+          <div className="flex" style={{ minHeight: `${24 * HOUR_HEIGHT}px` }}>
+            {/* Time labels skeleton */}
+            <div className="w-16 shrink-0 relative" style={{ height: `${24 * HOUR_HEIGHT}px` }}>
+              {[7,9,11,13,15,17,19].map((h) => (
+                <div key={h} className="absolute w-full flex justify-end pr-3" style={{ top: h * HOUR_HEIGHT - 6 }}>
+                  <div className="h-2.5 w-8 rounded bg-zinc-800 animate-pulse" />
+                </div>
+              ))}
+            </div>
+            {/* Day columns skeleton */}
+            <div className="flex-1 grid grid-cols-7" style={{ height: `${24 * HOUR_HEIGHT}px` }}>
+              {Array.from({ length: 7 }).map((_, col) => (
+                <div key={col} className="relative border-l border-zinc-800/40">
+                  {/* Hour lines */}
+                  {[7,9,11,13,15,17,19].map((h) => (
+                    <div key={h} className="absolute inset-x-0 border-t border-zinc-800/30" style={{ top: h * HOUR_HEIGHT }} />
+                  ))}
+                  {/* Fake event skeletons */}
+                  {col % 3 !== 2 && (
+                    <div
+                      className="absolute left-1 right-1 rounded-xl bg-zinc-800/60 animate-pulse"
+                      style={{ top: (8 + col * 0.7) * HOUR_HEIGHT, height: HOUR_HEIGHT * 1.5 }}
+                    />
+                  )}
+                  {col % 2 === 0 && (
+                    <div
+                      className="absolute left-1 right-1 rounded-xl bg-zinc-800/40 animate-pulse"
+                      style={{ top: (13 + col * 0.4) * HOUR_HEIGHT, height: HOUR_HEIGHT }}
+                    />
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+        ) : (
+          <div className="flex" style={{ minHeight: `${24 * HOUR_HEIGHT}px` }}>
+            {/* Time labels */}
+            <div className="w-16 shrink-0 relative" style={{ height: `${24 * HOUR_HEIGHT}px` }}>
+              {HOURS_SHOWN.map((h) => (
+                <div
+                  key={h}
+                  className="absolute w-full flex items-start justify-end pr-3"
+                  style={{ top: h * HOUR_HEIGHT, height: HOUR_HEIGHT }}
+                >
+                  {h !== 0 && (
+                    <span className="text-[10px] text-zinc-600 -mt-2">
+                      {fmtHourLabel(h)}
+                    </span>
+                  )}
+                </div>
+              ))}
+            </div>
+
+            {/* Day columns */}
+            <div className="flex-1 grid grid-cols-7 relative" style={{ height: `${24 * HOUR_HEIGHT}px` }}>
+              {/* Today highlight — richer tint */}
+              {todayIdx !== -1 && (
+                <div
+                  className="absolute top-0 bottom-0 bg-blue-500/[0.06] pointer-events-none z-0"
+                  style={{ left: `${(todayIdx / 7) * 100}%`, width: `${(1 / 7) * 100}%` }}
+                />
+              )}
+
+              {/* Hour rows — alternate bg for visual rhythm */}
+              {HOURS_SHOWN.map((h) => (
+                <div
+                  key={h}
+                  className={`absolute inset-x-0 ${h % 2 === 0 ? 'bg-zinc-900/20' : ''}`}
+                  style={{ top: h * HOUR_HEIGHT, height: HOUR_HEIGHT }}
+                />
+              ))}
+
+              {/* Hour grid lines */}
+              {HOURS_SHOWN.map((h) => (
+                <div
+                  key={`line-${h}`}
+                  className="absolute inset-x-0 border-t border-zinc-800/50"
+                  style={{ top: h * HOUR_HEIGHT }}
+                />
+              ))}
+
+              {/* Vertical dividers */}
+              {weekDays.map((_, i) => (
+                <div key={i} className={`border-l border-zinc-800/40 ${i === 0 ? 'border-l-0' : ''}`} />
+              ))}
+
+              {/* Current time line */}
+              {todayIdx !== -1 && (
+                <div
+                  className="absolute z-20 flex items-center pointer-events-none"
+                  style={{
+                    top: (nowMinutes / 60) * HOUR_HEIGHT - 1,
+                    left: `${(todayIdx / 7) * 100}%`,
+                    width: `${(1 / 7) * 100}%`,
+                  }}
+                >
+                  <div className="w-2 h-2 rounded-full bg-red-500 shrink-0" />
+                  <div className="flex-1 h-px bg-red-500" />
+                </div>
+              )}
+
+              {/* Events per day */}
+              {weekDays.map((dayDate, colIdx) => {
+                const dayEvents = eventsForDay(events, dayDate);
+                const timedEvs  = dayEvents.filter((e) => !!e.start?.dateTime);
+                const allDayEvs = dayEvents.filter((e) => !e.start?.dateTime);
+
+                return (
+                  <div key={colIdx} className="relative">
+                    {/* All-day chips */}
+                    {allDayEvs.map((ev) => {
+                      const { dot: aDot } = eventAccent(ev.id);
+                      return (
+                        <button
+                          key={ev.id}
+                          onClick={(e) => { e.stopPropagation(); onEventClick(ev); }}
+                          className="absolute top-1 left-1 right-1 z-10 text-left rounded-md bg-zinc-800/80 text-[10px] text-zinc-300 truncate font-medium hover:bg-zinc-700/80 transition-colors overflow-hidden flex items-center"
+                        >
+                          <span className={`w-[3px] self-stretch shrink-0 ${aDot} rounded-l-md`} />
+                          <span className="px-1.5 py-1 truncate">{ev.summary ?? '(all day)'}</span>
+                        </button>
+                      );
+                    })}
+
+                    {/* Timed events */}
+                    {timedEvs.map((ev) => {
+                      if (!ev.start?.dateTime) return null;
+                      const startMin = minutesFromMidnight(ev.start.dateTime);
+                      const endMin   = ev.end?.dateTime ? minutesFromMidnight(ev.end.dateTime) : startMin + 60;
+                      const top      = (startMin / 60) * HOUR_HEIGHT;
+                      const height   = Math.max(((endMin - startMin) / 60) * HOUR_HEIGHT - 2, 22);
+                      const { border, dot } = eventAccent(ev.id);
+                      const isShort  = height < 44;
+
+                      return (
+                        <button
+                          key={ev.id}
+                          onClick={(e) => { e.stopPropagation(); onEventClick(ev); }}
+                          onMouseEnter={(e) => onEventHover(ev, { x: e.clientX, y: e.clientY })}
+                          onMouseMove={(e) => onEventHover(ev, { x: e.clientX, y: e.clientY })}
+                          onMouseLeave={onEventHoverEnd}
+                          className="absolute left-1 right-1 z-10 text-left rounded-xl bg-zinc-800/80 hover:bg-zinc-700/80 transition-colors overflow-hidden shadow-sm flex"
+                          style={{ top: top + 1, height }}
+                        >
+                          <span className={`w-[3px] shrink-0 self-stretch ${dot} rounded-l-xl`} />
+                          <span className="flex-1 min-w-0 px-2 py-1.5">
+                          <p className={`font-semibold text-zinc-100 leading-tight truncate ${isShort ? 'text-[10px]' : 'text-xs'}`}>
+                            {ev.summary ?? '(no title)'}
+                          </p>
+                          {!isShort && ev.start?.dateTime && (
+                            <p className="text-[10px] text-zinc-500 mt-0.5">
+                              {fmtTime(ev.start.dateTime)} – {fmtTime(ev.end?.dateTime)}
+                            </p>
+                          )}
+                          {!isShort && ev.location && (
+                            <div className="flex items-center gap-1 mt-1">
+                              <MapPin size={9} className="text-zinc-600 shrink-0" />
+                              <span className="text-[10px] text-zinc-500 truncate">{ev.location}</span>
+                            </div>
+                          )}
+                          {!isShort && (ev.attendees?.length ?? 0) > 0 && (
+                            <div className="flex items-center gap-0.5 mt-1.5">
+                              {(ev.attendees ?? []).slice(0, 3).map((a, i) => (
+                                <span
+                                  key={i}
+                                  className={`w-4 h-4 rounded-full ${dot} text-[8px] font-bold text-white flex items-center justify-center -ml-0.5 first:ml-0 border border-zinc-800`}
+                                >
+                                  {(a.displayName ?? a.email ?? '?')[0]?.toUpperCase()}
+                                </span>
+                              ))}
+                              {(ev.attendees?.length ?? 0) > 3 && (
+                                <span className="text-[9px] text-zinc-500 ml-1">+{(ev.attendees?.length ?? 0) - 3}</span>
+                              )}
+                            </div>
+                          )}
+                          </span>
+                        </button>
+                      );
+                    })}
+
+                    {/* Click-to-create overlays */}
+                    {HOURS_SHOWN.map((h) => (
+                      <div
+                        key={h}
+                        className="absolute inset-x-0 cursor-pointer"
+                        style={{ top: h * HOUR_HEIGHT, height: HOUR_HEIGHT }}
+                        onClick={(e) => { e.stopPropagation(); onHourClick(dayDate, `${String(h).padStart(2, '0')}:00`); }}
+                      />
+                    ))}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 // ─── Month grid ───────────────────────────────────────────────────────────────
 
 function MonthGrid({
@@ -379,7 +730,6 @@ function MonthGrid({
 }) {
   return (
     <div className="flex-1 overflow-y-auto">
-      {/* Day-of-week header */}
       <div className="grid grid-cols-7 border-b border-zinc-800 sticky top-0 bg-black z-10">
         {DAYS.map((d) => (
           <div key={d} className="py-2 text-center text-xs font-medium text-zinc-500">{d}</div>
@@ -389,35 +739,40 @@ function MonthGrid({
       {isLoading ? (
         <div className="grid grid-cols-7">
           {Array.from({ length: 35 }).map((_, i) => (
-            <div key={i} className="border-r border-b border-zinc-800/60 min-h-28" />
+            <div key={i} className="border-r border-b border-zinc-800/60 min-h-28 p-2 space-y-1.5">
+              <div className="h-4 w-5 rounded bg-zinc-800 animate-pulse" />
+              {i % 7 === 2 && <div className="h-5 rounded-md bg-zinc-800/80 animate-pulse" />}
+              {i % 7 === 4 && <div className="h-5 rounded-md bg-zinc-800/60 animate-pulse" />}
+              {i % 5 === 0 && <div className="h-5 rounded-md bg-zinc-800/70 animate-pulse" />}
+            </div>
           ))}
         </div>
       ) : (
         <div className="grid grid-cols-7">
           {grid.flatMap((week, wi) =>
-            week.map((day, di) => {
-              const isToday   = day && isoDate(day) === isoDate(today);
-              const isOtherM  = day && day.getMonth() !== month;
-              const dayEvents = day ? eventsForDay(events, day) : [];
+            week.map((d, di) => {
+              const isToday_  = d && isoDate(d) === isoDate(today);
+              const isOtherM  = d && d.getMonth() !== month;
+              const dayEvents = d ? eventsForDay(events, d) : [];
               const overflow  = dayEvents.length - 3;
 
               return (
                 <div
                   key={`${wi}-${di}`}
-                  onClick={() => day && onDayClick(day)}
-                  onDoubleClick={() => day && onDayDoubleClick(day)}
-                  onMouseEnter={(e) => day && onDayHover(day, eventsForDay(events, day), { x: e.clientX, y: e.clientY })}
-                  onMouseMove={(e) => day && onDayHover(day, eventsForDay(events, day), { x: e.clientX, y: e.clientY })}
+                  onClick={() => d && onDayClick(d)}
+                  onDoubleClick={() => d && onDayDoubleClick(d)}
+                  onMouseEnter={(e) => d && onDayHover(d, eventsForDay(events, d), { x: e.clientX, y: e.clientY })}
+                  onMouseMove={(e) => d && onDayHover(d, eventsForDay(events, d), { x: e.clientX, y: e.clientY })}
                   onMouseLeave={onDayHoverEnd}
                   className={`border-r border-b border-zinc-800/60 min-h-28 p-1.5 cursor-pointer hover:bg-zinc-900/40 transition-colors
                     ${di === 6 ? 'border-r-0' : ''}`}
                 >
-                  {day && (
+                  {d && (
                     <>
                       <div className="flex justify-end mb-1">
                         <span className={`text-xs w-6 h-6 flex items-center justify-center rounded-full font-medium
-                          ${isToday ? 'bg-blue-500 text-white' : isOtherM ? 'text-zinc-700' : 'text-zinc-300'}`}>
-                          {day.getDate()}
+                          ${isToday_ ? 'bg-blue-500 text-white' : isOtherM ? 'text-zinc-700' : 'text-zinc-300'}`}>
+                          {d.getDate()}
                         </span>
                       </div>
                       <div className="space-y-0.5">
@@ -428,7 +783,7 @@ function MonthGrid({
                             onMouseEnter={(e) => onEventHover(ev, { x: e.clientX, y: e.clientY })}
                             onMouseMove={(e) => onEventHover(ev, { x: e.clientX, y: e.clientY })}
                             onMouseLeave={onEventHoverEnd}
-                            className={`w-full text-left px-1.5 py-0.5 rounded text-[11px] text-white truncate font-medium ${eventColor(ev.id)}`}
+                            className={`w-full text-left px-2 py-1 rounded-md text-xs truncate font-medium ${eventAccent(ev.id).chip}`}
                           >
                             {ev.start?.dateTime
                               ? `${fmtTime(ev.start.dateTime)} ${ev.summary ?? '(no title)'}`
@@ -453,14 +808,6 @@ function MonthGrid({
 
 // ─── Day view ─────────────────────────────────────────────────────────────────
 
-const HOUR_HEIGHT = 64; // px per hour
-const HOURS = Array.from({ length: 24 }, (_, i) => i);
-
-function minutesFromMidnight(dt: string): number {
-  const d = new Date(dt);
-  return d.getHours() * 60 + d.getMinutes();
-}
-
 function DayView({
   date, events, isLoading, isToday, onHourClick, onEventClick, onEventHover, onEventHoverEnd,
 }: {
@@ -477,7 +824,6 @@ function DayView({
   const now        = new Date();
   const nowMinutes = now.getHours() * 60 + now.getMinutes();
 
-  // Scroll to current time (or 8am) on mount
   useEffect(() => {
     const el = scrollRef.current;
     if (!el) return;
@@ -486,11 +832,9 @@ function DayView({
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [date.toDateString()]);
 
-  // Separate all-day events from timed events
   const allDayEvents = events.filter((e) => !e.start?.dateTime);
   const timedEvents  = events.filter((e) => !!e.start?.dateTime);
 
-  // Lay out timed events with overlap detection
   type LayoutEvent = CalEvent & { col: number; cols: number; top: number; height: number };
   const laid = useMemo<LayoutEvent[]>(() => {
     const sorted = [...timedEvents].sort((a, b) => {
@@ -509,7 +853,6 @@ function DayView({
       const top    = (start / 60) * HOUR_HEIGHT;
       const height = Math.max(((end - start) / 60) * HOUR_HEIGHT, 24);
 
-      // Find first column where this event doesn't overlap
       let colIdx = cols.findIndex((col) => {
         const last = col[col.length - 1]!;
         const lastEnd = last.top + last.height;
@@ -521,7 +864,6 @@ function DayView({
       result.push(item);
     }
 
-    // Set cols count for each event
     for (const item of result) {
       let maxCols = item.col + 1;
       for (const other of result) {
@@ -540,7 +882,6 @@ function DayView({
 
   return (
     <div className="flex-1 flex flex-col overflow-hidden">
-      {/* All-day row */}
       {allDayEvents.length > 0 && (
         <div className="shrink-0 border-b border-zinc-800 px-4 py-2 flex items-start gap-2">
           <span className="text-[10px] text-zinc-600 uppercase tracking-wider pt-0.5 w-12 shrink-0 text-right pr-3">all‑day</span>
@@ -549,7 +890,7 @@ function DayView({
               <button
                 key={ev.id}
                 onClick={() => onEventClick(ev)}
-                className={`px-2.5 py-0.5 rounded-full text-xs text-white font-medium ${eventColor(ev.id, true)}`}
+                className={`px-2.5 py-0.5 rounded-full text-xs font-medium ${eventColor(ev.id)}`}
               >
                 {ev.summary ?? '(no title)'}
               </button>
@@ -558,13 +899,27 @@ function DayView({
         </div>
       )}
 
-      {/* Timeline */}
       <div ref={scrollRef} className="flex-1 overflow-y-auto">
         {isLoading ? (
-          <div className="flex items-center justify-center h-64 text-zinc-600 text-sm">Loading events…</div>
+          <div className="flex" style={{ minHeight: `${24 * HOUR_HEIGHT}px` }}>
+            <div className="w-16 shrink-0 relative" style={{ height: `${24 * HOUR_HEIGHT}px` }}>
+              {[7,9,11,13,15,17,19].map((h) => (
+                <div key={h} className="absolute w-full flex justify-end pr-3" style={{ top: h * HOUR_HEIGHT - 6 }}>
+                  <div className="h-2.5 w-8 rounded bg-zinc-800 animate-pulse" />
+                </div>
+              ))}
+            </div>
+            <div className="flex-1 border-l border-zinc-800/40 relative" style={{ height: `${24 * HOUR_HEIGHT}px` }}>
+              {[7,9,11,13,15,17,19].map((h) => (
+                <div key={h} className="absolute inset-x-0 border-t border-zinc-800/30" style={{ top: h * HOUR_HEIGHT }} />
+              ))}
+              <div className="absolute left-2 right-2 rounded-xl bg-zinc-800/60 animate-pulse" style={{ top: 9 * HOUR_HEIGHT, height: HOUR_HEIGHT * 1.5 }} />
+              <div className="absolute left-2 right-2 rounded-xl bg-zinc-800/40 animate-pulse" style={{ top: 13 * HOUR_HEIGHT, height: HOUR_HEIGHT }} />
+              <div className="absolute left-2 right-2 rounded-xl bg-zinc-800/50 animate-pulse" style={{ top: 15.5 * HOUR_HEIGHT, height: HOUR_HEIGHT * 2 }} />
+            </div>
+          </div>
         ) : (
           <div className="relative" style={{ height: `${24 * HOUR_HEIGHT}px` }}>
-            {/* Hour rows */}
             {HOURS.map((h) => (
               <div
                 key={h}
@@ -572,7 +927,6 @@ function DayView({
                 style={{ top: h * HOUR_HEIGHT, height: HOUR_HEIGHT }}
                 onClick={() => onHourClick(`${String(h).padStart(2, '0')}:00`)}
               >
-                {/* Hour label */}
                 <div className="w-16 shrink-0 pr-3 pt-0 text-right">
                   {h !== 0 && (
                     <span className="text-[10px] text-zinc-600 -mt-2.5 inline-block">
@@ -580,12 +934,10 @@ function DayView({
                     </span>
                   )}
                 </div>
-                {/* Hour line + click area */}
                 <div className="flex-1 border-t border-zinc-800/60 h-full cursor-pointer group-hover:bg-zinc-900/20 transition-colors" />
               </div>
             ))}
 
-            {/* Current time indicator */}
             {isToday && (
               <div
                 className="absolute inset-x-0 z-20 flex items-center pointer-events-none"
@@ -598,10 +950,9 @@ function DayView({
               </div>
             )}
 
-            {/* Events */}
             <div className="absolute inset-y-0 left-16 right-2">
               {laid.map((ev) => {
-                const w   = `calc(${(1 / ev.cols) * 100}% - 4px)`;
+                const w    = `calc(${(1 / ev.cols) * 100}% - 4px)`;
                 const left = `calc(${(ev.col / ev.cols) * 100}% + 2px)`;
                 return (
                   <button
@@ -610,14 +961,14 @@ function DayView({
                     onMouseEnter={(e) => onEventHover(ev, { x: e.clientX, y: e.clientY })}
                     onMouseMove={(e) => onEventHover(ev, { x: e.clientX, y: e.clientY })}
                     onMouseLeave={onEventHoverEnd}
-                    className={`absolute rounded-lg px-2 py-1 text-left overflow-hidden ${eventColor(ev.id, true)} hover:brightness-110 transition-all shadow-sm`}
+                    className={`absolute rounded-lg px-2 py-1 text-left overflow-hidden ${eventColor(ev.id)} hover:brightness-110 transition-all shadow-sm`}
                     style={{ top: ev.top + 1, height: ev.height - 2, width: w, left }}
                   >
-                    <p className={`font-medium text-white leading-tight truncate ${ev.height < 40 ? 'text-[10px]' : 'text-xs'}`}>
+                    <p className={`font-medium text-current leading-tight truncate ${ev.height < 40 ? 'text-[10px]' : 'text-xs'}`}>
                       {ev.summary ?? '(no title)'}
                     </p>
                     {ev.height >= 40 && ev.start?.dateTime && (
-                      <p className="text-[10px] text-white/70 mt-0.5">
+                      <p className="text-[10px] opacity-70 mt-0.5">
                         {fmtTime(ev.start.dateTime)} – {fmtTime(ev.end?.dateTime)}
                       </p>
                     )}
@@ -914,7 +1265,7 @@ function CalendarAIPanel({ defaultDate, userName, onClose, onRefresh }: {
   const greet       = { night: 'Good evening', morning: 'Good morning', afternoon: 'Good afternoon', evening: 'Good evening' }[tod];
   const initGreet   = firstName ? `${greet}, ${firstName}.` : `${greet}.`;
   const formattedDate = defaultDate
-    ? new Date(`${defaultDate}T12:00:00`).toLocaleDateString([], { weekday: 'short', month: 'short', day: 'numeric' })
+    ? new Date(`${defaultDate}T12:00:00`).toLocaleDateString('en-IN', { weekday: 'short', month: 'short', day: 'numeric' })
     : '';
 
   const [messages, setMessages] = useState<AIPanelMsg[]>([
@@ -1104,90 +1455,51 @@ function EventPreviewCard({
     : isAllDay ? 'All day' : '';
 
   const dateStr = startDt
-    ? new Date(startDt).toLocaleDateString([], { weekday: 'short', month: 'short', day: 'numeric' })
+    ? new Date(startDt).toLocaleDateString('en-IN', { weekday: 'short', month: 'short', day: 'numeric' })
     : event.start?.date
-      ? new Date(`${event.start.date}T12:00:00`).toLocaleDateString([], { weekday: 'short', month: 'short', day: 'numeric' })
+      ? new Date(`${event.start.date}T12:00:00`).toLocaleDateString('en-IN', { weekday: 'short', month: 'short', day: 'numeric' })
       : '';
 
-  const color = eventColor(event.id, true);
-  const colorDot = color.replace('bg-', 'bg-');
+  const { dot } = eventAccent(event.id);
+  const firstAttendee = event.attendees?.[0];
+  const avatarLabel = (firstAttendee?.displayName ?? firstAttendee?.email ?? '?')[0]?.toUpperCase();
 
   return (
     <div
       ref={cardRef}
       onMouseEnter={onMouseEnter}
       onMouseLeave={onMouseLeave}
-      className="fixed z-[100] w-72 bg-zinc-900 border border-zinc-700 rounded-2xl shadow-2xl shadow-black/60 overflow-hidden pointer-events-auto"
+      className="fixed z-[100] w-64 bg-zinc-900/95 border border-zinc-700/60 rounded-2xl shadow-2xl shadow-black/60 overflow-hidden pointer-events-auto flex backdrop-blur-sm"
       style={{ left: adjusted.x, top: adjusted.y }}
     >
-      {/* Color accent bar */}
-      <div className={`h-1 w-full ${color}`} />
+      {/* Left accent strip */}
+      <div className={`w-[5px] shrink-0 ${dot}`} />
 
-      <div className="p-4 space-y-3">
-        {/* Title */}
-        <div className="flex items-start gap-2">
-          <div className={`w-2.5 h-2.5 rounded-full ${colorDot} shrink-0 mt-1`} />
-          <h4 className="text-sm font-semibold text-white leading-snug">
+      {/* Content */}
+      <div className="flex-1 min-w-0 px-4 py-3 flex items-center gap-3">
+        <div className="flex-1 min-w-0">
+          <p className="text-sm font-semibold text-white leading-snug truncate">
             {event.summary ?? '(no title)'}
-          </h4>
+          </p>
+          {timeStr && (
+            <div className="flex items-center gap-1.5 mt-1.5">
+              <Clock size={11} className="text-zinc-500 shrink-0" />
+              <span className="text-[11px] text-zinc-400">{timeStr}</span>
+            </div>
+          )}
+          {!timeStr && isAllDay && (
+            <div className="flex items-center gap-1.5 mt-1.5">
+              <Clock size={11} className="text-zinc-500 shrink-0" />
+              <span className="text-[11px] text-zinc-400">All day</span>
+            </div>
+          )}
         </div>
 
-        {/* Date & Time */}
-        {(dateStr || timeStr) && (
-          <div className="flex items-start gap-2.5 text-xs text-zinc-400">
-            <Clock size={12} className="text-zinc-600 shrink-0 mt-0.5" />
-            <div>
-              {dateStr && <p>{dateStr}</p>}
-              {timeStr && <p className="text-zinc-300 font-medium">{timeStr}</p>}
-            </div>
+        {/* Avatar */}
+        {firstAttendee && (
+          <div className={`w-8 h-8 rounded-full ${dot} shrink-0 flex items-center justify-center text-[11px] font-bold text-white shadow-sm`}>
+            {avatarLabel}
           </div>
-        )}
-
-        {/* Location */}
-        {event.location && (
-          <div className="flex items-start gap-2.5 text-xs text-zinc-400">
-            <MapPin size={12} className="text-zinc-600 shrink-0 mt-0.5" />
-            <span className="line-clamp-2">{event.location}</span>
-          </div>
-        )}
-
-        {/* Attendees */}
-        {event.attendees?.length ? (
-          <div className="flex items-start gap-2.5 text-xs text-zinc-400">
-            <Users size={12} className="text-zinc-600 shrink-0 mt-0.5" />
-            <div className="flex flex-wrap gap-1">
-              {event.attendees.slice(0, 4).map((a, i) => (
-                <span key={i} className="bg-zinc-800 border border-zinc-700 rounded-full px-2 py-0.5 text-[10px] text-zinc-300">
-                  {a.displayName ?? a.email}
-                </span>
-              ))}
-              {event.attendees.length > 4 && (
-                <span className="text-[10px] text-zinc-600">+{event.attendees.length - 4} more</span>
-              )}
-            </div>
-          </div>
-        ) : null}
-
-        {/* Description */}
-        {event.description && (
-          <p className="text-[11px] text-zinc-500 line-clamp-2 leading-relaxed border-t border-zinc-800 pt-2.5">
-            {event.description}
-          </p>
-        )}
-
-        {/* Google Meet */}
-        {event.hangoutLink && (
-          <a
-            href={event.hangoutLink}
-            target="_blank"
-            rel="noopener noreferrer"
-            onClick={(e) => e.stopPropagation()}
-            className="flex items-center gap-2 px-3 py-2 rounded-lg bg-blue-600/15 border border-blue-600/25 text-blue-400 text-xs font-medium hover:bg-blue-600/25 transition-colors"
-          >
-            <Video size={11} />
-            Join Google Meet
-            <ExternalLink size={10} className="ml-auto" />
-          </a>
         )}
       </div>
     </div>
@@ -1222,7 +1534,7 @@ function DayPreviewCard({
     setAdjusted({ x, y });
   }, [pos]);
 
-  const dateLabel = date.toLocaleDateString([], { weekday: 'long', month: 'long', day: 'numeric' });
+  const dateLabel = date.toLocaleDateString('en-IN', { weekday: 'long', month: 'long', day: 'numeric' });
   const timedEvents  = events.filter((e) => !!e.start?.dateTime).sort((a, b) => {
     const at = new Date(a.start!.dateTime!).getTime();
     const bt = new Date(b.start!.dateTime!).getTime();
@@ -1238,28 +1550,26 @@ function DayPreviewCard({
       className="fixed z-[100] w-64 bg-zinc-900 border border-zinc-700 rounded-2xl shadow-2xl shadow-black/60 overflow-hidden pointer-events-auto"
       style={{ left: adjusted.x, top: adjusted.y }}
     >
-      {/* Header */}
       <div className="px-4 py-3 border-b border-zinc-800">
         <p className="text-xs font-semibold text-zinc-200">{dateLabel}</p>
         <p className="text-[10px] text-zinc-600 mt-0.5">
           {events.length === 0 ? 'No events' : `${events.length} event${events.length !== 1 ? 's' : ''}`}
         </p>
       </div>
-
       {events.length === 0 ? (
         <div className="px-4 py-4 text-xs text-zinc-600 text-center">Click to create an event</div>
       ) : (
         <div className="px-3 py-2.5 space-y-1.5 max-h-52 overflow-y-auto">
           {allDayEvents.map((ev) => (
             <div key={ev.id} className="flex items-center gap-2">
-              <div className={`w-1.5 h-1.5 rounded-full ${eventColor(ev.id, true)} shrink-0`} />
+              <div className={`w-1.5 h-1.5 rounded-full ${eventAccent(ev.id).dot} shrink-0`} />
               <span className="text-xs text-zinc-300 truncate">{ev.summary ?? '(no title)'}</span>
               <span className="text-[10px] text-zinc-600 shrink-0">All day</span>
             </div>
           ))}
           {timedEvents.map((ev) => (
             <div key={ev.id} className="flex items-center gap-2">
-              <div className={`w-1.5 h-1.5 rounded-full ${eventColor(ev.id, true)} shrink-0`} />
+              <div className={`w-1.5 h-1.5 rounded-full ${eventAccent(ev.id).dot} shrink-0`} />
               <span className="text-xs text-zinc-300 truncate flex-1">{ev.summary ?? '(no title)'}</span>
               <span className="text-[10px] text-zinc-500 shrink-0">{fmtTime(ev.start?.dateTime)}</span>
             </div>
@@ -1272,7 +1582,6 @@ function DayPreviewCard({
 
 // ─── Shared primitives ────────────────────────────────────────────────────────
 
-// Renders description text with URLs converted to clickable links
 const URL_RE = /https?:\/\/[^\s<>"]+/g;
 
 function DescriptionText({ text }: { text: string }) {

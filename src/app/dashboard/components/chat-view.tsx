@@ -6,7 +6,7 @@ import remarkGfm from 'remark-gfm';
 import {
   ArrowUp, Loader2, Mail, Calendar, Zap,
   Copy, RefreshCw, Pencil, Check, Plus, MessageSquare,
-  Maximize2, Minimize2, Trash2, X, Mic, MicOff, Square,
+  Maximize2, Minimize2, Trash2, X, Mic, MicOff, Square, PanelLeftClose,
 } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 import { useTRPC }  from '@/trpc/client';
@@ -413,7 +413,8 @@ export function ChatView({
   });
   const [sessions,         setSessions]         = useState<Session[]>(initState.sessions);
   const [activeId,         setActiveId]         = useState<string>(initState.activeId);
-  const [fullscreen,       setFullscreen]       = useState(showSidebar);
+  const [fullscreen,       setFullscreen]       = useState(false);
+  const [sidebarOpen,      setSidebarOpen]      = useState(showSidebar);
   const [input,            setInput]            = useState('');
   const [isLoading,        setLoading]          = useState(false);
   const [editingMsgId,     setEditingMsgId]     = useState<string | null>(null);
@@ -442,7 +443,7 @@ export function ChatView({
 
   const activeSession  = sessions.find((s) => s.id === activeId);
   const messages       = activeSession?.messages ?? [];
-  const sidebarVisible = fullscreen;
+  const sidebarVisible = sidebarOpen;
   const lastQuery      = [...messages].reverse().find((m) => m.role === 'user')?.content ?? '';
   const fillerText     = useFillerText(isLoading, lastQuery);
 
@@ -724,14 +725,13 @@ export function ChatView({
               <MessageSquare size={14} className="text-zinc-500" />
               <span className="text-sm font-semibold text-zinc-200">Chats</span>
             </div>
-            {!showSidebar && (
-              <button
-                onClick={() => setFullscreen(false)}
-                className="p-1.5 text-zinc-600 hover:text-zinc-300 hover:bg-zinc-800 rounded-md transition-colors"
-              >
-                <X size={13} />
-              </button>
-            )}
+            <button
+              onClick={() => setSidebarOpen(false)}
+              className="p-1.5 text-zinc-600 hover:text-zinc-300 hover:bg-zinc-800 rounded-md transition-colors"
+              title="Collapse sidebar"
+            >
+              <PanelLeftClose size={14} />
+            </button>
           </div>
 
           <div className="px-2 pt-2.5 pb-1.5 shrink-0 flex gap-1.5">
@@ -811,15 +811,13 @@ export function ChatView({
 
         {/* Header */}
         <div className="shrink-0 border-b border-zinc-800/80 px-4 h-14 flex items-center gap-2">
-          {!showSidebar && (
-            <button
-              onClick={() => setFullscreen((f) => !f)}
-              className="p-1.5 text-zinc-600 hover:text-zinc-300 hover:bg-zinc-800 rounded-md transition-colors mr-1"
-              title={fullscreen ? 'Exit fullscreen' : 'Fullscreen'}
-            >
-              {fullscreen ? <Minimize2 size={15} /> : <Maximize2 size={15} />}
-            </button>
-          )}
+          <button
+            onClick={() => { setFullscreen((f) => { setSidebarOpen(!f); return !f; }); }}
+            className="p-1.5 text-zinc-600 hover:text-zinc-300 hover:bg-zinc-800 rounded-md transition-colors mr-1"
+            title={fullscreen ? 'Exit fullscreen' : 'Fullscreen'}
+          >
+            {fullscreen ? <Minimize2 size={15} /> : <Maximize2 size={15} />}
+          </button>
           <span className="font-semibold text-sm text-zinc-200">
             {messages.length === 0 ? 'Chat' : (activeSession?.title ?? 'Chat')}
           </span>

@@ -8,5 +8,5 @@ const ChatView = dynamic(
 );
 
 export function ChatClient({ userName }: { userName?: string }) {
-  return <ChatView showSidebar={true} userName={userName} />;
+  return <ChatView showSidebar={false} userName={userName} />;
 }

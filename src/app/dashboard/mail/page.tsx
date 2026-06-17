@@ -86,7 +86,7 @@ export default function MailPage() {
       try {
         return localStorage.getItem("yugati_mail_mode") !== "manual";
       } catch {
-        return false;
+        return true; // SSR can't read localStorage — match client default (agentic)
       }
     })();
     return {
@@ -96,9 +96,7 @@ export default function MailPage() {
   });
 
   const [chatMode, setChatMode] = useState(_boot.chatMode);
-  // true immediately for fresh connects (?connected=1); also flipped to true once
-  // the DB confirms onboardingDone === false for existing users who skipped.
-  const [showOnboarding, setShowOnboarding] = useState(() => searchParams.get('connected') === '1');
+  const [showOnboarding, setShowOnboarding] = useState(false);
   const [activeFolder, setActiveFolder] = useState<SidebarFolder>("inbox");
   const [activeTab, setActiveTab] = useState<InboxTab>("all");
   const [searchQuery, setSearchQuery] = useState("");
@@ -116,7 +114,7 @@ export default function MailPage() {
     } catch {}
   }, [chatMode]);
 
-  // For existing users who never saw the onboarding: show overlay once DB confirms not done.
+  // Show overlay only if onboarding not yet done — ignores ?connected=1 for returning users.
   const { data: prefs } = useQuery({
     ...trpc.user.getPreferences.queryOptions(),
     staleTime: Infinity,

@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { useMutation } from '@tanstack/react-query';
 import { useTRPC } from '@/trpc/client';
-import { CheckCircle2, Sparkles, Check } from 'lucide-react';
+import { Sparkles, Check } from 'lucide-react';
 
 const FOCUSES = [
   {
@@ -60,30 +60,6 @@ export function OnboardingOverlay({ onDone }: { onDone: () => void }) {
 
         {/* Header */}
         <div className="px-7 pt-7 pb-5">
-          <div className="flex items-center gap-3 mb-5">
-            <div className="w-10 h-10 rounded-xl bg-green-500/10 border border-green-500/20 flex items-center justify-center">
-              <CheckCircle2 size={20} className="text-green-400" />
-            </div>
-            <div>
-              <p className="text-sm font-semibold text-white">Gmail connected!</p>
-              <p className="text-xs text-zinc-500">Your inbox is loading in the background</p>
-            </div>
-          </div>
-
-          {/* Syncing indicator */}
-          <div className="flex items-center gap-2.5 mb-6 px-3.5 py-2.5 rounded-xl bg-zinc-900 border border-zinc-800">
-            <span className="flex gap-1">
-              {[0, 1, 2].map((i) => (
-                <span
-                  key={i}
-                  className="w-1.5 h-1.5 rounded-full bg-blue-400 animate-bounce"
-                  style={{ animationDelay: `${i * 0.15}s` }}
-                />
-              ))}
-            </span>
-            <span className="text-xs text-zinc-400">Fetching your emails…</span>
-          </div>
-
           {/* Question */}
           <div className="flex items-center gap-2 mb-1">
             <Sparkles size={13} className="text-zinc-400" />
