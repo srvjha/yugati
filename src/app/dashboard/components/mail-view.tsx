@@ -9,7 +9,7 @@ import { toast } from 'sonner';
 import type { inferRouterOutputs } from '@trpc/server';
 import type { AppRouter } from '@/trpc/types';
 import { useTRPC } from '@/trpc/client';
-import { ThemeToggle } from '@/components/theme-toggle';
+import { ThemeToggle, useTheme } from '@/components/theme-toggle';
 
 type GmailMessage = inferRouterOutputs<AppRouter>['gmail']['getMessage'];
 type Part = NonNullable<GmailMessage['payload']>;
@@ -96,6 +96,8 @@ export type ReplyContext = {
 export function MailView({ message }: { message: GmailMessage }) {
   const router = useRouter();
   const trpc   = useTRPC();
+  const { theme } = useTheme();
+  const isDark = theme === 'dark';
   const headers = message.payload?.headers ?? [];
 
   // Optimistic star — instant visual feedback, API runs in background
@@ -181,33 +183,107 @@ export function MailView({ message }: { message: GmailMessage }) {
       processedHtml = processedHtml.split(`cid:${img.cid}`).join(dataUrl);
     }
 
+    const darkStyles = isDark ? `
+        html, body { background: #141414 !important; color: #e2e8f0 !important; }
+        img { filter: invert(1) hue-rotate(180deg) !important; }
+        a { color: #60a5fa !important; }
+        * { border-color: rgba(255,255,255,0.08) !important; }
+    ` : '';
+
     doc.open();
     doc.write(`<!DOCTYPE html><html><head>
       <meta charset="utf-8">
       <style>
         html, body {
           font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-          font-size: 14px; color: #111827;
+          font-size: 14px; color: ${isDark ? '#e2e8f0' : '#1f2937'};
           margin: 0; padding: 20px 24px;
-          word-break: break-word; background: #ffffff;
+          word-break: break-word; background: ${isDark ? '#141414' : '#ffffff'};
         }
         * { box-sizing: border-box; }
-        a { color: #2563eb; }
+        a { color: ${isDark ? '#60a5fa' : '#2563eb'}; }
         img, video { max-width: 100%; height: auto; }
+        ${darkStyles}
       </style>
     </head><body>${processedHtml}</body></html>`);
     doc.close();
+
+    function fixLightText() {
+      const win = iframe.contentWindow;
+      const idoc = iframe.contentDocument;
+      if (!win || !idoc) return;
+
+      if (isDark) {
+        idoc.querySelectorAll<HTMLElement>('*').forEach((el) => {
+          if (el.tagName === 'IMG' || el.tagName === 'svg') return;
+          const bg = win.getComputedStyle(el).backgroundColor;
+          const bgMatch = bg.match(/\d+/g);
+          if (bgMatch && bgMatch.length >= 3) {
+            const [r, g, b] = bgMatch.map(Number) as [number, number, number];
+            if ((0.299 * r + 0.587 * g + 0.114 * b) / 255 > 0.85)
+              el.style.setProperty('background-color', '#141414', 'important');
+          }
+          const color = win.getComputedStyle(el).color;
+          const m = color.match(/\d+/g);
+          if (!m || m.length < 3) return;
+          const [r, g, b] = m.map(Number) as [number, number, number];
+          if ((0.299 * r + 0.587 * g + 0.114 * b) / 255 < 0.3)
+            el.style.setProperty('color', '#e2e8f0', 'important');
+        });
+        idoc.querySelectorAll<HTMLElement>('a').forEach((a) => {
+          a.style.setProperty('color', '#60a5fa', 'important');
+        });
+      } else {
+        const w = win; // capture for use inside nested functions (TS flow narrowing)
+        // Walk up the DOM tree to find the nearest non-transparent background color
+        function getAncestorBgLum(el: HTMLElement): number | null {
+          let node: HTMLElement | null = el;
+          while (node) {
+            const bg = w.getComputedStyle(node).backgroundColor;
+            if (bg && bg !== 'rgba(0, 0, 0, 0)' && bg !== 'transparent') {
+              const m = bg.match(/\d+/g);
+              if (m && m.length >= 3) {
+                const [r, g, b] = m.map(Number) as [number, number, number];
+                return (0.299 * r + 0.587 * g + 0.114 * b) / 255;
+              }
+            }
+            node = node.parentElement;
+          }
+          return null;
+        }
+
+        idoc.querySelectorAll<HTMLElement>('*').forEach((el) => {
+          if (el.tagName === 'IMG' || el.tagName === 'svg') return;
+          const color = w.getComputedStyle(el).color;
+          const m = color.match(/\d+/g);
+          if (!m || m.length < 3) return;
+          const [r, g, b] = m.map(Number) as [number, number, number];
+          if ((0.299 * r + 0.587 * g + 0.114 * b) / 255 > 0.55) {
+            // Walk up to find the real background — if it's dark/colored, keep the light text
+            const bgLum = getAncestorBgLum(el);
+            if (bgLum !== null && bgLum < 0.5) return;
+            el.style.setProperty('color', '#374151', 'important');
+          }
+        });
+        idoc.querySelectorAll<HTMLElement>('a').forEach((a) => {
+          // Only restore link blue on light backgrounds — skip anchors inside colored/dark buttons
+          const bgLum = getAncestorBgLum(a);
+          if (bgLum !== null && bgLum < 0.5) return;
+          a.style.setProperty('color', '#2563eb', 'important');
+        });
+      }
+    }
 
     const resize = () => {
       if (iframe.contentDocument?.body) {
         iframe.style.height = iframe.contentDocument.body.scrollHeight + 'px';
       }
     };
-    iframe.onload = resize;
-    const timerId = setTimeout(resize, 300);
+    iframe.onload = () => { resize(); fixLightText(); };
+    const timerId = setTimeout(() => { resize(); fixLightText(); }, 400);
     return () => clearTimeout(timerId);
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [html]);
+  }, [html, isDark]);
 
   // Close more dropdown on outside click
   useEffect(() => {
@@ -391,27 +467,31 @@ export function MailView({ message }: { message: GmailMessage }) {
           </div>
 
           {/* Email document card */}
-          <div className="rounded-2xl overflow-hidden
-            ring-1 ring-white/[0.07]
-            shadow-[0_0_0_1px_rgba(0,0,0,0.3),0_24px_80px_rgba(0,0,0,0.6)]">
-            {html ? (
-              <iframe
-                ref={iframeRef}
-                sandbox="allow-same-origin allow-popups allow-popups-to-escape-sandbox"
-                referrerPolicy="no-referrer"
-                className="w-full border-0 block"
-                style={{ minHeight: '300px' }}
-                title="Email content"
-              />
-            ) : text ? (
-              <pre className="whitespace-pre-wrap font-sans text-sm leading-relaxed p-6 bg-white text-zinc-800">
-                {text}
-              </pre>
-            ) : (
-              <p className="p-6 bg-white text-zinc-400 italic text-sm">
-                {message.snippet ?? 'No content'}
-              </p>
-            )}
+          <div className={`rounded-2xl overflow-hidden ${
+            isDark
+              ? 'bg-zinc-900 ring-1 ring-white/8 shadow-[0_2px_32px_rgba(0,0,0,0.6)]'
+              : ''
+          }`}>
+            <div className="overflow-hidden">
+              {html ? (
+                <iframe
+                  ref={iframeRef}
+                  sandbox="allow-same-origin allow-popups allow-popups-to-escape-sandbox"
+                  referrerPolicy="no-referrer"
+                  className="w-full border-0 block "
+                  style={{ minHeight: '300px' }}
+                  title="Email content"
+                />
+              ) : text ? (
+                <pre className="whitespace-pre-wrap font-sans text-sm leading-relaxed p-6 bg-white text-zinc-800">
+                  {text}
+                </pre>
+              ) : (
+                <p className="p-6 bg-white text-zinc-500 italic text-sm">
+                  {message.snippet ?? 'No content'}
+                </p>
+              )}
+            </div>
           </div>
 
           {/* Reply section — inline, at the end of email content */}
@@ -531,36 +611,23 @@ export function MailView({ message }: { message: GmailMessage }) {
 
               /* Reply / Reply All / Forward buttons */
               <div className="flex items-center gap-2 flex-wrap">
-                <button
-                  onClick={() => startCompose('reply')}
-                  className="flex items-center gap-2 px-4 py-2
-                    bg-zinc-900 border border-zinc-700/80
-                    text-zinc-200 hover:border-zinc-500 hover:text-white
-                    rounded-xl text-sm font-medium transition-colors"
-                >
-                  <Reply size={13} />
-                  Reply
-                </button>
-                <button
-                  onClick={() => startCompose('replyAll')}
-                  className="flex items-center gap-2 px-4 py-2
-                    bg-zinc-900 border border-zinc-700/80
-                    text-zinc-200 hover:border-zinc-500 hover:text-white
-                    rounded-xl text-sm font-medium transition-colors"
-                >
-                  <ReplyAll size={13} />
-                  Reply All
-                </button>
-                <button
-                  onClick={() => startCompose('forward')}
-                  className="flex items-center gap-2 px-4 py-2
-                    bg-zinc-900 border border-zinc-700/80
-                    text-zinc-200 hover:border-zinc-500 hover:text-white
-                    rounded-xl text-sm font-medium transition-colors"
-                >
-                  <Forward size={13} />
-                  Forward
-                </button>
+                {([
+                  { mode: 'reply',    icon: <Reply size={13} />,    label: 'Reply'     },
+                  { mode: 'replyAll', icon: <ReplyAll size={13} />, label: 'Reply All' },
+                  { mode: 'forward',  icon: <Forward size={13} />,  label: 'Forward'   },
+                ] as const).map(({ mode, icon, label }) => (
+                  <button
+                    key={mode}
+                    onClick={() => startCompose(mode)}
+                    className="flex items-center gap-2 px-4 py-2.5
+                      bg-zinc-900 border border-zinc-800
+                      text-zinc-300 hover:border-zinc-600 hover:text-white hover:bg-zinc-800
+                      rounded-xl text-sm font-medium transition-colors"
+                  >
+                    {icon}
+                    {label}
+                  </button>
+                ))}
               </div>
 
             )}
