@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useTRPC } from '@/trpc/client';
 import {
@@ -9,9 +9,9 @@ import {
 } from 'recharts';
 import {
   Mail, Inbox, Send, FileText, Calendar, Clock,
-  TrendingUp, RefreshCw, Users, Globe, Loader2,
-  Sparkles, MessageSquare, Mic, Edit3, Check, X,
+  RefreshCw, Sparkles, MessageSquare, Mic, Edit3, Check, X,
 } from 'lucide-react';
+import { ThemeToggle } from '@/components/theme-toggle';
 
 // ─── Refresh interval: 60 seconds ────────────────────────────────────────────
 const REFETCH = 60_000;
@@ -53,7 +53,7 @@ function StatCard({
   icon: React.ElementType; accent: string; loading?: boolean;
 }) {
   return (
-    <div className="bg-zinc-950 border border-zinc-800/80 rounded-2xl p-5 flex flex-col gap-3">
+    <div className="bg-zinc-950 border border-dotted border-zinc-800/80 rounded-2xl p-5 flex flex-col gap-3">
       <div className="flex items-start justify-between">
         <p className="text-xs font-medium text-zinc-500 uppercase tracking-wider">{label}</p>
         <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${accent}`}>
@@ -75,7 +75,7 @@ function Section({ title, sub, children, loading, skeletonH = 'h-64' }: {
   title: string; sub?: string; children: React.ReactNode; loading?: boolean; skeletonH?: string;
 }) {
   return (
-    <div className="bg-zinc-950 border border-zinc-800/80 rounded-2xl p-5 flex flex-col gap-4">
+    <div className="bg-zinc-950 border border-dotted border-zinc-800/80 rounded-2xl p-5 flex flex-col gap-4">
       <div>
         <p className="text-sm font-semibold text-zinc-200">{title}</p>
         {sub && <p className="text-xs text-zinc-600 mt-0.5">{sub}</p>}
@@ -122,28 +122,30 @@ function fmtDay(dateStr: string) {
 // ─── Main component ───────────────────────────────────────────────────────────
 
 // ─── Prompt quality analysis (client-side from localStorage) ─────────────────
-function usePromptAnalysis() {
-  return React.useState(() => {
-    if (typeof window === 'undefined') return null;
+type PromptAnalysis = { total: number; avgLength: number; actionRate: number; questionRate: number; specificityRate: number } | null;
+
+function usePromptAnalysis(): PromptAnalysis {
+  const [analysis, setAnalysis] = React.useState<PromptAnalysis>(null);
+  React.useEffect(() => {
     try {
       const raw = localStorage.getItem('yugati_chat_sessions');
-      if (!raw) return null;
+      if (!raw) return;
       const sessions = JSON.parse(raw) as { messages?: { role: string; content: string }[] }[];
       const userMsgs = sessions.flatMap((s) => (s.messages ?? []).filter((m) => m.role === 'user').map((m) => m.content));
-      if (!userMsgs.length) return null;
-
-      const actionWords  = /\b(send|schedule|delete|archive|find|search|summarize|summarise|reply|draft|create|show|list|check|move|mark|forward|cancel|reschedule)\b/i;
+      if (!userMsgs.length) return;
+      const actionWords   = /\b(send|schedule|delete|archive|find|search|summarize|summarise|reply|draft|create|show|list|check|move|mark|forward|cancel|reschedule)\b/i;
       const specificWords = /@|\d{1,2}[\/\-]\d{1,2}|\b(today|tomorrow|monday|tuesday|wednesday|thursday|friday|yesterday|last week|next week)\b/i;
-
-      return {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setAnalysis({
         total:           userMsgs.length,
         avgLength:       Math.round(userMsgs.reduce((s, m) => s + m.length, 0) / userMsgs.length),
         actionRate:      Math.round(userMsgs.filter((m) => actionWords.test(m)).length  / userMsgs.length * 100),
         questionRate:    Math.round(userMsgs.filter((m) => m.includes('?')).length       / userMsgs.length * 100),
         specificityRate: Math.round(userMsgs.filter((m) => specificWords.test(m)).length / userMsgs.length * 100),
-      };
-    } catch { return null; }
-  })[0];
+      });
+    } catch { /* ignore */ }
+  }, []);
+  return analysis;
 }
 
 const FOCUS_META: Record<string, { label: string; bullets: string[] }> = {
@@ -203,14 +205,18 @@ export function OverviewView({ userName }: { userName?: string }) {
 
   const promptAnalysis = usePromptAnalysis();
 
-  const lastUpdated = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  const [lastUpdated, setLastUpdated] = useState('');
+  useEffect(() => {
+    const fmt = () => setLastUpdated(new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }));
+    fmt();
+  }, [overviewFetching, emailFetching]);
 
-  const greeting = (() => {
+  const greeting = React.useMemo(() => {
     const h = new Date().getHours();
-    const t = h < 12 ? 'morning' : h < 17 ? 'afternoon' : 'evening';
+    const t = h < 5 ? 'night' : h < 12 ? 'morning' : h < 17 ? 'afternoon' : h < 21 ? 'evening' : 'night';
     const first = userName?.split(' ')[0];
     return first ? `Good ${t}, ${first}` : `Good ${t}`;
-  })();
+  }, [userName]);
 
   // Filter hourly to only show every 3 hours for cleanliness
   const hourlyData = (email?.byHour ?? []).filter((_, i) => i % 3 === 0 || i === 23);
@@ -225,50 +231,35 @@ export function OverviewView({ userName }: { userName?: string }) {
             <h1 className="text-2xl font-bold text-white">{greeting}</h1>
             <p className="text-sm text-zinc-500 mt-1">Here&apos;s your communication overview</p>
           </div>
-          <div className="flex items-center gap-2 text-xs text-zinc-600">
-            <RefreshCw size={11} className={overviewFetching || emailFetching ? 'animate-spin' : ''} />
-            <span>Updated {lastUpdated}</span>
-            <span className="w-1.5 h-1.5 rounded-full bg-green-400 shadow-[0_0_4px_rgba(74,222,128,0.6)]" />
-            <span className="text-green-500">Live</span>
+          <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2 text-xs text-zinc-600">
+              <RefreshCw size={11} className={overviewFetching || emailFetching ? 'animate-spin' : ''} />
+              <span>Updated {lastUpdated}</span>
+              <span className="w-1.5 h-1.5 rounded-full bg-green-400 shadow-[0_0_4px_rgba(74,222,128,0.6)]" />
+              <span className="text-green-500">Live</span>
+            </div>
+            <ThemeToggle />
           </div>
         </div>
 
         {/* ── Smart focus summary ── */}
-        <div className="bg-zinc-950 border border-zinc-800/80 rounded-2xl p-5">
-          <div className="flex items-center justify-between mb-4">
-            <div>
-              <p className="text-sm font-semibold text-zinc-200 flex items-center gap-1.5">
-                <Sparkles size={13} className="text-violet-400" />
-                Your Focus Areas
-              </p>
-              <p className="text-xs text-zinc-600 mt-0.5">Yugati surfaces insights for these categories</p>
-            </div>
+        <div className="bg-zinc-950 border border-dotted border-zinc-800/80 rounded-2xl px-5 py-4">
+          <div className="flex items-center justify-between mb-3">
+            <p className="text-sm font-semibold text-zinc-200 flex items-center gap-1.5">
+              <Sparkles size={13} className="text-green-400" />
+              Your Focus Areas
+            </p>
             {editingFocuses ? (
               <div className="flex items-center gap-2">
-                <button
-                  onClick={() => setEditingFocuses(false)}
-                  className="flex items-center gap-1 text-[11px] text-zinc-500 hover:text-zinc-300 px-2.5 py-1.5 rounded-lg transition-colors"
-                >
-                  <X size={11} />
-                  Cancel
+                <button onClick={() => setEditingFocuses(false)} className="flex items-center gap-1 text-[11px] text-zinc-500 hover:text-zinc-300 px-2.5 py-1.5 rounded-lg transition-colors">
+                  <X size={11} /> Cancel
                 </button>
-                <button
-                  onClick={() => saveFocuses({ focuses: Array.from(draft) })}
-                  disabled={savingFocuses}
-                  className="flex items-center gap-1 text-[11px] font-semibold bg-white text-black px-3 py-1.5 rounded-lg hover:bg-zinc-100 transition-colors disabled:opacity-50"
-                >
-                  <Check size={11} />
-                  {savingFocuses ? 'Saving…' : 'Save'}
+                <button onClick={() => saveFocuses({ focuses: Array.from(draft) })} disabled={savingFocuses} className="flex items-center gap-1 text-[11px] font-semibold bg-white text-black px-3 py-1.5 rounded-lg hover:bg-zinc-100 transition-colors disabled:opacity-50">
+                  <Check size={11} /> {savingFocuses ? 'Saving…' : 'Save'}
                 </button>
               </div>
             ) : (
-              <button
-                onClick={() => {
-                  setDraft(new Set(prefs?.focuses ?? []));
-                  setEditingFocuses(true);
-                }}
-                className="text-[11px] text-zinc-500 hover:text-zinc-300 border border-zinc-800 hover:border-zinc-700 px-2.5 py-1.5 rounded-lg transition-colors"
-              >
+              <button onClick={() => { setDraft(new Set(prefs?.focuses ?? [])); setEditingFocuses(true); }} className="text-[11px] text-zinc-500 hover:text-zinc-300 border border-zinc-800 hover:border-zinc-700 px-2.5 py-1.5 rounded-lg transition-colors">
                 {(prefs?.focuses?.length ?? 0) === 0 ? 'Set up' : 'Edit'}
               </button>
             )}
@@ -279,18 +270,8 @@ export function OverviewView({ userName }: { userName?: string }) {
               {Object.entries(FOCUS_META).map(([id, meta]) => {
                 const active = draft.has(id);
                 return (
-                  <button
-                    key={id}
-                    onClick={() => setDraft((prev) => {
-                      const next = new Set(prev);
-                      next.has(id) ? next.delete(id) : next.add(id);
-                      return next;
-                    })}
-                    className={`text-left px-4 py-3 rounded-xl border transition-all ${
-                      active
-                        ? 'bg-white/8 border-white/20 ring-1 ring-white/10'
-                        : 'bg-zinc-900/60 border-zinc-800/60 hover:border-zinc-700'
-                    }`}
+                  <button key={id} onClick={() => setDraft((prev) => { const next = new Set(prev); next.has(id) ? next.delete(id) : next.add(id); return next; })}
+                    className={`text-left px-4 py-3 rounded-xl border transition-all ${active ? 'bg-white/8 border-white/20 ring-1 ring-white/10' : 'bg-zinc-900/60 border-zinc-800/60 hover:border-zinc-700'}`}
                   >
                     <div className="flex items-center justify-between mb-1.5">
                       <p className="text-xs font-semibold text-zinc-200">{meta.label}</p>
@@ -299,8 +280,7 @@ export function OverviewView({ userName }: { userName?: string }) {
                     <ul className="space-y-0.5">
                       {meta.bullets.map((b) => (
                         <li key={b} className="flex items-start gap-1.5 text-[11px] text-zinc-500 leading-tight">
-                          <span className="mt-[3px] w-1 h-1 rounded-full bg-zinc-600 shrink-0" />
-                          {b}
+                          <span className="mt-[3px] w-1 h-1 rounded-full bg-zinc-600 shrink-0" />{b}
                         </li>
                       ))}
                     </ul>
@@ -309,25 +289,19 @@ export function OverviewView({ userName }: { userName?: string }) {
               })}
             </div>
           ) : (prefs?.focuses?.length ?? 0) === 0 ? (
-            <p className="text-xs text-zinc-600">
-              No focus areas set yet. Click <span className="text-zinc-400">Set up</span> to tell Yugati what to prioritise for you.
-            </p>
+            <p className="text-xs text-zinc-600">No focus areas set. Click <span className="text-zinc-400">Set up</span> to tell Yugati what to prioritise.</p>
           ) : (
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+            <div className="flex flex-wrap gap-x-6 gap-y-3 pt-1">
               {(prefs?.focuses ?? []).map((id) => {
                 const meta = FOCUS_META[id];
                 if (!meta) return null;
                 return (
-                  <div key={id} className="bg-zinc-900/60 border border-zinc-800/60 rounded-xl px-4 py-3">
-                    <p className="text-xs font-semibold text-zinc-200 mb-1.5">{meta.label}</p>
-                    <ul className="space-y-0.5">
-                      {meta.bullets.map((b) => (
-                        <li key={b} className="flex items-start gap-1.5 text-[11px] text-zinc-500 leading-tight">
-                          <span className="mt-[3px] w-1 h-1 rounded-full bg-zinc-600 shrink-0" />
-                          {b}
-                        </li>
-                      ))}
-                    </ul>
+                  <div key={id} className="flex items-start gap-2 min-w-[160px]">
+                    <span className="mt-1 w-1.5 h-1.5 rounded-full bg-green-500 shrink-0" />
+                    <div>
+                      <p className="text-xs font-semibold text-zinc-300">{meta.label}</p>
+                      <p className="text-[11px] text-zinc-600 mt-0.5">{meta.bullets[0]}</p>
+                    </div>
                   </div>
                 );
               })}
@@ -338,7 +312,7 @@ export function OverviewView({ userName }: { userName?: string }) {
         {/* ── Stat cards ── */}
         <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-3">
           <StatCard label="Inbox"    value={overview?.inboxTotal ?? 0}          sub="total messages"     icon={Inbox}    accent="bg-blue-500/15 text-blue-400"    loading={overviewLoading} />
-          <StatCard label="Unread"   value={overview?.unreadCount ?? 0}         sub="need attention"     icon={Mail}     accent="bg-violet-500/15 text-violet-400" loading={overviewLoading} />
+          <StatCard label="Unread"   value={overview?.unreadCount ?? 0}         sub="need attention"     icon={Mail}     accent="bg-green-500/15 text-green-400" loading={overviewLoading} />
           <StatCard label="Sent"     value={overview?.sentTotal ?? 0}           sub="all time"           icon={Send}     accent="bg-emerald-500/15 text-emerald-400" loading={overviewLoading} />
           <StatCard label="Drafts"   value={overview?.draftCount ?? 0}          sub="unsent"             icon={FileText} accent="bg-amber-500/15 text-amber-400"  loading={overviewLoading} />
           <StatCard label="Meetings" value={overview?.meetingsThisWeek ?? 0}    sub="this week"          icon={Calendar} accent="bg-rose-500/15 text-rose-400"    loading={overviewLoading} />
@@ -349,11 +323,11 @@ export function OverviewView({ userName }: { userName?: string }) {
         <div className="grid grid-cols-1 xl:grid-cols-3 gap-4">
 
           {/* AI Insights */}
-          <div className="bg-zinc-950 border border-zinc-800/80 rounded-2xl p-5 flex flex-col gap-4">
+          <div className="bg-zinc-950 border border-dotted border-zinc-800/80 rounded-2xl p-5 flex flex-col gap-4">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm font-semibold text-zinc-200 flex items-center gap-1.5">
-                  <Sparkles size={13} className="text-violet-400" />
+                  <Sparkles size={13} className="text-green-400" />
                   AI Insights
                 </p>
                 <p className="text-xs text-zinc-600 mt-0.5">Generated from your inbox &amp; calendar</p>
@@ -374,7 +348,7 @@ export function OverviewView({ userName }: { userName?: string }) {
               <ul className="space-y-2.5">
                 {(insightsData?.insights ?? []).map((insight, i) => (
                   <li key={i} className="flex items-start gap-2.5 text-xs text-zinc-400 leading-relaxed">
-                    <span className="shrink-0 w-4 h-4 rounded-full bg-violet-500/15 text-violet-400 flex items-center justify-center text-[9px] font-bold mt-0.5">{i + 1}</span>
+                    <span className="shrink-0 w-4 h-4 rounded-full bg-green-500/15 text-green-400 flex items-center justify-center text-[9px] font-bold mt-0.5">{i + 1}</span>
                     {insight}
                   </li>
                 ))}
@@ -385,7 +359,7 @@ export function OverviewView({ userName }: { userName?: string }) {
           </div>
 
           {/* AI Usage */}
-          <div className="bg-zinc-950 border border-zinc-800/80 rounded-2xl p-5 flex flex-col gap-4">
+          <div className="bg-zinc-950 border border-dotted border-zinc-800/80 rounded-2xl p-5 flex flex-col gap-4">
             <div>
               <p className="text-sm font-semibold text-zinc-200 flex items-center gap-1.5">
                 <MessageSquare size={13} className="text-blue-400" />
@@ -422,7 +396,7 @@ export function OverviewView({ userName }: { userName?: string }) {
           </div>
 
           {/* Prompt Quality */}
-          <div className="bg-zinc-950 border border-zinc-800/80 rounded-2xl p-5 flex flex-col gap-4">
+          <div className="bg-zinc-950 border border-dotted border-zinc-800/80 rounded-2xl p-5 flex flex-col gap-4">
             <div>
               <p className="text-sm font-semibold text-zinc-200 flex items-center gap-1.5">
                 <Edit3 size={13} className="text-amber-400" />
@@ -445,7 +419,7 @@ export function OverviewView({ userName }: { userName?: string }) {
                 {[
                   { label: 'Action-oriented', value: promptAnalysis.actionRate,      color: 'bg-blue-500',    tip: 'Prompts with action words (send, schedule, find…)' },
                   { label: 'With context',    value: promptAnalysis.specificityRate,  color: 'bg-emerald-500', tip: 'Prompts with dates, emails, or specifics' },
-                  { label: 'Questions',       value: promptAnalysis.questionRate,     color: 'bg-violet-500',  tip: 'Prompts ending with ?' },
+                  { label: 'Questions',       value: promptAnalysis.questionRate,     color: 'bg-green-500',  tip: 'Prompts ending with ?' },
                 ].map(({ label, value, color, tip }) => (
                   <div key={label} title={tip}>
                     <div className="flex items-center justify-between mb-1.5">
@@ -487,7 +461,7 @@ export function OverviewView({ userName }: { userName?: string }) {
                     tickLine={false}
                   />
                   <YAxis tick={{ fontSize: 11, fill: AXIS_COLOR }} axisLine={false} tickLine={false} allowDecimals={false} />
-                  <Tooltip content={<ChartTooltip />} />
+                  <Tooltip content={<ChartTooltip />} cursor={{ fill: 'rgba(255,255,255,0.04)' }} />
                   <Area type="monotone" dataKey="count" stroke="#3b82f6" strokeWidth={2} fill="url(#emailGrad)" dot={false} activeDot={{ r: 4, fill: '#3b82f6' }} />
                 </AreaChart>
               </ResponsiveContainer>
@@ -512,7 +486,7 @@ export function OverviewView({ userName }: { userName?: string }) {
                         <Cell key={i} fill={entry.color} />
                       ))}
                     </Pie>
-                    <Tooltip content={<ChartTooltip />} />
+                    <Tooltip content={<ChartTooltip />} cursor={{ fill: 'rgba(255,255,255,0.04)' }} />
                   </PieChart>
                 </ResponsiveContainer>
                 <DonutLegend data={email.byCategory} />
@@ -557,15 +531,17 @@ export function OverviewView({ userName }: { userName?: string }) {
           </Section>
 
           <Section title="Emails by Time of Day" sub="When do you receive most emails" loading={emailLoading} skeletonH="h-64">
-            <ResponsiveContainer width="100%" height={200}>
-              <BarChart data={hourlyData} margin={{ top: 4, right: 4, bottom: 0, left: -20 }}>
-                <CartesianGrid stroke={GRID_COLOR} strokeDasharray="3 3" vertical={false} />
-                <XAxis dataKey="hour" tickFormatter={fmtHour} tick={{ fontSize: 10, fill: AXIS_COLOR }} axisLine={false} tickLine={false} />
-                <YAxis tick={{ fontSize: 10, fill: AXIS_COLOR }} axisLine={false} tickLine={false} allowDecimals={false} />
-                <Tooltip content={<ChartTooltip />} />
-                <Bar dataKey="count" fill="#8b5cf6" radius={[4, 4, 0, 0]} maxBarSize={28} />
-              </BarChart>
-            </ResponsiveContainer>
+            <div className="flex-1 min-h-0" style={{ minHeight: 200 }}>
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={hourlyData} margin={{ top: 4, right: 4, bottom: 0, left: -20 }}>
+                  <CartesianGrid stroke={GRID_COLOR} strokeDasharray="3 3" vertical={false} />
+                  <XAxis dataKey="hour" tickFormatter={fmtHour} tick={{ fontSize: 10, fill: AXIS_COLOR }} axisLine={false} tickLine={false} />
+                  <YAxis tick={{ fontSize: 10, fill: AXIS_COLOR }} axisLine={false} tickLine={false} allowDecimals={false} />
+                  <Tooltip content={<ChartTooltip />} cursor={{ fill: 'rgba(255,255,255,0.04)' }} />
+                  <Bar dataKey="count" fill="#4ade80" radius={[4, 4, 0, 0]} maxBarSize={28} />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
           </Section>
         </div>
 
@@ -622,7 +598,7 @@ export function OverviewView({ userName }: { userName?: string }) {
                   tickLine={false}
                 />
                 <YAxis tick={{ fontSize: 10, fill: AXIS_COLOR }} axisLine={false} tickLine={false} allowDecimals={false} />
-                <Tooltip content={<ChartTooltip />} />
+                <Tooltip content={<ChartTooltip />} cursor={{ fill: 'rgba(255,255,255,0.04)' }} />
                 <Area type="monotone" dataKey="meetings" stroke="#10b981" strokeWidth={2} fill="url(#calGrad)" dot={false} activeDot={{ r: 4, fill: '#10b981' }} />
               </AreaChart>
             </ResponsiveContainer>
@@ -638,7 +614,7 @@ export function OverviewView({ userName }: { userName?: string }) {
                 <CartesianGrid stroke={GRID_COLOR} strokeDasharray="3 3" vertical={false} />
                 <XAxis dataKey="day" tick={{ fontSize: 11, fill: AXIS_COLOR }} axisLine={false} tickLine={false} />
                 <YAxis tick={{ fontSize: 10, fill: AXIS_COLOR }} axisLine={false} tickLine={false} allowDecimals={false} />
-                <Tooltip content={<ChartTooltip />} />
+                <Tooltip content={<ChartTooltip />} cursor={{ fill: 'rgba(255,255,255,0.04)' }} />
                 <Bar dataKey="count" fill="#f59e0b" radius={[4, 4, 0, 0]} maxBarSize={32} />
               </BarChart>
             </ResponsiveContainer>
@@ -652,7 +628,7 @@ export function OverviewView({ userName }: { userName?: string }) {
                     <Pie data={cal.meetingTypes} cx="50%" cy="50%" innerRadius={32} outerRadius={48} paddingAngle={3} dataKey="value">
                       {cal.meetingTypes.map((e, i) => <Cell key={i} fill={e.color} />)}
                     </Pie>
-                    <Tooltip content={<ChartTooltip />} />
+                    <Tooltip content={<ChartTooltip />} cursor={{ fill: 'rgba(255,255,255,0.04)' }} />
                   </PieChart>
                 </ResponsiveContainer>
                 <DonutLegend data={cal.meetingTypes} />
@@ -668,7 +644,7 @@ export function OverviewView({ userName }: { userName?: string }) {
                 <CartesianGrid stroke={GRID_COLOR} strokeDasharray="3 3" horizontal={false} />
                 <XAxis type="number" tick={{ fontSize: 10, fill: AXIS_COLOR }} axisLine={false} tickLine={false} allowDecimals={false} />
                 <YAxis type="category" dataKey="name" tick={{ fontSize: 10, fill: AXIS_COLOR }} axisLine={false} tickLine={false} width={56} />
-                <Tooltip content={<ChartTooltip />} />
+                <Tooltip content={<ChartTooltip />} cursor={{ fill: 'rgba(255,255,255,0.04)' }} />
                 <Bar dataKey="value" fill="#ec4899" radius={[0, 4, 4, 0]} maxBarSize={16} />
               </BarChart>
             </ResponsiveContainer>

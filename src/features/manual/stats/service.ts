@@ -114,37 +114,27 @@ export class StatsService {
   // ── Email activity: volume, senders, hourly, categories ───────────────────
 
   async getEmailActivity() {
-    // Try DB cache first (fast, no live API calls)
     type DbMsg = { id?: string; internalDate?: string; labelIds?: string[]; from?: string; payload?: { headers?: { name?: string; value?: string }[] } };
-    let msgs: DbMsg[] = [];
 
-    const dbRes = await (this.c.gmail.db as unknown as { messages?: { search?: (opts: { limit: number }) => Promise<DbMsg[]> } })
-      .messages?.search?.({ limit: 100 }).catch(() => null);
+    const thirtyDaysAgo = new Date();
+    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+    const afterQuery = `after:${Math.floor(thirtyDaysAgo.getTime() / 1000)}`;
 
-    if (dbRes && dbRes.length > 0) {
-      msgs = dbRes;
-    } else {
-      // Fall back to live API — fetch IDs then metadata (capped at 30 to limit latency)
-      const thirtyDaysAgo = new Date();
-      thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-      const afterQuery = `after:${Math.floor(thirtyDaysAgo.getTime() / 1000)}`;
+    const listRes = await this.c.gmail.api.messages.list({
+      maxResults: 100,
+      labelIds:   ['INBOX'],
+      q:          afterQuery,
+    }).catch(() => ({ messages: [] }));
 
-      const listRes = await this.c.gmail.api.messages.list({
-        maxResults: 50,
-        labelIds:   ['INBOX'],
-        q:          afterQuery,
-      }).catch(() => ({ messages: [] }));
+    const ids = ((listRes as { messages?: { id?: string }[] }).messages ?? [])
+      .map((m) => m.id).filter(Boolean) as string[];
 
-      const ids = ((listRes as { messages?: { id?: string }[] }).messages ?? [])
-        .map((m) => m.id).filter(Boolean) as string[];
-
-      const metaItems = await Promise.all(
-        ids.slice(0, 30).map((id) =>
-          this.c.gmail.api.messages.get({ id, format: 'metadata' }).catch(() => null),
-        ),
-      );
-      msgs = metaItems.filter(Boolean) as DbMsg[];
-    }
+    const metaItems = await Promise.all(
+      ids.slice(0, 50).map((id) =>
+        this.c.gmail.api.messages.get({ id, format: 'metadata' }).catch(() => null),
+      ),
+    );
+    const msgs: DbMsg[] = metaItems.filter(Boolean) as DbMsg[];
 
     // ── Daily volume ──
     const dayMap: Record<string, number> = {};
