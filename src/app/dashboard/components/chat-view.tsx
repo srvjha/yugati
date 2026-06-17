@@ -918,7 +918,7 @@ export function ChatView({
                             <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/[0.2] to-transparent pointer-events-none" />
                             {msg.content}
                           </div>
-                          <div className={`flex items-center gap-0.5 overflow-hidden transition-all duration-150 ${hoveredMsgId === msg.id ? 'max-h-8 opacity-100' : 'max-h-0 opacity-0 pointer-events-none'}`}>
+                          <div className="flex items-center gap-0.5">
                             <MsgBtn onClick={() => void copyMessage(msg.id, msg.content)} title="Copy">
                               {copiedId === msg.id ? <Check size={14} className="text-green-400" /> : <Copy size={14} />}
                             </MsgBtn>
@@ -1025,29 +1025,25 @@ export function ChatView({
                 <TooltipProvider>
                 <div className="flex items-center bg-zinc-800/60 rounded-lg p-0.5 gap-0.5">
                   <Tooltip>
-                    <TooltipTrigger>
-                      <button
-                        onClick={() => { setAgentMode('guided'); try { localStorage.setItem('yugati_agent_mode', 'guided'); } catch {} }}
-                        className={`flex items-center px-2.5 py-1 rounded-md text-[11px] font-medium transition-all
-                          ${agentMode === 'guided' ? 'bg-zinc-700 text-zinc-200' : 'text-zinc-600 hover:text-zinc-400'}`}
-                      >
-                        Guided
-                      </button>
+                    <TooltipTrigger
+                      onClick={() => { setAgentMode('guided'); try { localStorage.setItem('yugati_agent_mode', 'guided'); } catch {} }}
+                      className={`flex items-center px-2.5 py-1 rounded-md text-[11px] font-medium transition-all
+                        ${agentMode === 'guided' ? 'bg-zinc-700 text-zinc-200' : 'text-zinc-600 hover:text-zinc-400'}`}
+                    >
+                      Guided
                     </TooltipTrigger>
                     <TooltipContent side="top">
                       Asks before sending emails or making changes
                     </TooltipContent>
                   </Tooltip>
                   <Tooltip>
-                    <TooltipTrigger>
-                      <button
-                        onClick={() => { setAgentMode('auto'); try { localStorage.setItem('yugati_agent_mode', 'auto'); } catch {} }}
-                        className={`flex items-center gap-1 px-2.5 py-1 rounded-md text-[11px] font-medium transition-all
-                          ${agentMode === 'auto' ? 'bg-zinc-700 text-zinc-200' : 'text-zinc-600 hover:text-zinc-400'}`}
-                      >
-                        <Zap size={9} className={agentMode === 'auto' ? 'text-amber-400' : ''} />
-                        Auto
-                      </button>
+                    <TooltipTrigger
+                      onClick={() => { setAgentMode('auto'); try { localStorage.setItem('yugati_agent_mode', 'auto'); } catch {} }}
+                      className={`flex items-center gap-1 px-2.5 py-1 rounded-md text-[11px] font-medium transition-all
+                        ${agentMode === 'auto' ? 'bg-zinc-700 text-zinc-200' : 'text-zinc-600 hover:text-zinc-400'}`}
+                    >
+                      <Zap size={9} className={agentMode === 'auto' ? 'text-amber-400' : ''} />
+                      Auto
                     </TooltipTrigger>
                     <TooltipContent side="top">
                       Acts immediately without asking

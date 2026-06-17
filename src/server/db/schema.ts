@@ -136,6 +136,16 @@ export const userPlans = pgTable('user_plans', {
   updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
 });
 
+// ─── User preferences ──────────────────────────────────────────────────────────
+
+export const userPreferences = pgTable('user_preferences', {
+  userId:         text('user_id').primaryKey().references(() => user.id, { onDelete: 'cascade' }),
+  focuses:        jsonb('focuses').$type<string[]>().notNull().default(sql`'[]'::jsonb`),
+  onboardingDone: boolean('onboarding_done').notNull().default(false),
+  createdAt:      timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  updatedAt:      timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+});
+
 // Tracks every Razorpay payment order for audit trail.
 export const orders = pgTable('orders', {
   id:     text('id').primaryKey(),

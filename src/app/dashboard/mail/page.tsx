@@ -26,12 +26,13 @@ import { MailSidebar } from "./components/MailSidebar";
 import { MailTopBar } from "./components/MailTopBar";
 import { CategoryTabs } from "./components/CategoryTabs";
 import { EmailRow } from "./components/EmailRow";
-import { CalendarMini } from "./components/CalendarMini";
+import { MailInsightPanel } from "./components/MailInsightPanel";
 import { CommandPalette } from "./components/CommandPalette";
 import { SubscriptionsPanel } from "./components/SubscriptionsPanel";
 import { ComposeModal } from "./components/ComposeModal";
 import { AuthError } from "./components/AuthError";
 import { SkeletonList } from "./components/SkeletonList";
+import { OnboardingOverlay } from "../components/onboarding-overlay";
 
 
 function popReplyContext(): string | null {
@@ -95,6 +96,9 @@ export default function MailPage() {
   });
 
   const [chatMode, setChatMode] = useState(_boot.chatMode);
+  // true immediately for fresh connects (?connected=1); also flipped to true once
+  // the DB confirms onboardingDone === false for existing users who skipped.
+  const [showOnboarding, setShowOnboarding] = useState(() => searchParams.get('connected') === '1');
   const [activeFolder, setActiveFolder] = useState<SidebarFolder>("inbox");
   const [activeTab, setActiveTab] = useState<InboxTab>("all");
   const [searchQuery, setSearchQuery] = useState("");
@@ -111,6 +115,15 @@ export default function MailPage() {
       localStorage.setItem("yugati_mail_mode", chatMode ? "chat" : "manual");
     } catch {}
   }, [chatMode]);
+
+  // For existing users who never saw the onboarding: show overlay once DB confirms not done.
+  const { data: prefs } = useQuery({
+    ...trpc.user.getPreferences.queryOptions(),
+    staleTime: Infinity,
+  });
+  useEffect(() => {
+    if (prefs !== undefined && !prefs.onboardingDone) setShowOnboarding(true);
+  }, [prefs?.onboardingDone]);
 
   const isInbox = activeFolder === "inbox";
   const tabQ = INBOX_TABS.find((t) => t.id === activeTab)!.q;
@@ -328,6 +341,13 @@ export default function MailPage() {
   return (
     <Tooltip.Provider delayDuration={300}>
       <div className="h-screen flex overflow-hidden bg-black text-white">
+        {showOnboarding && (
+          <OnboardingOverlay onDone={() => {
+            setShowOnboarding(false);
+            router.replace('/dashboard/mail', { scroll: false });
+          }} />
+        )}
+
         {paletteOpen && (
           <CommandPalette
             onClose={() => setPaletteOpen(false)}
@@ -510,7 +530,7 @@ export default function MailPage() {
                   </div>
                 </div>
 
-                <CalendarMini />
+                <MailInsightPanel />
               </>
             )}
           </div>

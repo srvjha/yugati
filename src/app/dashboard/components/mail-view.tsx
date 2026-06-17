@@ -108,9 +108,9 @@ export function MailView({ message }: { message: GmailMessage }) {
   const cc       = getHeader(headers, 'Cc');
   const replyTo  = getHeader(headers, 'Reply-To') || from;
   const date     = message.internalDate
-    ? new Date(Number(message.internalDate)).toLocaleString([], {
-        weekday: 'short', month: 'short', day: 'numeric',
-        year: 'numeric', hour: '2-digit', minute: '2-digit',
+    ? new Date(Number(message.internalDate)).toLocaleString('en-IN', {
+        weekday: 'short', day: 'numeric', month: 'short',
+        year: 'numeric', hour: '2-digit', minute: '2-digit', hour12: false,
       })
     : getHeader(headers, 'Date');
 
