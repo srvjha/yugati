@@ -40,7 +40,15 @@ export default async function RootLayout({
     >
       <body className="min-h-full flex flex-col">
         <TRPCReactProvider>{children}</TRPCReactProvider>
-        <Toaster theme={theme} position="bottom-right" richColors />
+        <Toaster
+          theme={theme}
+          position="bottom-right"
+          toastOptions={{
+            style: theme === "dark"
+              ? { background: "#000", color: "#fff", border: "1px solid rgba(255,255,255,0.08)" }
+              : { background: "#fff", color: "#18181b", border: "1px solid #e4e4e7" },
+          }}
+        />
       </body>
     </html>
   );

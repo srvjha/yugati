@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { ArrowLeft, Trash2, Archive, Reply, Forward, MoreHorizontal, ReplyAll, Bot, Star, CheckCheck } from 'lucide-react';
+import { ArrowLeft, Trash2, Archive, Reply, Forward, MoreHorizontal, ReplyAll, Bot, Star, CheckCheck, Send, X } from 'lucide-react';
 import { useMutation } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import type { inferRouterOutputs } from '@trpc/server';
@@ -120,8 +120,14 @@ export function MailView({ message }: { message: GmailMessage }) {
   const fromName  = fromMatch[1]?.trim().replace(/^"|"$/g, '') || from;
   const fromEmail = fromMatch[2] || from;
 
-  const iframeRef = useRef<HTMLIFrameElement>(null);
-  const [moreOpen, setMoreOpen] = useState(false);
+  const iframeRef  = useRef<HTMLIFrameElement>(null);
+  const bodyRef    = useRef<HTMLTextAreaElement>(null);
+  const [moreOpen,       setMoreOpen]       = useState(false);
+  const [composeMode,    setComposeMode]    = useState<'reply' | 'replyAll' | 'forward' | null>(null);
+  const [composeTo,      setComposeTo]      = useState('');
+  const [composeCc,      setComposeCc]      = useState('');
+  const [composeSubject, setComposeSubject] = useState('');
+  const [composeBody,    setComposeBody]    = useState('');
 
   const trashMutation = useMutation(
     trpc.gmail.trashMessage.mutationOptions({
@@ -153,6 +159,13 @@ export function MailView({ message }: { message: GmailMessage }) {
   const starMutation = useMutation(
     trpc.gmail.modifyMessage.mutationOptions({
       onError: () => setStarred((s) => !s), // revert on failure
+    }),
+  );
+
+  const sendMutation = useMutation(
+    trpc.gmail.sendMessage.mutationOptions({
+      onSuccess: () => { toast.success('Sent!'); setComposeMode(null); },
+      onError:   () => toast.error('Failed to send'),
     }),
   );
 
@@ -207,29 +220,43 @@ export function MailView({ message }: { message: GmailMessage }) {
     return () => document.removeEventListener('mousedown', handler);
   }, [moreOpen]);
 
-  function openReply(replyAll = false) {
-    const cleanSnippet = decodeHtmlEntities(message.snippet ?? '');
-    const ctx: ReplyContext = {
-      from,
-      to: replyAll ? [replyTo, cc].filter(Boolean).join(', ') : replyTo,
-      subject: subject.startsWith('Re:') ? subject : `Re: ${subject}`,
-      snippet: cleanSnippet,
-      threadId: message.threadId,
-      replyAll,
-    };
-    sessionStorage.setItem(REPLY_CTX_KEY, JSON.stringify(ctx));
-    router.push('/dashboard/mail');
+  function startCompose(mode: 'reply' | 'replyAll' | 'forward') {
+    setComposeMode(mode);
+    if (mode === 'forward') {
+      setComposeSubject(subject.startsWith('Fwd:') ? subject : `Fwd: ${subject}`);
+      setComposeTo('');
+      setComposeCc('');
+    } else {
+      setComposeSubject(subject.startsWith('Re:') ? subject : `Re: ${subject}`);
+      setComposeTo(replyTo);
+      setComposeCc(mode === 'replyAll' ? cc : '');
+    }
+    setComposeBody('');
+    setTimeout(() => bodyRef.current?.focus(), 60);
   }
 
-  function openForward() {
-    const cleanSnippet = decodeHtmlEntities(message.snippet ?? '');
+  function handleSend() {
+    const toList = composeTo.split(',').map((s) => s.trim()).filter(Boolean);
+    const ccList = composeCc.split(',').map((s) => s.trim()).filter(Boolean);
+    if (!toList.length && composeMode !== 'forward') return;
+    sendMutation.mutate({
+      to:       toList.length ? toList : [''],
+      cc:       ccList.length ? ccList : undefined,
+      subject:  composeSubject,
+      body:     composeBody,
+      threadId: message.threadId ?? undefined,
+    });
+  }
+
+  function handleAskAI() {
     const ctx: ReplyContext = {
       from,
-      to: '',
-      subject: subject.startsWith('Fwd:') ? subject : `Fwd: ${subject}`,
-      snippet: cleanSnippet,
+      to: composeTo || (composeMode === 'forward' ? '' : replyTo),
+      subject: composeSubject,
+      snippet: decodeHtmlEntities(message.snippet ?? ''),
       threadId: message.threadId,
-      forward: true,
+      replyAll: composeMode === 'replyAll',
+      forward:  composeMode === 'forward',
     };
     sessionStorage.setItem(REPLY_CTX_KEY, JSON.stringify(ctx));
     router.push('/dashboard/mail');
@@ -291,9 +318,9 @@ export function MailView({ message }: { message: GmailMessage }) {
               <Star size={14} className={starred ? 'fill-yellow-400' : ''} />
             </button>
             <div className="w-px h-4 bg-zinc-800 mx-1" />
-            <ActionBtn icon={<Reply size={14} />}          label="Reply"      onClick={() => openReply(false)} />
-            <ActionBtn icon={<ReplyAll size={14} />}       label="Reply All"  onClick={() => openReply(true)} />
-            <ActionBtn icon={<Forward size={14} />}        label="Forward"    onClick={openForward} />
+            <ActionBtn icon={<Reply size={14} />}    label="Reply"     onClick={() => startCompose('reply')} />
+            <ActionBtn icon={<ReplyAll size={14} />} label="Reply All" onClick={() => startCompose('replyAll')} />
+            <ActionBtn icon={<Forward size={14} />}  label="Forward"   onClick={() => startCompose('forward')} />
             <div className="w-px h-4 bg-zinc-800 mx-1" />
             <ActionBtn
               icon={<Archive size={14} />}
@@ -338,7 +365,7 @@ export function MailView({ message }: { message: GmailMessage }) {
 
       {/* Scrollable body */}
       <main className="flex-1 overflow-y-auto">
-        <div className="max-w-3xl mx-auto px-5 pt-8 pb-32">
+        <div className="max-w-3xl mx-auto px-5 pt-8 pb-16">
 
           {/* Subject */}
           <h1 className="text-[22px] font-bold leading-snug text-white mb-5">{subject}</h1>
@@ -387,40 +414,160 @@ export function MailView({ message }: { message: GmailMessage }) {
             )}
           </div>
 
+          {/* Reply section — inline, at the end of email content */}
+          <div className="mt-8">
+            {composeMode ? (
+
+              /* Glass compose panel */
+              <div className="relative overflow-hidden rounded-2xl
+                border border-white/8
+                bg-zinc-900/60 backdrop-blur-xl
+                shadow-[0_8px_48px_rgba(0,0,0,0.5),0_0_0_1px_rgba(255,255,255,0.04)]">
+
+                {/* Shimmer top edge */}
+                <div className="absolute inset-x-0 top-0 h-px bg-linear-to-r from-transparent via-white/15 to-transparent pointer-events-none" />
+
+                {/* Header */}
+                <div className="flex items-center justify-between px-5 py-3 border-b border-white/6">
+                  <span className="text-xs font-semibold text-zinc-300 tracking-wide uppercase">
+                    {composeMode === 'reply' ? 'Reply' : composeMode === 'replyAll' ? 'Reply All' : 'Forward'}
+                  </span>
+                  <button
+                    onClick={() => setComposeMode(null)}
+                    className="text-zinc-500 hover:text-white transition-colors"
+                  >
+                    <X size={14} />
+                  </button>
+                </div>
+
+                {/* Fields */}
+                <div className="divide-y divide-white/5">
+                  <div className="flex items-center gap-3 px-5 py-2.5">
+                    <span className="text-xs text-zinc-500 w-14 shrink-0">To</span>
+                    <input
+                      value={composeTo}
+                      onChange={(e) => setComposeTo(e.target.value)}
+                      className="flex-1 text-sm text-zinc-100 bg-transparent outline-none placeholder:text-zinc-600"
+                      placeholder="Recipients"
+                    />
+                  </div>
+                  {(composeMode === 'replyAll' || composeCc) && (
+                    <div className="flex items-center gap-3 px-5 py-2.5">
+                      <span className="text-xs text-zinc-500 w-14 shrink-0">Cc</span>
+                      <input
+                        value={composeCc}
+                        onChange={(e) => setComposeCc(e.target.value)}
+                        className="flex-1 text-sm text-zinc-100 bg-transparent outline-none placeholder:text-zinc-600"
+                        placeholder="Cc recipients"
+                      />
+                    </div>
+                  )}
+                  <div className="flex items-center gap-3 px-5 py-2.5">
+                    <span className="text-xs text-zinc-500 w-14 shrink-0">Subject</span>
+                    <input
+                      value={composeSubject}
+                      onChange={(e) => setComposeSubject(e.target.value)}
+                      className="flex-1 text-sm text-zinc-100 bg-transparent outline-none"
+                    />
+                  </div>
+                </div>
+
+                {/* Body */}
+                <textarea
+                  ref={bodyRef}
+                  value={composeBody}
+                  onChange={(e) => setComposeBody(e.target.value)}
+                  rows={6}
+                  className="w-full px-5 pt-4 pb-2 text-sm text-zinc-100
+                    bg-transparent outline-none resize-none
+                    placeholder:text-zinc-600 leading-relaxed"
+                  placeholder="Write your reply…"
+                />
+
+                {/* Quoted snippet */}
+                {message.snippet && (
+                  <div className="px-5 pb-4">
+                    <div className="border-l-2 border-zinc-700 pl-3
+                      text-xs text-zinc-600 line-clamp-2 leading-relaxed italic">
+                      {decodeHtmlEntities(message.snippet)}
+                    </div>
+                  </div>
+                )}
+
+                {/* Footer */}
+                <div className="flex items-center gap-2 px-5 py-3.5 border-t border-white/5 bg-white/2">
+                  <button
+                    onClick={handleSend}
+                    disabled={sendMutation.isPending || (!composeTo.trim() && composeMode !== 'forward')}
+                    className="flex items-center gap-1.5 px-4 py-2
+                      bg-white/90 text-zinc-900 hover:bg-white
+                      disabled:opacity-40 rounded-lg text-sm font-semibold transition-colors"
+                  >
+                    <Send size={13} />
+                    {sendMutation.isPending ? 'Sending…' : 'Send'}
+                  </button>
+                  <button
+                    onClick={handleAskAI}
+                    className="flex items-center gap-1.5 px-3 py-2
+                      text-sm text-zinc-400 hover:text-white
+                      border border-zinc-700/80 hover:border-zinc-500
+                      rounded-lg transition-colors"
+                  >
+                    <Bot size={13} />
+                    Ask AI
+                  </button>
+                  <div className="flex-1" />
+                  <button
+                    onClick={() => setComposeMode(null)}
+                    className="p-2 text-zinc-600 hover:text-red-400 transition-colors"
+                    title="Discard"
+                  >
+                    <Trash2 size={14} />
+                  </button>
+                </div>
+              </div>
+
+            ) : (
+
+              /* Reply / Reply All / Forward buttons */
+              <div className="flex items-center gap-2 flex-wrap">
+                <button
+                  onClick={() => startCompose('reply')}
+                  className="flex items-center gap-2 px-4 py-2
+                    bg-zinc-900 border border-zinc-700/80
+                    text-zinc-200 hover:border-zinc-500 hover:text-white
+                    rounded-xl text-sm font-medium transition-colors"
+                >
+                  <Reply size={13} />
+                  Reply
+                </button>
+                <button
+                  onClick={() => startCompose('replyAll')}
+                  className="flex items-center gap-2 px-4 py-2
+                    bg-zinc-900 border border-zinc-700/80
+                    text-zinc-200 hover:border-zinc-500 hover:text-white
+                    rounded-xl text-sm font-medium transition-colors"
+                >
+                  <ReplyAll size={13} />
+                  Reply All
+                </button>
+                <button
+                  onClick={() => startCompose('forward')}
+                  className="flex items-center gap-2 px-4 py-2
+                    bg-zinc-900 border border-zinc-700/80
+                    text-zinc-200 hover:border-zinc-500 hover:text-white
+                    rounded-xl text-sm font-medium transition-colors"
+                >
+                  <Forward size={13} />
+                  Forward
+                </button>
+              </div>
+
+            )}
+          </div>
+
         </div>
       </main>
-
-      {/* Reply bar */}
-      <div className="shrink-0 border-t border-zinc-800/60 bg-zinc-950/90 backdrop-blur-md">
-        <div className="max-w-3xl mx-auto px-5 py-3.5 flex items-center gap-2">
-          <button
-            onClick={() => openReply(false)}
-            className="flex items-center gap-2 px-4 py-2 bg-zinc-900 border border-zinc-700/80 text-zinc-200 hover:border-zinc-500 hover:text-white rounded-xl text-sm font-medium transition-colors"
-          >
-            <Reply size={13} />
-            Reply
-          </button>
-          <button
-            onClick={() => openReply(true)}
-            className="flex items-center gap-2 px-4 py-2 bg-zinc-900 border border-zinc-700/80 text-zinc-200 hover:border-zinc-500 hover:text-white rounded-xl text-sm font-medium transition-colors"
-          >
-            <ReplyAll size={13} />
-            Reply All
-          </button>
-          <button
-            onClick={openForward}
-            className="flex items-center gap-2 px-4 py-2 bg-zinc-900 border border-zinc-700/80 text-zinc-200 hover:border-zinc-500 hover:text-white rounded-xl text-sm font-medium transition-colors"
-          >
-            <Forward size={13} />
-            Forward
-          </button>
-          <div className="flex-1" />
-          <span className="text-[11px] text-zinc-600 flex items-center gap-1.5">
-            <Bot size={11} />
-            AI can help draft replies
-          </span>
-        </div>
-      </div>
 
     </div>
   );
