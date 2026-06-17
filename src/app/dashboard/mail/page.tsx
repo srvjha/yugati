@@ -2,13 +2,21 @@
 
 import { useState, useMemo, useEffect } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
-import { useQuery, useMutation } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { useTRPC } from "@/trpc/client";
 import { useSession } from "@/lib/auth-client";
 import * as Tooltip from "@radix-ui/react-tooltip";
 import dynamic from "next/dynamic";
-import { Mail, ChevronDown, Loader2 } from "lucide-react";
+import { Mail, ChevronDown, Loader2, Trash2 } from "lucide-react";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from "@/components/ui/dialog";
 
 import { INBOX_TABS, SIDEBAR_FOLDERS, type InboxTab, type SidebarFolder } from "./constants";
 import { getGroupLabel, getHeader } from "./helpers";
@@ -119,9 +127,24 @@ export default function MailPage() {
     trpc.gmail.listInbox.queryOptions({ maxResults: fetchedCount, q: effectiveQ }),
   );
 
+  const queryClient = useQueryClient();
+  const inboxQueryKey = trpc.gmail.listInbox.queryOptions({ maxResults: fetchedCount, q: effectiveQ }).queryKey;
+
   const trashMutation = useMutation(
     trpc.gmail.trashMessage.mutationOptions({
-      onSuccess: () => void refetch(),
+      onMutate: async ({ id }) => {
+        await queryClient.cancelQueries({ queryKey: inboxQueryKey });
+        const previous = queryClient.getQueryData(inboxQueryKey);
+        queryClient.setQueryData(inboxQueryKey, (old: { messages?: { id?: string }[] } | undefined) => {
+          if (!old) return old;
+          return { ...old, messages: (old.messages ?? []).filter((m) => m.id !== id) };
+        });
+        return { previous };
+      },
+      onError: (_err, _vars, ctx) => {
+        if (ctx?.previous !== undefined) queryClient.setQueryData(inboxQueryKey, ctx.previous);
+      },
+      onSettled: () => void refetch(),
     }),
   );
 
@@ -313,36 +336,38 @@ export default function MailPage() {
         )}
 
         {/* Confirm dialog */}
-        {confirmDialog && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm">
-            <div className="bg-zinc-900 border border-zinc-700 shadow-2xl rounded-2xl w-full max-w-sm mx-4 p-6">
-              <h3 className="text-sm font-semibold text-zinc-100 mb-1">
-                {confirmDialog.title}
-              </h3>
-              <p className="text-xs text-zinc-500 mb-6">
-                {confirmDialog.description}
-              </p>
-              <div className="flex items-center justify-end gap-2">
-                <button
-                  onClick={() => setConfirmDialog(null)}
-                  className="px-4 py-2 text-xs text-zinc-400 hover:text-zinc-200 border border-zinc-800 hover:border-zinc-600 rounded-lg transition-colors"
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={async () => {
-                    const fn = confirmDialog.onConfirm;
-                    setConfirmDialog(null);
-                    await fn();
-                  }}
-                  className="px-4 py-2 text-xs font-medium bg-red-600 hover:bg-red-500 text-white rounded-lg transition-colors"
-                >
-                  Move to Trash
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
+        <Dialog
+          open={!!confirmDialog}
+          onOpenChange={(open) => { if (!open) setConfirmDialog(null); }}
+        >
+          <DialogContent showCloseButton={false} className="max-w-xs">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <Trash2 size={15} className="text-red-400 shrink-0" />
+                {confirmDialog?.title}
+              </DialogTitle>
+              <DialogDescription>{confirmDialog?.description}</DialogDescription>
+            </DialogHeader>
+            <DialogFooter className="flex-row justify-end gap-2 border-t-0 bg-transparent p-3 mt-1">
+              <button
+                onClick={() => setConfirmDialog(null)}
+                className="px-5 py-2.5 text-xs font-medium text-zinc-300 bg-white/6 hover:bg-white/10 border border-white/8 rounded-lg transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={async () => {
+                  const fn = confirmDialog!.onConfirm;
+                  setConfirmDialog(null);
+                  await fn();
+                }}
+                className="px-6 py-2.5 text-xs font-semibold text-white bg-red-800 hover:bg-red-500 rounded-lg transition-colors"
+              >
+                Move to Trash
+              </button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
 
         <MailSidebar
           collapsed={collapsed}
