@@ -83,7 +83,9 @@ export class GmailService {
   private async fetchFromApi(limit: number, q?: string) {
     const list = await this.c.gmail.api.messages.list({
       maxResults: limit,
-      labelIds: ['INBOX'],
+      // Only restrict to INBOX when there's no explicit query — queries like
+      // "in:sent" or "in:trash" must not have labelIds set or they return empty.
+      ...(q ? {} : { labelIds: ['INBOX'] }),
       q,
     });
     if (!list.messages?.length) return { messages: [], nextPageToken: list.nextPageToken };

@@ -394,11 +394,13 @@ function MdContent({ content, streaming }: { content: string; streaming?: boolea
 export function ChatView({
   initialPrompt,
   onPromptFired,
+  onAgentDone,
   showSidebar = false,
   userName,
 }: {
   initialPrompt?: string;
   onPromptFired?: () => void;
+  onAgentDone?: () => void;
   showSidebar?: boolean;
   userName?: string;
 } = {}) {
@@ -463,8 +465,10 @@ export function ChatView({
 
   useEffect(() => {
     if (!initialPrompt) return;
-    onPromptFired?.();
+    // Defer parent setState so it doesn't cascade from inside this effect body.
+    const id = setTimeout(() => onPromptFired?.(), 0);
     void submit(initialPrompt);
+    return () => clearTimeout(id);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [initialPrompt]);
 
@@ -627,6 +631,7 @@ export function ChatView({
                   m.id === assistantMsg.id ? { ...m, streaming: false } : m,
                 ),
               }));
+              onAgentDone?.();
             }
 
             if (data.type === 'blocked' || data.type === 'error') {

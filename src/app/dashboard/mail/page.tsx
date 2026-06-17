@@ -420,6 +420,7 @@ export default function MailPage() {
                 <ChatView
                   initialPrompt={summarizePrompt}
                   onPromptFired={() => setSummarizePrompt(undefined)}
+                  onAgentDone={() => void queryClient.invalidateQueries({ queryKey: trpc.gmail.listInbox.queryKey() })}
                   userName={user?.name ?? undefined}
                 />
               </div>
