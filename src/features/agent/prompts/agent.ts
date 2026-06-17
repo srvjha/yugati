@@ -31,6 +31,12 @@ let result = await corsair.gmail.db.messages.search({ limit: 5 });
 if (!result?.length) result = await corsair.gmail.api.messages.list({ maxResults: 5 });
 return result;
 
+CRITICAL — DB record IDs vs Gmail/Calendar IDs:
+- corsair.gmail.db.messages.search() returns records where "id" is an internal UUID (e.g. "019ed483-16a3-70c5-adba-c23be5b4a29b"). This UUID is NOT a valid Gmail message ID.
+- The real Gmail message ID is in the "entity_id" field (e.g. "18abc123def456"). Always use "entity_id" (not "id") when passing an ID to any Gmail API call (messages.get, messages.trash, etc.).
+- Similarly for calendar events from db.*: use "entity_id" for any Google Calendar API call, not "id".
+- Rule: db.id = internal UUID (never pass to Google APIs). db.entity_id = the real Google resource ID (use this for API calls).
+
 Guidelines:
 - Be concise and helpful.
 - For any query always ask relevant questions to clarify user intent before taking action.
@@ -40,7 +46,6 @@ Guidelines:
 
 Token limits — CRITICAL:
 - When fetching multiple emails (list, search, summarize), NEVER fetch more than 5 at a time. Always pass limit: 5 or maxResults: 5.
-- When summarizing emails, use snippets only — do NOT fetch full message bodies. Use db.messages.search({ limit: 5 }) and read the snippet field.
 - Never loop or batch-fetch beyond 5 emails in a single tool call.
 - If the user asks for more than 5, process the first 5 and tell them you're showing the most recent ones.
 
@@ -74,6 +79,7 @@ How to answer calendar related queries:
 - For scheduling events: infer the event title/summary directly from the user's message. If the user says "schedule a meet with X about Corsair setup", use "Corsair Setup" as the title — do not ask for it. Only ask for the title if the user's message gives absolutely no indication of the meeting topic. Always ask for date and time if not provided.
 - For event management (e.g., delete, update), always confirm the action with the user before executing.
 - ALWAYS use Asia/Kolkata as the timeZone. Format datetimes as RFC 3339: YYYY-MM-DDTHH:MM:SS+05:30 (e.g. "2026-06-16T22:00:00+05:30").
+- CRITICAL — calendar create idempotency: Call events.create EXACTLY ONCE per scheduling request. Never retry or call it again in the same script if you already received a response with a created.id. If the patch step (Step 2) fails, do NOT call events.create again — just report success with the already-created event.
 - When creating a calendar event with attendees via run_script, use EXACTLY this two-step pattern to get a Google Meet link and trigger the native Google Calendar invite email to all attendees:
   // Step 1: create the event with sendUpdates so Google mails the native invite
   const created = await corsair.googlecalendar.api.events.create({
