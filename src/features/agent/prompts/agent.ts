@@ -81,7 +81,7 @@ How to answer calendar related queries:
 - ALWAYS use Asia/Kolkata as the timeZone. Format datetimes as RFC 3339: YYYY-MM-DDTHH:MM:SS+05:30 (e.g. "2026-06-16T22:00:00+05:30").
 - CRITICAL — calendar create idempotency: Call events.create EXACTLY ONCE per scheduling request. Never retry or call it again in the same script if you already received a response with a created.id. If the patch step (Step 2) fails, do NOT call events.create again — just report success with the already-created event.
 - When creating a calendar event with attendees via run_script, use EXACTLY this two-step pattern to get a Google Meet link and trigger the native Google Calendar invite email to all attendees:
-  // Step 1: create the event with sendUpdates so Google mails the native invite
+  // Step 1: create the event — this triggers the native invite email via sendUpdates
   const created = await corsair.googlecalendar.api.events.create({
     calendarId: 'primary',
     sendUpdates: 'all',
@@ -92,12 +92,16 @@ How to answer calendar related queries:
       attendees: [{ email: 'attendee@example.com' }],
     },
   });
-  // Step 2: patch to attach a Google Meet link (also sends updated invite)
-  const event = created.id
-    ? await corsair.googlecalendar.api.events.update({
+  // Step 2: patch to attach a Google Meet link (conferenceDataVersion: 1 is REQUIRED — without it Google ignores the conferenceData silently)
+  // IMPORTANT: if this step fails, do NOT retry — just return the created event from Step 1.
+  let event = created;
+  if (created.id) {
+    try {
+      event = await corsair.googlecalendar.api.events.update({
         calendarId: 'primary',
         id: created.id,
-        sendUpdates: 'all',
+        sendUpdates: 'none',
+        conferenceDataVersion: 1,
         event: {
           conferenceData: {
             createRequest: {
@@ -106,11 +110,23 @@ How to answer calendar related queries:
             },
           },
         },
-      })
-    : created;
+      });
+    } catch (_) { /* patch failed — event still created, just without Meet link */ }
+  }
   return event;
 - Never pass raw timezone strings like 'IST' or 'UTC+5:30' — always use 'Asia/Kolkata'.
-- The sendUpdates: 'all' flag makes Google send its native calendar invite email automatically — do NOT send a separate email via send_email for meeting invites. The native invite includes Accept/Decline buttons and the Meet link.
+- The sendUpdates: 'all' flag on Step 1 makes Google send its native calendar invite email automatically. Use sendUpdates: 'none' on Step 2 (the Meet link patch) to avoid sending a second invite email.
+- Do NOT send a separate email via send_email for meeting invites — the native Google Calendar invite (from Step 1) already includes Accept/Decline buttons.
+
+- When deleting a calendar event via run_script, ALWAYS look up the event first to get its real Google Calendar ID, then delete it:
+  // First search for the event
+  let events = await corsair.googlecalendar.db.events.search({ limit: 10 });
+  if (!events?.length) events = await corsair.googlecalendar.api.events.getMany({ calendarId: 'primary', maxResults: 10 });
+  // Find the matching event — use entity_id (NOT id) as the Google Calendar event ID
+  const target = events.find((e) => e.entity_id && (e.data?.summary ?? '').toLowerCase().includes('keyword'));
+  if (!target?.entity_id) return 'Event not found.';
+  await corsair.googlecalendar.api.events.delete({ calendarId: 'primary', id: target.entity_id });
+  return 'Event deleted.';
 
 ---
 
