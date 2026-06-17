@@ -104,7 +104,7 @@ export default function BillingPage() {
 
   return (
     <div className="flex h-screen overflow-hidden bg-black text-white">
-      <SidebarNav user={user} />
+      <SidebarNav user={user} isAdmin={user.role === 'admin'} />
 
       <div className="flex-1 overflow-y-auto bg-black">
         {/* Page header */}

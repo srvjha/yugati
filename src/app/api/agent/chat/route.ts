@@ -61,12 +61,17 @@ export async function POST(request: Request) {
   const stream = new ReadableStream({
     async start(controller) {
       try {
+        const hdrs = await headers();
         const result = await runChat(
           session.user.id,
           messages,
           conversationId,
           session.user.name ?? undefined,
           agentMode ?? 'guided',
+          {
+            ipAddress: hdrs.get('x-forwarded-for') ?? hdrs.get('x-real-ip') ?? undefined,
+            userAgent: hdrs.get('user-agent') ?? undefined,
+          },
         );
 
         if (result.status === 'blocked') {

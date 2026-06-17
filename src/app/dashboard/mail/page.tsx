@@ -400,6 +400,7 @@ export default function MailPage() {
             setShowSubscriptions(false);
           }}
           user={user ?? null}
+          isAdmin={user?.role === 'admin'}
           onCompose={() => setComposing(true)}
           unreadCount={unreadCount}
           showSubscriptions={showSubscriptions}

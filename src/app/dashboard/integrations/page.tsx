@@ -22,7 +22,7 @@ export default async function IntegrationsPage() {
 
   return (
     <div className="flex h-screen overflow-hidden bg-black text-white">
-      <SidebarNav user={session!.user} />
+      <SidebarNav user={session!.user} isAdmin={session!.user.role === 'admin'} />
       <div className="flex-1 min-w-0 overflow-hidden">
         <IntegrationsView
           initialGmail={connected.has('gmail')}

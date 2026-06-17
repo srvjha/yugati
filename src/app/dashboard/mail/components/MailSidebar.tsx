@@ -18,6 +18,7 @@ import {
   PanelLeftOpen,
   Zap,
   LogOut,
+  Activity,
 } from "lucide-react";
 import { SIDEBAR_FOLDERS, type SidebarFolder } from "../constants";
 import { TooltipWrap } from "./TooltipWrap";
@@ -139,6 +140,7 @@ export function MailSidebar({
   activeFolder,
   onFolderChange,
   user,
+  isAdmin,
   onCompose,
   unreadCount,
   showSubscriptions,
@@ -151,7 +153,8 @@ export function MailSidebar({
   onModeChange: (v: boolean) => void;
   activeFolder: SidebarFolder;
   onFolderChange: (id: SidebarFolder) => void;
-  user: { name: string; email: string; image?: string | null } | null;
+  user: { name: string; email: string; image?: string | null; role?: string | null } | null;
+  isAdmin?: boolean;
   onCompose: () => void;
   unreadCount: number;
   showSubscriptions: boolean;
@@ -299,6 +302,14 @@ export function MailSidebar({
             collapsed={collapsed}
             href="/dashboard/settings"
           />
+          {isAdmin && (
+            <NavItem
+              icon={Activity}
+              label="Admin"
+              collapsed={collapsed}
+              href="/admin"
+            />
+          )}
 
           {/* Ambient AI status — clickable */}
           {!collapsed && unreadCount > 0 && (

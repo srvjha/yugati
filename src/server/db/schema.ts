@@ -1,4 +1,4 @@
-import { boolean, pgTable, text, timestamp, jsonb, integer } from 'drizzle-orm/pg-core';
+import { boolean, pgTable, text, timestamp, jsonb, integer, numeric } from 'drizzle-orm/pg-core';
 import { sql } from 'drizzle-orm';
 
 // ─── Better Auth tables ────────────────────────────────────────────────────────
@@ -144,6 +144,40 @@ export const userPreferences = pgTable('user_preferences', {
   onboardingDone: boolean('onboarding_done').notNull().default(false),
   createdAt:      timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   updatedAt:      timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+});
+
+// ─── Admin prompt logs ────────────────────────────────────────────────────────
+// Captures every runChat() call for admin observability, security auditing,
+// and token-cost attribution.
+
+export const adminPromptLogs = pgTable('admin_prompt_logs', {
+  id:               text('id').primaryKey(),
+  userId:           text('user_id').notNull().references(() => user.id, { onDelete: 'cascade' }),
+  conversationId:   text('conversation_id'),
+  rawPrompt:        text('raw_prompt').notNull(),
+  enhancedPrompt:   text('enhanced_prompt'),
+  status:           text('status').notNull().default('ok'), // 'ok' | 'blocked_input' | 'blocked_output' | 'error'
+  blockedReason:    text('blocked_reason'),
+  injectionFlag:    boolean('injection_flag').notNull().default(false),
+  model:            text('model').notNull().default('gpt-4.1-mini'),
+  promptTokens:     integer('prompt_tokens').notNull().default(0),
+  completionTokens: integer('completion_tokens').notNull().default(0),
+  totalTokens:      integer('total_tokens').notNull().default(0),
+  estimatedCostUsd: numeric('estimated_cost_usd', { precision: 10, scale: 6 }).notNull().default('0'),
+  ipAddress:        text('ip_address'),
+  userAgent:        text('user_agent'),
+  durationMs:       integer('duration_ms').notNull().default(0),
+  createdAt:        timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+});
+
+// Tracks every admin action for audit trail.
+export const adminAuditLog = pgTable('admin_audit_log', {
+  id:         text('id').primaryKey(),
+  adminId:    text('admin_id').notNull().references(() => user.id, { onDelete: 'cascade' }),
+  action:     text('action').notNull(),  // 'ban_user' | 'unban_user' | 'change_plan' etc.
+  targetId:   text('target_id'),         // userId being acted on
+  meta:       jsonb('meta').notNull().default({}),
+  createdAt:  timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
 });
 
 // Tracks every Razorpay payment order for audit trail.
