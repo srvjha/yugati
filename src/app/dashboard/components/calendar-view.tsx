@@ -33,7 +33,6 @@ const MONTHS = [
   'January','February','March','April','May','June',
   'July','August','September','October','November','December',
 ];
-const MONTHS_SHORT = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 
 function buildGrid(year: number, month: number): (Date | null)[][] {
   const first = new Date(year, month, 1);
@@ -261,7 +260,6 @@ export function CalendarView({ userName }: { userName?: string }) {
   function switchToDay(d: Date) {
     setYear(d.getFullYear()); setMonth(d.getMonth()); setDay(d.getDate());
     setView('day');
-    try { localStorage.setItem('yugati_cal_view', 'day'); } catch {}
   }
 
   // ── Auth error ────────────────────────────────────────────────────────────
