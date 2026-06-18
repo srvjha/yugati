@@ -9,7 +9,7 @@ import { buildGmailTools } from './tools';
 import { logPrompt } from './logger';
 import type { ChatMessage } from './types';
 
-const MODEL = 'gpt-5.4-mini';
+const MODEL = 'gpt-4.1';
 
 // Cache agents per (tenantId, mode) — tool schemas don't change between requests
 const agentCache = new Map<string, Agent>();
@@ -160,12 +160,15 @@ export async function* streamChat(
       }
 
       // Only surface safe, user-facing error messages — never raw API errors
+      console.error('[agent] unhandled error:', err);
       const msg = err instanceof Error ? err.message : '';
       const safeMessage = (
         msg.startsWith('Agent timed out') ||
         msg.startsWith("I'm a bit busy") ||
-        msg.startsWith('That request pulled')
-      ) ? msg : 'Something went wrong — please try again.';
+        msg.startsWith('That request pulled') ||
+        apiErr.code === 'model_not_found'
+      ) ? (apiErr.code === 'model_not_found' ? `Model not found: ${MODEL}` : msg)
+        : 'Something went wrong — please try again.';
       yield { type: 'error', message: safeMessage, conversationId: id };
       return;
     }
