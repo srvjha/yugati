@@ -12,6 +12,7 @@ import { user } from '@/server/db/schema';
 import { eq } from 'drizzle-orm';
 
 export const runtime = 'nodejs';
+export const maxDuration = 60;
 
 const chatMessageSchema = z.object({
   role:    z.enum(['user', 'assistant']),
@@ -87,9 +88,9 @@ export async function POST(request: Request) {
           session.user.name ?? undefined, agentMode ?? 'guided', meta,
         );
 
-        // 25s deadline shared across all generator.next() calls
+        // 55s deadline — multi-step tasks (e.g. summarise 5 emails) need 6+ tool calls
         const deadline = new Promise<never>((_, reject) =>
-          setTimeout(() => reject(new Error('Agent timed out — please try again.')), 25_000)
+          setTimeout(() => reject(new Error('Agent timed out — please try again.')), 55_000)
         );
 
         while (true) {
