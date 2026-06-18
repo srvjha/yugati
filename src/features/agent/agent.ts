@@ -66,8 +66,12 @@ export async function* streamChat(
       stream: true,
     });
 
-    // Stream tokens to the caller as the model generates them
+    // Stream tokens to the caller as the model generates them.
+    // setEncoding('utf8') makes the Node Readable yield strings instead of Buffers —
+    // without it, chunks are Buffer objects and JSON.stringify produces {"type":"Buffer",...}
+    // which renders as [object Object] on the client.
     const textStream = streamedResult.toTextStream({ compatibleWithNodeStreams: true });
+    textStream.setEncoding('utf8');
     for await (const chunk of textStream) {
       yield { type: 'delta', text: chunk as string };
     }
