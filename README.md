@@ -2,6 +2,7 @@
 
 - **Live:** https://www.yugati.in
 - **Docs:** https://www.yugati.in/docs
+- **API Reference:** https://www.yugati.in/docs#api
 - **Demo:** https://youtu.be/0iPLn7NM6K4
 
 ---
@@ -456,6 +457,8 @@ All tables are defined in `src/server/db/schema.ts`.
 ---
 
 ## API Routes
+
+Interactive API reference with request/response schemas is available at **https://www.yugati.in/docs#api**.
 
 ### POST /api/agent/chat
 

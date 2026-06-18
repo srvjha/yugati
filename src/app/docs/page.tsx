@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { Shield, ArrowLeft, ExternalLink } from 'lucide-react';
 import type { Metadata } from 'next';
+import { ThemeToggle } from '@/components/theme-toggle';
 
 export const metadata: Metadata = {
   title: 'Docs — Yugati',
@@ -49,13 +50,16 @@ export default function DocsPage() {
               <span className="text-sm text-zinc-400">Docs</span>
             </div>
           </div>
-          <Link
-            href="/dashboard"
-            className="text-sm text-zinc-400 hover:text-white transition-colors flex items-center gap-1.5"
-          >
-            Open Dashboard
-            <ExternalLink size={12} />
-          </Link>
+          <div className="flex items-center gap-3">
+            <ThemeToggle />
+            <Link
+              href="/dashboard"
+              className="text-sm text-zinc-400 hover:text-white transition-colors flex items-center gap-1.5"
+            >
+              Open Dashboard
+              <ExternalLink size={12} />
+            </Link>
+          </div>
         </div>
       </header>
 
@@ -77,6 +81,13 @@ export default function DocsPage() {
                   {label}
                 </a>
               ))}
+              <div className="h-px bg-zinc-800 my-2" />
+              <Link
+                href="/docs/api"
+                className="block px-2 py-1.5 text-sm text-zinc-500 hover:text-white transition-colors rounded"
+              >
+                API Reference →
+              </Link>
             </nav>
             <div className="mt-8 px-2">
               <div className="h-px bg-zinc-800 mb-6" />
