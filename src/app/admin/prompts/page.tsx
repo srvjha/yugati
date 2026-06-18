@@ -3,7 +3,14 @@
 import React, { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useTRPC }  from '@/trpc/client';
-import { MessageSquare, Search, ChevronLeft, ChevronRight, AlertTriangle } from 'lucide-react';
+import { MessageSquare, Search, ChevronLeft, ChevronRight, AlertTriangle, Bot } from 'lucide-react';
+
+const PLAN_COLORS: Record<string, string> = {
+  free:       'text-zinc-400 bg-zinc-800/60 border-zinc-700',
+  standard:   'text-blue-400 bg-blue-500/10 border-blue-500/20',
+  premium:    'text-purple-400 bg-purple-500/10 border-purple-500/20',
+  enterprise: 'text-amber-400 bg-amber-500/10 border-amber-500/20',
+};
 
 const STATUS_COLORS: Record<string, string> = {
   ok:              'text-emerald-400 bg-emerald-500/10 border-emerald-500/20',
@@ -52,6 +59,7 @@ export default function AdminPromptsPage() {
             <thead>
               <tr className="border-b border-zinc-800/80 text-xs text-zinc-500 uppercase tracking-wider">
                 <th className="text-left px-5 py-3 font-medium">User</th>
+                <th className="text-left px-4 py-3 font-medium">Plan</th>
                 <th className="text-left px-4 py-3 font-medium">Prompt</th>
                 <th className="text-left px-4 py-3 font-medium">Status</th>
                 <th className="text-left px-4 py-3 font-medium">Tokens</th>
@@ -65,13 +73,13 @@ export default function AdminPromptsPage() {
                 ? Array.from({ length: 10 }).map((_, i) => (
                     <tr key={i} className="border-b border-zinc-900">
                       <td className="px-5 py-3"><div className="h-4 bg-zinc-800 rounded animate-pulse w-28" /></td>
-                      {[1,2,3,4,5,6].map(j => <td key={j} className="px-4 py-3"><div className="h-4 bg-zinc-900 rounded animate-pulse w-20" /></td>)}
+                      {[1,2,3,4,5,6,7].map(j => <td key={j} className="px-4 py-3"><div className="h-4 bg-zinc-900 rounded animate-pulse w-20" /></td>)}
                     </tr>
                   ))
                 : (data?.logs ?? []).length === 0
                 ? (
                     <tr>
-                      <td colSpan={7} className="px-5 py-16 text-center text-xs text-zinc-600">
+                      <td colSpan={8} className="px-5 py-16 text-center text-xs text-zinc-600">
                         No prompt logs yet — logs appear after users send AI messages
                       </td>
                     </tr>
@@ -86,6 +94,11 @@ export default function AdminPromptsPage() {
                             <p className="text-zinc-600 text-[11px]">{log.user?.email ?? ''}</p>
                           </div>
                         </td>
+                        <td className="px-4 py-3">
+                          <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full border capitalize ${PLAN_COLORS[(log as unknown as { userPlan: string }).userPlan] ?? PLAN_COLORS.free}`}>
+                            {(log as unknown as { userPlan: string }).userPlan}
+                          </span>
+                        </td>
                         <td className="px-4 py-3 max-w-xs">
                           <p className="text-xs text-zinc-400 truncate">{log.rawPrompt}</p>
                           {log.injectionFlag && <span className="inline-flex items-center gap-1 text-[10px] text-red-400 mt-0.5"><AlertTriangle size={9} /> injection</span>}
@@ -96,13 +109,14 @@ export default function AdminPromptsPage() {
                         <td className="px-4 py-3 text-xs text-zinc-400 tabular-nums">{log.totalTokens.toLocaleString()}</td>
                         <td className="px-4 py-3 text-xs text-zinc-400 font-mono">${Number(log.estimatedCostUsd).toFixed(5)}</td>
                         <td className="px-4 py-3 text-xs text-zinc-500 tabular-nums">{log.durationMs}ms</td>
-                        <td className="px-4 py-3 text-xs text-zinc-600">
-                          {new Date(log.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                        <td className="px-4 py-3 text-xs text-zinc-600 whitespace-nowrap">
+                          <div>{new Date(log.createdAt).toLocaleDateString([], { month: 'short', day: 'numeric', timeZone: 'UTC' })}</div>
+                          <div className="text-zinc-700">{new Date(log.createdAt).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true, timeZone: 'UTC' })} UTC</div>
                         </td>
                       </tr>
                       {expanded === log.id && (
                         <tr className="border-b border-zinc-900/60 bg-zinc-900/20">
-                          <td colSpan={7} className="px-5 py-4 space-y-2">
+                          <td colSpan={8} className="px-5 py-4 space-y-2">
                             <div>
                               <p className="text-[10px] font-semibold text-zinc-600 uppercase tracking-wider mb-1">Raw Prompt</p>
                               <p className="text-xs text-zinc-300 font-mono whitespace-pre-wrap break-all bg-black/40 border border-zinc-800/60 rounded-xl px-4 py-3">{log.rawPrompt}</p>
@@ -115,6 +129,12 @@ export default function AdminPromptsPage() {
                             )}
                             {log.blockedReason && (
                               <p className="text-xs text-red-400 bg-red-500/10 border border-red-500/20 rounded-xl px-4 py-2">{log.blockedReason}</p>
+                            )}
+                            {log.agentReply && (
+                              <div>
+                                <p className="text-[10px] font-semibold text-zinc-600 uppercase tracking-wider mb-1 flex items-center gap-1"><Bot size={10} /> AI Reply</p>
+                                <p className="text-xs text-zinc-300 whitespace-pre-wrap break-words bg-zinc-900/60 border border-zinc-800/60 rounded-xl px-4 py-3">{log.agentReply}</p>
+                              </div>
                             )}
                             <div className="flex items-center gap-4 text-[11px] text-zinc-600">
                               <span>Model: {log.model}</span>

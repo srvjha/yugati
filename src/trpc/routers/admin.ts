@@ -1,7 +1,7 @@
 import { initTRPC, TRPCError } from '@trpc/server';
 import { z } from 'zod';
 import { db } from '@/server/db';
-import { user, session, userPlans, userPreferences, orders, adminPromptLogs, adminAuditLog, corsairAccounts } from '@/server/db/schema';
+import { user, session, userPlans, userPreferences, orders, adminPromptLogs, adminAuditLog, corsairAccounts, corsairIntegrations } from '@/server/db/schema';
 import { eq, desc, and, like, or, count, sum, sql, gte, lte, ne } from 'drizzle-orm';
 import { auth } from '@/lib/auth';
 import { PLANS } from '@/lib/plans';
@@ -126,21 +126,33 @@ export const adminRouter = t.router({
         db.select({ userId: adminPromptLogs.userId, c: count() }).from(adminPromptLogs)
           .where(sql`${adminPromptLogs.userId} = ANY(${sql.raw(`ARRAY[${userIds.map(id => `'${id}'`).join(',')}]`)})`)
           .groupBy(adminPromptLogs.userId),
-        db.select({ tenantId: corsairAccounts.tenantId }).from(corsairAccounts)
+        db.select({ tenantId: corsairAccounts.tenantId, name: corsairIntegrations.name })
+          .from(corsairAccounts)
+          .innerJoin(corsairIntegrations, eq(corsairAccounts.integrationId, corsairIntegrations.id))
           .where(sql`${corsairAccounts.tenantId} = ANY(${sql.raw(`ARRAY[${userIds.map(id => `'${id}'`).join(',')}]`)})`),
       ]);
 
       const planMap    = Object.fromEntries(plans.map(p => [p.userId, p]));
       const prefMap    = Object.fromEntries(prefs.map(p => [p.userId, p]));
       const promptMap  = Object.fromEntries(promptCounts.map(p => [p.userId, Number(p.c)]));
-      const connectedSet = new Set(corsairRows.map(r => r.tenantId));
+
+      // Build per-user integration map: userId → Set of integration names
+      const intgMap: Record<string, Set<string>> = {};
+      for (const r of corsairRows) {
+        if (!intgMap[r.tenantId]) intgMap[r.tenantId] = new Set();
+        intgMap[r.tenantId]!.add(r.name);
+      }
 
       const result = users.map(u => ({
         ...u,
         plan:         planMap[u.id] ?? null,
         prefs:        prefMap[u.id] ?? null,
         promptCount:  promptMap[u.id] ?? 0,
-        connected:    connectedSet.has(u.id),
+        connected:    (intgMap[u.id]?.size ?? 0) > 0,
+        integrations: {
+          gmail:           intgMap[u.id]?.has('gmail') ?? false,
+          googlecalendar:  intgMap[u.id]?.has('googlecalendar') ?? false,
+        },
       }));
 
       // Filter by plan if requested
@@ -227,16 +239,21 @@ export const adminRouter = t.router({
         db.select({ c: count() }).from(adminPromptLogs).where(where).then(r => Number(r[0]?.c ?? 0)),
       ]);
 
-      // Attach user names
+      // Attach user names + plans
       const userIds = [...new Set(logs.map(l => l.userId))];
-      const users = userIds.length
-        ? await db.select({ id: user.id, name: user.name, email: user.email, image: user.image }).from(user)
-            .where(sql`${user.id} = ANY(${sql.raw(`ARRAY[${userIds.map(id => `'${id}'`).join(',')}]`)})`)
-        : [];
+      const [users, plans] = userIds.length
+        ? await Promise.all([
+            db.select({ id: user.id, name: user.name, email: user.email, image: user.image }).from(user)
+              .where(sql`${user.id} = ANY(${sql.raw(`ARRAY[${userIds.map(id => `'${id}'`).join(',')}]`)})`),
+            db.select({ userId: userPlans.userId, plan: userPlans.plan }).from(userPlans)
+              .where(sql`${userPlans.userId} = ANY(${sql.raw(`ARRAY[${userIds.map(id => `'${id}'`).join(',')}]`)})`),
+          ])
+        : [[], []];
       const userMap = Object.fromEntries(users.map(u => [u.id, u]));
+      const planMap = Object.fromEntries(plans.map(p => [p.userId, p.plan]));
 
       return {
-        logs: logs.map(l => ({ ...l, user: userMap[l.userId] ?? null })),
+        logs: logs.map(l => ({ ...l, user: userMap[l.userId] ?? null, userPlan: planMap[l.userId] ?? 'free' })),
         total,
         pages: Math.ceil(total / input.limit),
       };

@@ -3,7 +3,25 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useTRPC } from '@/trpc/client';
-import { Search, Users, Shield, CheckCircle, XCircle, ChevronLeft, ChevronRight, ExternalLink } from 'lucide-react';
+import { Search, Users, Shield, ChevronLeft, ChevronRight, ExternalLink } from 'lucide-react';
+
+function GmailDot({ on }: { on: boolean }) {
+  return (
+    <span className={`flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full border ${on ? 'text-red-400 bg-red-500/10 border-red-500/20' : 'text-zinc-600 bg-zinc-900 border-zinc-800'}`}>
+      <svg width="9" height="9" viewBox="0 0 48 48" fill="none"><path d="M4.5 39h6V23.25L2 17.5V36.5A2.5 2.5 0 0 0 4.5 39Z" fill={on ? "#4285F4" : "#52525b"}/><path d="M37.5 39h6a2.5 2.5 0 0 0 2.5-2.5V17.5l-8.5 5.75V39Z" fill={on ? "#34A853" : "#52525b"}/><path d="M37.5 12.5v10.75L46 17.5v-2.75C46 11.95 43.42 10.5 41.2 12.07L37.5 12.5Z" fill={on ? "#FBBC04" : "#52525b"}/><path d="M10.5 23.25V12.5l13.5 9 13.5-9v10.75L24 32.25 10.5 23.25Z" fill={on ? "#EA4335" : "#52525b"}/><path d="M2 14.75V17.5l8.5 5.75V12.5L6.8 12.07C4.58 10.5 2 11.95 2 14.75Z" fill={on ? "#C5221F" : "#52525b"}/></svg>
+      Gmail
+    </span>
+  );
+}
+
+function CalDot({ on }: { on: boolean }) {
+  return (
+    <span className={`flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full border ${on ? 'text-blue-400 bg-blue-500/10 border-blue-500/20' : 'text-zinc-600 bg-zinc-900 border-zinc-800'}`}>
+      <svg width="9" height="9" viewBox="0 0 48 48" fill="none"><rect x="6" y="6" width="36" height="36" rx="3" fill={on ? "white" : "#27272a"}/><rect x="6" y="6" width="36" height="12" rx="3" fill={on ? "#1A73E8" : "#52525b"}/><rect x="6" y="12" width="36" height="6" fill={on ? "#1A73E8" : "#52525b"}/></svg>
+      Calendar
+    </span>
+  );
+}
 import Link from 'next/link';
 import Image from 'next/image';
 
@@ -60,7 +78,7 @@ export default function AdminUsersPage() {
                 <th className="text-left px-5 py-3 font-medium">User</th>
                 <th className="text-left px-4 py-3 font-medium">Plan</th>
                 <th className="text-left px-4 py-3 font-medium">Prompts</th>
-                <th className="text-left px-4 py-3 font-medium">Connected</th>
+                <th className="text-left px-4 py-3 font-medium">Integrations</th>
                 <th className="text-left px-4 py-3 font-medium">Joined</th>
                 <th className="text-left px-4 py-3 font-medium">Status</th>
                 <th className="px-4 py-3" />
@@ -95,10 +113,10 @@ export default function AdminUsersPage() {
                       </td>
                       <td className="px-4 py-3 text-xs text-zinc-400 tabular-nums">{u.promptCount}</td>
                       <td className="px-4 py-3">
-                        {u.connected
-                          ? <CheckCircle size={13} className="text-emerald-400" />
-                          : <XCircle size={13} className="text-zinc-700" />
-                        }
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          <GmailDot on={(u as unknown as { integrations: { gmail: boolean } }).integrations.gmail} />
+                          <CalDot on={(u as unknown as { integrations: { googlecalendar: boolean } }).integrations.googlecalendar} />
+                        </div>
                       </td>
                       <td className="px-4 py-3 text-xs text-zinc-500">
                         {new Date(u.createdAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: '2-digit' })}

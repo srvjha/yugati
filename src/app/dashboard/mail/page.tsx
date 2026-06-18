@@ -32,7 +32,6 @@ import { SubscriptionsPanel } from "./components/SubscriptionsPanel";
 import { ComposeModal } from "./components/ComposeModal";
 import { AuthError } from "./components/AuthError";
 import { SkeletonList } from "./components/SkeletonList";
-import { OnboardingOverlay } from "../components/onboarding-overlay";
 
 
 function popReplyContext(): string | null {
@@ -104,7 +103,6 @@ export default function MailPage() {
   });
 
   const [chatMode, setChatMode] = useState(_boot.chatMode);
-  const [showOnboarding, setShowOnboarding] = useState(false);
   const [activeFolder, setActiveFolder] = useState<SidebarFolder>("inbox");
   const [activeTab, setActiveTab] = useState<InboxTab>("all");
   const [searchQuery, setSearchQuery] = useState("");
@@ -121,15 +119,6 @@ export default function MailPage() {
       localStorage.setItem("yugati_mail_mode", chatMode ? "chat" : "manual");
     } catch {}
   }, [chatMode]);
-
-  // Show overlay only if onboarding not yet done — ignores ?connected=1 for returning users.
-  const { data: prefs } = useQuery({
-    ...trpc.user.getPreferences.queryOptions(),
-    staleTime: Infinity,
-  });
-  useEffect(() => {
-    if (prefs !== undefined && !prefs.onboardingDone) setShowOnboarding(true);
-  }, [prefs?.onboardingDone]);
 
   const isInbox = activeFolder === "inbox";
   const tabQ = INBOX_TABS.find((t) => t.id === activeTab)!.q;
@@ -347,13 +336,6 @@ export default function MailPage() {
   return (
     <Tooltip.Provider delayDuration={300}>
       <div className="h-screen flex overflow-hidden bg-black text-white">
-        {showOnboarding && (
-          <OnboardingOverlay onDone={() => {
-            setShowOnboarding(false);
-            router.replace('/dashboard/mail', { scroll: false });
-          }} />
-        )}
-
         {paletteOpen && (
           <CommandPalette
             onClose={() => setPaletteOpen(false)}

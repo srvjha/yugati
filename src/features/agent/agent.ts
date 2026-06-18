@@ -54,17 +54,17 @@ export async function runChat(
     await saveSession(tenantId, id, session);
     const durationMs = Date.now() - t0;
 
-    // Extract token usage from all raw responses
-    type RawResp = { usage?: { input_tokens?: number; output_tokens?: number; total_tokens?: number } };
-    const rawResponses = (result as unknown as { rawResponses?: RawResp[] }).rawResponses ?? [];
-    const promptTokens     = rawResponses.reduce((s, r) => s + (r.usage?.input_tokens  ?? 0), 0);
-    const completionTokens = rawResponses.reduce((s, r) => s + (r.usage?.output_tokens ?? 0), 0);
+    // SDK accumulates usage in result.state.usage (camelCase)
+    const usage = (result as unknown as { state: { usage: { inputTokens: number; outputTokens: number; totalTokens: number } } }).state.usage;
+    const promptTokens     = usage?.inputTokens  ?? 0;
+    const completionTokens = usage?.outputTokens ?? 0;
 
     void logPrompt({
       userId:           tenantId,
       conversationId:   id,
       rawPrompt:        raw,
       enhancedPrompt:   enhanced !== raw ? enhanced : undefined,
+      agentReply:       result.finalOutput ?? undefined,
       status:           'ok',
       injectionFlag:    false,
       model:            MODEL,

@@ -89,22 +89,26 @@ export function SidebarNav({ user, isAdmin }: { user: User; isAdmin?: boolean })
             </Link>
           );
         })}
+
+        {isAdmin && (
+          <Link
+            href="/admin"
+            className={`group flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-sm font-medium transition-all
+              ${isActive('/admin')
+                ? 'bg-red-500/10 text-red-400'
+                : 'text-red-400/70 hover:text-red-400 hover:bg-red-500/8'
+              }`}
+          >
+            <Activity size={16} className="text-red-400/80 group-hover:text-red-400 transition-colors" />
+            Admin
+          </Link>
+        )}
       </div>
 
       {/* Usage pill */}
       <div className="px-3 pb-3">
         <UsagePill />
       </div>
-
-      {/* Admin link */}
-      {isAdmin && (
-        <div className="px-2 pb-2">
-          <Link href="/admin" className="flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs font-semibold text-red-400 hover:bg-red-500/10 border border-red-500/20 transition-colors">
-            <Activity size={13} />
-            Admin Panel
-          </Link>
-        </div>
-      )}
 
       {/* User */}
       <div className="p-3 border-t border-zinc-800/70">

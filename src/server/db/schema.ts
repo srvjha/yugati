@@ -164,6 +164,7 @@ export const adminPromptLogs = pgTable('admin_prompt_logs', {
   completionTokens: integer('completion_tokens').notNull().default(0),
   totalTokens:      integer('total_tokens').notNull().default(0),
   estimatedCostUsd: numeric('estimated_cost_usd', { precision: 10, scale: 6 }).notNull().default('0'),
+  agentReply:       text('agent_reply'),
   ipAddress:        text('ip_address'),
   userAgent:        text('user_agent'),
   durationMs:       integer('duration_ms').notNull().default(0),

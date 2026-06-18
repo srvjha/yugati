@@ -23,6 +23,7 @@ export interface PromptLogEntry {
   conversationId?:  string;
   rawPrompt:        string;
   enhancedPrompt?:  string;
+  agentReply?:      string;
   status:           'ok' | 'blocked_input' | 'blocked_output' | 'error';
   blockedReason?:   string;
   injectionFlag:    boolean;
@@ -44,6 +45,7 @@ export async function logPrompt(entry: PromptLogEntry): Promise<void> {
       conversationId:   entry.conversationId ?? null,
       rawPrompt:        entry.rawPrompt,
       enhancedPrompt:   entry.enhancedPrompt ?? null,
+      agentReply:       entry.agentReply ?? null,
       status:           entry.status,
       blockedReason:    entry.blockedReason ?? null,
       injectionFlag:    entry.injectionFlag,
