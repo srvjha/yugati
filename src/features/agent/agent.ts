@@ -36,36 +36,47 @@ function getAgent(tenantId: string, userName: string, mode: 'guided' | 'auto'): 
   return agent;
 }
 
-export type ChatResult =
-  | { status: 'ok';      output: string; conversationId: string; enhanced?: string }
-  | { status: 'blocked'; reason: string; conversationId: string }
-  | { status: 'error';   message: string; conversationId: string };
-
 export interface ChatMeta {
   ipAddress?: string;
   userAgent?: string;
 }
 
-export async function runChat(
+export type ChatStreamChunk =
+  | { type: 'delta';   text: string }
+  | { type: 'done';    conversationId: string }
+  | { type: 'blocked'; reason: string; conversationId: string }
+  | { type: 'error';   message: string; conversationId: string };
+
+export async function* streamChat(
   tenantId:        string,
   messages:        ChatMessage[],
   conversationId?: string,
   userName?:       string,
   mode:            'guided' | 'auto' = 'guided',
   meta:            ChatMeta = {},
-): Promise<ChatResult> {
-  const t0       = Date.now();
-  const { session, id } = await loadSession(tenantId, conversationId);
-  const raw      = [...messages].reverse().find((m) => m.role === 'user')?.content ?? '';
-  const enhanced = await enhancePrompt(raw, messages);
+): AsyncGenerator<ChatStreamChunk> {
+  const t0                  = Date.now();
+  const { session, id }     = await loadSession(tenantId, conversationId);
+  const raw                 = [...messages].reverse().find((m) => m.role === 'user')?.content ?? '';
+  const enhanced            = await enhancePrompt(raw, messages);
 
   try {
-    const result = await run(getAgent(tenantId, userName ?? 'User', mode), enhanced, { session });
-    await saveSession(tenantId, id, session);
-    const durationMs = Date.now() - t0;
+    const streamedResult = await run(getAgent(tenantId, userName ?? 'User', mode), enhanced, {
+      session,
+      stream: true,
+    });
 
-    // SDK accumulates usage in result.state.usage (camelCase)
-    const usage = (result as unknown as { state: { usage: { inputTokens: number; outputTokens: number; totalTokens: number } } }).state.usage;
+    // Stream tokens to the caller as the model generates them
+    const textStream = streamedResult.toTextStream({ compatibleWithNodeStreams: true });
+    for await (const chunk of textStream) {
+      yield { type: 'delta', text: chunk as string };
+    }
+
+    // Ensure the full run (tool calls, guardrails) has completed before saving
+    await streamedResult.completed;
+    await saveSession(tenantId, id, session);
+
+    const usage = (streamedResult as unknown as { state: { usage: { inputTokens: number; outputTokens: number; totalTokens: number } } }).state.usage;
     const promptTokens     = usage?.inputTokens  ?? 0;
     const completionTokens = usage?.outputTokens ?? 0;
 
@@ -74,7 +85,7 @@ export async function runChat(
       conversationId:   id,
       rawPrompt:        raw,
       enhancedPrompt:   enhanced !== raw ? enhanced : undefined,
-      agentReply:       result.finalOutput ?? undefined,
+      agentReply:       (streamedResult.finalOutput as string) ?? undefined,
       status:           'ok',
       injectionFlag:    false,
       model:            MODEL,
@@ -83,15 +94,11 @@ export async function runChat(
       totalTokens:      promptTokens + completionTokens,
       ipAddress:        meta.ipAddress,
       userAgent:        meta.userAgent,
-      durationMs,
+      durationMs:       Date.now() - t0,
     });
 
-    return {
-      status:         'ok',
-      output:         result.finalOutput ?? '',
-      conversationId: id,
-      enhanced:       enhanced !== raw ? enhanced : undefined,
-    };
+    yield { type: 'done', conversationId: id };
+
   } catch (err) {
     const durationMs = Date.now() - t0;
 
@@ -100,63 +107,42 @@ export async function runChat(
         ?? 'This request was blocked by the safety filter.';
 
       void logPrompt({
-        userId:         tenantId,
-        conversationId: id,
-        rawPrompt:      raw,
+        userId: tenantId, conversationId: id, rawPrompt: raw,
         enhancedPrompt: enhanced !== raw ? enhanced : undefined,
-        status:         'blocked_input',
-        blockedReason:  reason,
-        injectionFlag:  true,
-        model:          MODEL,
-        promptTokens:   0,
-        completionTokens: 0,
-        totalTokens:    0,
-        ipAddress:      meta.ipAddress,
-        userAgent:      meta.userAgent,
-        durationMs,
+        status: 'blocked_input', blockedReason: reason, injectionFlag: true,
+        model: MODEL, promptTokens: 0, completionTokens: 0, totalTokens: 0,
+        ipAddress: meta.ipAddress, userAgent: meta.userAgent, durationMs,
       });
 
-      return { status: 'blocked', reason, conversationId: id };
+      yield { type: 'blocked', reason, conversationId: id };
+      return;
     }
 
     if (err instanceof OutputGuardrailTripwireTriggered) {
       const reason = 'The response was blocked to protect sensitive data.';
       void logPrompt({
-        userId:         tenantId,
-        conversationId: id,
-        rawPrompt:      raw,
-        status:         'blocked_output',
-        blockedReason:  reason,
-        injectionFlag:  false,
-        model:          MODEL,
-        promptTokens:   0,
-        completionTokens: 0,
-        totalTokens:    0,
-        ipAddress:      meta.ipAddress,
-        userAgent:      meta.userAgent,
-        durationMs,
+        userId: tenantId, conversationId: id, rawPrompt: raw,
+        status: 'blocked_output', blockedReason: reason, injectionFlag: false,
+        model: MODEL, promptTokens: 0, completionTokens: 0, totalTokens: 0,
+        ipAddress: meta.ipAddress, userAgent: meta.userAgent, durationMs,
       });
-      return { status: 'blocked', reason, conversationId: id };
+
+      yield { type: 'blocked', reason, conversationId: id };
+      return;
     }
 
     const apiErr = err as { code?: string; status?: number };
 
     if (apiErr.code === 'rate_limit_exceeded' || apiErr.status === 429) {
-      return {
-        status: 'blocked',
-        reason: 'Rate limit reached — please wait a few seconds and try again.',
-        conversationId: id,
-      };
+      yield { type: 'blocked', reason: 'Rate limit reached — please wait a few seconds and try again.', conversationId: id };
+      return;
     }
 
     if (apiErr.code === 'context_length_exceeded') {
-      return {
-        status: 'blocked',
-        reason: "That request pulled in too much content for a single call. Try asking for fewer emails at once (e.g. \"summarize my last 5 unread emails\") or start a new conversation.",
-        conversationId: id,
-      };
+      yield { type: 'blocked', reason: "That request pulled in too much content for a single call. Try asking for fewer emails at once or start a new conversation.", conversationId: id };
+      return;
     }
 
-    throw err;
+    yield { type: 'error', message: err instanceof Error ? err.message : 'Internal server error', conversationId: id };
   }
 }

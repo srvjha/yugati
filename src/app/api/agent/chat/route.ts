@@ -1,5 +1,5 @@
 import { auth } from '@/lib/auth';
-import { runChat } from '@/features/agent/agent';
+import { streamChat } from '@/features/agent/agent';
 import type { ChatMessage } from '@/features/agent/types';
 import { initCorsair } from '@/server/corsair';
 import { headers } from 'next/headers';
@@ -62,44 +62,28 @@ export async function POST(request: Request) {
     async start(controller) {
       try {
         const hdrs = await headers();
-        const timeout = new Promise<never>((_, reject) =>
+        const meta = {
+          ipAddress: hdrs.get('x-forwarded-for') ?? hdrs.get('x-real-ip') ?? undefined,
+          userAgent: hdrs.get('user-agent') ?? undefined,
+        };
+
+        const gen = streamChat(
+          session.user.id, messages, conversationId,
+          session.user.name ?? undefined, agentMode ?? 'guided', meta,
+        );
+
+        // 25s deadline shared across all generator.next() calls
+        const deadline = new Promise<never>((_, reject) =>
           setTimeout(() => reject(new Error('Agent timed out — please try again.')), 25_000)
         );
-        const result = await Promise.race([
-          runChat(
-            session.user.id,
-            messages,
-            conversationId,
-            session.user.name ?? undefined,
-            agentMode ?? 'guided',
-            {
-              ipAddress: hdrs.get('x-forwarded-for') ?? hdrs.get('x-real-ip') ?? undefined,
-              userAgent: hdrs.get('user-agent') ?? undefined,
-            },
-          ),
-          timeout,
-        ]);
 
-        if (result.status === 'blocked') {
-          controller.enqueue(sse({ type: 'blocked', reason: result.reason, conversationId: result.conversationId }));
-          controller.close();
-          return;
+        while (true) {
+          const { done, value } = await Promise.race([gen.next(), deadline]);
+          if (done) break;
+          controller.enqueue(sse(value));
+          // Terminal events — stop iterating after emitting
+          if (value.type === 'done' || value.type === 'blocked' || value.type === 'error') break;
         }
-
-        if (result.status === 'error') {
-          controller.enqueue(sse({ type: 'error', message: result.message }));
-          controller.close();
-          return;
-        }
-
-        // Emit chunks synchronously — no artificial delay
-        const text = result.output;
-        const CHUNK = 20;
-        for (let i = 0; i < text.length; i += CHUNK) {
-          controller.enqueue(sse({ type: 'delta', text: text.slice(i, i + CHUNK) }));
-        }
-
-        controller.enqueue(sse({ type: 'done', conversationId: result.conversationId }));
       } catch (err) {
         console.error('[agent/chat] unhandled error:', err);
         controller.enqueue(sse({ type: 'error', message: err instanceof Error ? err.message : 'Internal server error' }));
