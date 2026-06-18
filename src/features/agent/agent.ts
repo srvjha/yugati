@@ -9,14 +9,21 @@ import { buildGmailTools } from './tools';
 import { logPrompt } from './logger';
 import type { ChatMessage } from './types';
 
-const MODEL = 'gpt-4.1-mini';
+const MODEL = 'gpt-4.1';
 
-function createAgent(tenantId: string, userName: string, mode: 'guided' | 'auto') {
-  const provider    = new OpenAIAgentsProvider();
+// Cache agents per (tenantId, mode) — tool schemas don't change between requests
+const agentCache = new Map<string, Agent>();
+
+function getAgent(tenantId: string, userName: string, mode: 'guided' | 'auto'): Agent {
+  const key = `${tenantId}:${mode}`;
+  const cached = agentCache.get(key);
+  if (cached) return cached;
+
+  const provider     = new OpenAIAgentsProvider();
   const corsairTools = provider.build({ corsair: corsair.withTenant(tenantId), tool });
-  const gmailTools  = buildGmailTools(tenantId);
+  const gmailTools   = buildGmailTools(tenantId);
 
-  return new Agent({
+  const agent = new Agent({
     name:             'yugati',
     model:            MODEL,
     instructions:     buildAgentInstructions(userName, mode),
@@ -24,6 +31,9 @@ function createAgent(tenantId: string, userName: string, mode: 'guided' | 'auto'
     inputGuardrails:  [safetyGuardrail],
     outputGuardrails: [sensitiveDataGuardrail],
   });
+
+  agentCache.set(key, agent);
+  return agent;
 }
 
 export type ChatResult =
@@ -44,13 +54,13 @@ export async function runChat(
   mode:            'guided' | 'auto' = 'guided',
   meta:            ChatMeta = {},
 ): Promise<ChatResult> {
+  const t0       = Date.now();
   const { session, id } = await loadSession(tenantId, conversationId);
   const raw      = [...messages].reverse().find((m) => m.role === 'user')?.content ?? '';
   const enhanced = await enhancePrompt(raw, messages);
-  const t0       = Date.now();
 
   try {
-    const result = await run(createAgent(tenantId, userName ?? 'User', mode), enhanced, { session });
+    const result = await run(getAgent(tenantId, userName ?? 'User', mode), enhanced, { session });
     await saveSession(tenantId, id, session);
     const durationMs = Date.now() - t0;
 

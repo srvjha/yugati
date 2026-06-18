@@ -14,7 +14,9 @@ export async function loadSession(userId: string, conversationId?: string) {
       .from(chatSessions)
       .where(and(eq(chatSessions.id, id), eq(chatSessions.userId, userId)))
       .limit(1);
-    initialItems = (row?.items as unknown[]) ?? [];
+    // Cap at last 40 items (~10-15 turns with tool calls) to prevent context blowup
+    const all = (row?.items as unknown[]) ?? [];
+    initialItems = all.length > 40 ? all.slice(-40) : all;
   }
 
   // MemorySession holds items in memory for this request; we hydrate it from the DB.

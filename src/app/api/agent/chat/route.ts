@@ -62,17 +62,23 @@ export async function POST(request: Request) {
     async start(controller) {
       try {
         const hdrs = await headers();
-        const result = await runChat(
-          session.user.id,
-          messages,
-          conversationId,
-          session.user.name ?? undefined,
-          agentMode ?? 'guided',
-          {
-            ipAddress: hdrs.get('x-forwarded-for') ?? hdrs.get('x-real-ip') ?? undefined,
-            userAgent: hdrs.get('user-agent') ?? undefined,
-          },
+        const timeout = new Promise<never>((_, reject) =>
+          setTimeout(() => reject(new Error('Agent timed out — please try again.')), 25_000)
         );
+        const result = await Promise.race([
+          runChat(
+            session.user.id,
+            messages,
+            conversationId,
+            session.user.name ?? undefined,
+            agentMode ?? 'guided',
+            {
+              ipAddress: hdrs.get('x-forwarded-for') ?? hdrs.get('x-real-ip') ?? undefined,
+              userAgent: hdrs.get('user-agent') ?? undefined,
+            },
+          ),
+          timeout,
+        ]);
 
         if (result.status === 'blocked') {
           controller.enqueue(sse({ type: 'blocked', reason: result.reason, conversationId: result.conversationId }));
@@ -86,12 +92,11 @@ export async function POST(request: Request) {
           return;
         }
 
-        // Stream the output in chunks so the UI renders progressively
+        // Emit chunks synchronously — no artificial delay
         const text = result.output;
-        const CHUNK = 10;
+        const CHUNK = 20;
         for (let i = 0; i < text.length; i += CHUNK) {
           controller.enqueue(sse({ type: 'delta', text: text.slice(i, i + CHUNK) }));
-          await new Promise((r) => setTimeout(r, 4));
         }
 
         controller.enqueue(sse({ type: 'done', conversationId: result.conversationId }));

@@ -5,13 +5,13 @@ import { SAFETY_SYSTEM, SENSITIVE_PATTERNS } from './prompts/guardrails';
 const client = new OpenAI();
 
 export const safetyGuardrail: InputGuardrail = {
-  name:          'safety-check',
-  runInParallel: false,
+  name: 'safety-check',
+  // runInParallel defaults to true — guardrail races the main model call, zero added latency
   execute: async ({ input }) => {
     const text = typeof input === 'string' ? input : JSON.stringify(input);
 
     const res = await client.chat.completions.create({
-      model:           'gpt-4o-mini',
+      model:           'gpt-4.1-nano',
       messages:        [{ role: 'system', content: SAFETY_SYSTEM }, { role: 'user', content: text }],
       response_format: { type: 'json_object' },
       max_tokens:      80,

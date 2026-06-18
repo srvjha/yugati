@@ -29,7 +29,7 @@ export async function enhancePrompt(userMessage: string, history: ChatMessage[] 
   ];
 
   const res = await client.chat.completions.create({
-    model:       'gpt-4o-mini',
+    model:       'gpt-4.1-nano',
     messages,
     max_tokens:  250,
     temperature: 0.2,

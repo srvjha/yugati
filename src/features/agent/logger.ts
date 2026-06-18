@@ -7,10 +7,11 @@ function uid() {
 
 // Pricing per 1M tokens (USD). Approximate — update as OpenAI changes rates.
 const MODEL_PRICING: Record<string, { input: number; output: number }> = {
-  'gpt-4.1-mini':  { input: 0.40, output: 1.60 },
-  'gpt-4o-mini':   { input: 0.15, output: 0.60 },
-  'gpt-4o':        { input: 5.00, output: 15.00 },
-  'gpt-4.1':       { input: 2.00, output: 8.00 },
+  'gpt-4.1':       { input: 2.00,  output: 8.00  },
+  'gpt-4.1-mini':  { input: 0.40,  output: 1.60  },
+  'gpt-4.1-nano':  { input: 0.10,  output: 0.40  },
+  'gpt-4o':        { input: 5.00,  output: 15.00 },
+  'gpt-4o-mini':   { input: 0.15,  output: 0.60  },
 };
 
 function estimateCost(model: string, promptTokens: number, completionTokens: number): number {
