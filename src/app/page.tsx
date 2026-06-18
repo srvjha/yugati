@@ -34,6 +34,7 @@ export default function LandingPage() {
       <SectionDivider />
       <FeaturesSection />
       <PricingSection onSignIn={handleSignIn} signingIn={signingIn} />
+      <FAQSection />
       <CTASection onSignIn={handleSignIn} signingIn={signingIn} />
       <LandingFooter />
     </div>
@@ -72,6 +73,7 @@ function LandingNav({ onSignIn, signingIn }: { onSignIn: () => void; signingIn: 
           {[
             { label: 'Features', href: '#features' },
             { label: 'Pricing',  href: '#pricing'  },
+            { label: 'FAQ',      href: '#faq'       },
           ].map(({ label, href }) => (
             <a
               key={label}
@@ -82,6 +84,13 @@ function LandingNav({ onSignIn, signingIn }: { onSignIn: () => void; signingIn: 
               <span className="absolute -bottom-0.5 left-0 w-0 h-px bg-white/40 transition-all duration-200 group-hover:w-full" />
             </a>
           ))}
+          <Link
+            href="/docs"
+            className="text-sm text-zinc-500 hover:text-white transition-colors duration-150 relative group"
+          >
+            Docs
+            <span className="absolute -bottom-0.5 left-0 w-0 h-px bg-white/40 transition-all duration-200 group-hover:w-full" />
+          </Link>
         </div>
 
         <div className="flex items-center gap-4">
@@ -1325,6 +1334,109 @@ function CTASection({ onSignIn, signingIn }: { onSignIn: () => void; signingIn: 
   );
 }
 
+// ─── FAQ ───────────────────────────────────────────────────────────────────────
+
+const FAQ_ITEMS = [
+  {
+    q: 'What is Yugati?',
+    a: 'Yugati is an AI-powered productivity suite that connects to your Gmail and Google Calendar. It handles email drafting, event scheduling, and complex tasks through a conversational agent — so you can focus on what matters.',
+  },
+  {
+    q: 'How do I connect Gmail and Google Calendar?',
+    a: 'Go to Settings → Integrations in your dashboard and click Connect next to Gmail or Google Calendar. You\'ll be redirected through a secure Google OAuth flow. Yugati only requests the minimum scopes it needs (read + compose for Gmail, read/write for Calendar).',
+  },
+  {
+    q: 'Is my data safe and private?',
+    a: 'All data is encrypted in transit (TLS 1.3) and at rest (AES-256). Yugati never stores your email content beyond what\'s needed for the current session. Your OAuth tokens are encrypted server-side and never exposed to the client or third parties.',
+  },
+  {
+    q: 'What can the AI agent actually do?',
+    a: 'The agent can draft and send emails on your behalf, summarise inboxes, find and create calendar events, handle multi-step tasks like scheduling meetings across time zones, and compose context-aware replies — all through natural conversation.',
+  },
+  {
+    q: "What's the difference between Guided and Auto mode?",
+    a: "Guided mode (default) shows you what the agent plans to do and asks for confirmation before any action. Auto mode lets the agent complete tasks end-to-end without interruptions — ideal once you're comfortable with its judgment.",
+  },
+  {
+    q: 'What AI models power Yugati?',
+    a: 'The core agent runs on GPT-4.1 with a fast GPT-4.1-mini enhancer pass for prompt refinement. Voice transcription uses OpenAI Whisper. The pipeline is designed so model upgrades happen transparently as better versions become available.',
+  },
+  {
+    q: 'How does billing work?',
+    a: 'Yugati uses Razorpay for secure payment processing. Plans are billed monthly and auto-renew. Usage (messages, voice, compose) resets at the start of each billing period. You can upgrade at any time and the new limits apply immediately.',
+  },
+  {
+    q: 'Can I use Yugati on mobile?',
+    a: 'Yugati is a fully responsive web app — it works in any modern mobile browser. A dedicated mobile app is on the roadmap. For now, adding the site to your home screen gives you an app-like experience.',
+  },
+  {
+    q: 'How do I cancel my subscription?',
+    a: 'Go to Dashboard → Billing and click Cancel Plan. Your plan stays active until the end of the current billing period, then reverts to the free tier. No cancellation fees, no hassle.',
+  },
+  {
+    q: 'What happens if I hit my usage limit?',
+    a: "You'll see a clear error message in the chat. You can either wait for your monthly reset or upgrade your plan instantly from the Billing page. Existing conversations and data are never affected by usage limits.",
+  },
+];
+
+function FAQSection() {
+  return (
+    <section id="faq" className="py-24 sm:py-32">
+      <div className="max-w-3xl mx-auto px-6">
+
+        {/* Header */}
+        <div className="text-center mb-16">
+          <p className="text-xs font-semibold text-zinc-600 uppercase tracking-widest mb-4">FAQ</p>
+          <h2 className="text-4xl sm:text-5xl font-bold tracking-tight mb-4">
+            Common questions
+          </h2>
+          <p className="text-zinc-500 text-base">
+            Everything you need to know before getting started.{' '}
+            <Link href="/docs" className="text-zinc-400 hover:text-white underline underline-offset-2 transition-colors">
+              Read the full docs →
+            </Link>
+          </p>
+        </div>
+
+        {/* Accordion */}
+        <FAQList />
+      </div>
+    </section>
+  );
+}
+
+function FAQList() {
+  const [open, setOpen] = useState<number | null>(null);
+
+  return (
+    <div className="space-y-px">
+      {FAQ_ITEMS.map(({ q, a }, i) => (
+        <div
+          key={i}
+          className="border border-white/[0.06] bg-white/[0.02] overflow-hidden first:rounded-t-xl last:rounded-b-xl"
+        >
+          <button
+            onClick={() => setOpen(open === i ? null : i)}
+            className="w-full flex items-center justify-between gap-4 px-6 py-5 text-left text-sm font-medium text-zinc-200 hover:text-white transition-colors"
+          >
+            {q}
+            <span className={`shrink-0 w-4 h-4 text-zinc-600 transition-transform duration-200 ${open === i ? 'rotate-45' : ''}`}>
+              <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
+                <path d="M8 2v12M2 8h12" strokeLinecap="round" />
+              </svg>
+            </span>
+          </button>
+          {open === i && (
+            <div className="px-6 pb-5 text-sm text-zinc-500 leading-relaxed border-t border-white/[0.04]">
+              <p className="pt-4">{a}</p>
+            </div>
+          )}
+        </div>
+      ))}
+    </div>
+  );
+}
+
 // ─── Footer ────────────────────────────────────────────────────────────────────
 
 function LandingFooter() {
@@ -1347,6 +1459,7 @@ function LandingFooter() {
           </div>
           <div className="w-px h-3 bg-zinc-800" />
           <div className="flex items-center gap-4 text-xs text-zinc-700">
+            <Link href="/docs" className="hover:text-zinc-400 transition-colors">Docs</Link>
             <a href="/privacy" className="hover:text-zinc-400 transition-colors">Privacy Policy</a>
             <a href="/terms" className="hover:text-zinc-400 transition-colors">Terms of Service</a>
           </div>

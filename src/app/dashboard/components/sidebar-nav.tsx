@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import Image from 'next/image';
 import { usePathname, useRouter } from 'next/navigation';
-import { Mail, Calendar, LogOut, LayoutDashboard, Plug, CreditCard, Activity } from 'lucide-react';
+import { Mail, Calendar, LogOut, LayoutDashboard, Plug, CreditCard, Activity, BookOpen } from 'lucide-react';
 import { signOut } from '@/lib/auth-client';
 import { UsagePill } from './usage-pill';
 
@@ -26,6 +26,7 @@ const NAV_ITEMS: NavItem[] = [
   { href: '/dashboard/integrations',  label: 'Integrations', icon: Plug,            dot: 'bg-blue-400'               },
   { href: '/dashboard/chat',          label: 'Agentic',      icon: null, imgSrc: '/openai.png', lightImgSrc: '/openai-dark.png', dot: 'bg-green-400', isNew: true },
   { href: '/dashboard/billing',       label: 'Billing',      icon: CreditCard,      dot: 'bg-blue-400'               },
+  { href: '/docs',                    label: 'Docs',         icon: BookOpen,        dot: 'bg-blue-400'               },
 ];
 
 export function SidebarNav({ user, isAdmin }: { user: User; isAdmin?: boolean }) {
