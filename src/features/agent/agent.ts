@@ -60,8 +60,9 @@ export async function* streamChat(
   const raw                 = [...messages].reverse().find((m) => m.role === 'user')?.content ?? '';
   const enhanced            = await enhancePrompt(raw, messages);
 
-  // Retry once on OpenAI 429 if no tokens have been streamed yet
-  for (let attempt = 1; attempt <= 2; attempt++) {
+  // Retry up to 3 times on OpenAI 429 with exponential backoff (2s → 5s → 10s)
+  const RETRY_DELAYS = [2_000, 5_000, 10_000];
+  for (let attempt = 1; attempt <= 3; attempt++) {
     let yieldedTokens = false;
 
     try {
@@ -143,13 +144,16 @@ export async function* streamChat(
 
       const apiErr = err as { code?: string; status?: number };
 
-      // Retry once on OpenAI rate limit if we haven't streamed anything yet
-      if ((apiErr.code === 'rate_limit_exceeded' || apiErr.status === 429) && !yieldedTokens && attempt === 1) {
-        await new Promise<void>((r) => setTimeout(r, 2_000));
+      // Retry on OpenAI rate limit if we haven't streamed anything yet
+      if ((apiErr.code === 'rate_limit_exceeded' || apiErr.status === 429) && !yieldedTokens && attempt < 3) {
+        const delay = RETRY_DELAYS[attempt - 1] ?? 5_000;
+        console.warn(`[agent] 429 on attempt ${attempt}, retrying in ${delay}ms`);
+        await new Promise<void>((r) => setTimeout(r, delay));
         continue;
       }
 
       if (apiErr.code === 'rate_limit_exceeded' || apiErr.status === 429) {
+        console.error('[agent] 429 after all retries:', err);
         yield { type: 'error', message: "I'm a bit busy right now — please try again in a moment.", conversationId: id };
         return;
       }
