@@ -1,16 +1,16 @@
 'use client';
 
-import { useQuery }      from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useTRPC }       from '@/trpc/client';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { useEffect }     from 'react';
+import { useEffect, useState }     from 'react';
 import { toast }         from 'sonner';
 import { SidebarNav }    from '../components/sidebar-nav';
 import { useSession }    from '@/lib/auth-client';
 import { PLANS }         from '@/lib/plans';
 import {
   ArrowRight, CreditCard, Zap, CheckCircle, MessageSquare,
-  Mic, Pencil, Calendar, ExternalLink, Shield, Sparkles,
+  Mic, Pencil, Calendar, ExternalLink, Shield, Sparkles, AlertTriangle,
 } from 'lucide-react';
 import type { PlanId } from '@/lib/plans';
 
@@ -84,13 +84,26 @@ function UsageCard({
 export default function BillingPage() {
   const trpc         = useTRPC();
   const router       = useRouter();
+  const queryClient  = useQueryClient();
   const searchParams = useSearchParams();
   const { data: authData } = useSession();
   const user = authData?.user as SessionUser | undefined;
   const isAdmin = user?.role === 'admin';
 
+  const [showCancelConfirm, setShowCancelConfirm] = useState(false);
+
   const { data: plan, refetch } = useQuery({ ...trpc.plans.getMyPlan.queryOptions(), staleTime: 0 });
   const { data: orderHistory }  = useQuery(trpc.plans.getOrders.queryOptions());
+
+  const cancelMutation = useMutation(trpc.plans.cancelSubscription.mutationOptions({
+    onSuccess: async () => {
+      toast.success('Subscription cancelled. You\'ve been moved to the free plan.');
+      setShowCancelConfirm(false);
+      await queryClient.invalidateQueries();
+      void refetch();
+    },
+    onError: (err) => toast.error(err.message),
+  }));
 
   useEffect(() => {
     if (searchParams.get('upgraded') === '1') {
@@ -174,7 +187,10 @@ export default function BillingPage() {
                   </button>
                 )}
                 {planId !== 'free' && planId !== 'enterprise' && (
-                  <button className="text-xs text-zinc-600 hover:text-zinc-400 transition-colors text-center">
+                  <button
+                    onClick={() => setShowCancelConfirm(true)}
+                    className="text-xs text-zinc-600 hover:text-red-400 transition-colors text-center"
+                  >
                     Cancel subscription
                   </button>
                 )}
@@ -300,9 +316,15 @@ export default function BillingPage() {
                         {o.status}
                       </span>
                       {o.status === 'paid' && (
-                        <button className="p-1 text-zinc-700 hover:text-zinc-400 transition-colors" title="View receipt">
+                        <a
+                          href={`/api/payments/invoice/${o.id}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="p-1 text-zinc-700 hover:text-zinc-400 transition-colors"
+                          title="Download invoice"
+                        >
                           <ExternalLink size={12} />
-                        </button>
+                        </a>
                       )}
                     </div>
                   </div>
@@ -322,6 +344,42 @@ export default function BillingPage() {
 
         </div>
       </div>
+
+      {/* ── Cancel confirmation dialog ─────────────────────────────── */}
+      {showCancelConfirm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+          <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-6 max-w-sm w-full shadow-2xl">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-9 h-9 rounded-xl bg-red-500/10 border border-red-500/20 flex items-center justify-center shrink-0">
+                <AlertTriangle size={16} className="text-red-400" />
+              </div>
+              <div>
+                <p className="text-sm font-semibold text-zinc-100">Cancel subscription?</p>
+                <p className="text-xs text-zinc-500 mt-0.5">You&apos;ll be moved to the free plan immediately.</p>
+              </div>
+            </div>
+            <p className="text-xs text-zinc-500 mb-5 leading-relaxed">
+              Your current plan benefits will end right away. Usage limits will drop to free tier limits.
+              This action cannot be undone.
+            </p>
+            <div className="flex gap-2">
+              <button
+                onClick={() => setShowCancelConfirm(false)}
+                className="flex-1 py-2 text-xs font-semibold rounded-lg border border-zinc-700 text-zinc-300 hover:bg-zinc-800 transition-colors"
+              >
+                Keep plan
+              </button>
+              <button
+                onClick={() => cancelMutation.mutate()}
+                disabled={cancelMutation.isPending}
+                className="flex-1 py-2 text-xs font-semibold rounded-lg bg-red-500/10 text-red-400 border border-red-500/20 hover:bg-red-500/20 transition-colors disabled:opacity-50"
+              >
+                {cancelMutation.isPending ? 'Cancelling…' : 'Yes, cancel'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

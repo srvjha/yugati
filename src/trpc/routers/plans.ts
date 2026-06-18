@@ -2,7 +2,7 @@ import { protectedProcedure, createTRPCRouter } from '../trpc';
 import { getUserPlan } from '@/lib/usage';
 import { PLANS }       from '@/lib/plans';
 import { db }          from '@/server/db';
-import { orders }      from '@/server/db/schema';
+import { orders, userPlans } from '@/server/db/schema';
 import { eq, desc }    from 'drizzle-orm';
 import type { PlanId } from '@/lib/plans';
 
@@ -35,5 +35,19 @@ export const plansRouter = createTRPCRouter({
       where: eq(orders.userId, ctx.tenantId),
       orderBy: [desc(orders.createdAt)],
     });
+  }),
+
+  // Cancel subscription — immediately downgrade to free plan
+  cancelSubscription: protectedProcedure.mutation(async ({ ctx }) => {
+    const existing = await db.query.userPlans.findFirst({ where: eq(userPlans.userId, ctx.tenantId) });
+    if (!existing || existing.plan === 'free') {
+      throw new Error('No active paid subscription to cancel.');
+    }
+    await db.update(userPlans).set({
+      plan:               'free',
+      subscriptionStatus: 'cancelled',
+      updatedAt:          new Date(),
+    }).where(eq(userPlans.userId, ctx.tenantId));
+    return { success: true };
   }),
 });

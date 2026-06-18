@@ -2,10 +2,11 @@
 
 import { useState }  from 'react';
 import { useRouter } from 'next/navigation';
-import { useQuery }  from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useTRPC }   from '@/trpc/client';
 import { PLANS }     from '@/lib/plans';
-import { Check, Zap, ArrowRight, Mail, PhoneCall } from 'lucide-react';
+import { toast }     from 'sonner';
+import { Check, Zap, ArrowRight, Mail, PhoneCall, AlertTriangle } from 'lucide-react';
 
 declare global {
   interface Window {
@@ -29,14 +30,26 @@ const STD_FEATURES     = ['150 AI messages/month', '15 voice messages/month', '5
 const PREMIUM_FEATURES = ['500 AI messages/month', '30 voice messages/month', '150 email compose/month', 'Everything in Standard', '5000 char message limit', 'Priority support'];
 
 export default function PricingPage() {
-  const trpc   = useTRPC();
-  const router = useRouter();
-  const [loading, setLoading] = useState<string | null>(null);
+  const trpc        = useTRPC();
+  const router      = useRouter();
+  const queryClient = useQueryClient();
+  const [loading, setLoading]             = useState<string | null>(null);
+  const [showDowngradeConfirm, setShowDowngradeConfirm] = useState(false);
 
   const { data: myPlan } = useQuery({
     ...trpc.plans.getMyPlan.queryOptions(),
     retry: false,
   });
+
+  const cancelMutation = useMutation(trpc.plans.cancelSubscription.mutationOptions({
+    onSuccess: async () => {
+      toast.success('Moved to free plan.');
+      setShowDowngradeConfirm(false);
+      await queryClient.invalidateQueries();
+      router.push('/dashboard/billing');
+    },
+    onError: (err) => toast.error(err.message),
+  }));
 
   async function upgrade(plan: 'standard' | 'premium') {
     setLoading(plan);
@@ -138,7 +151,13 @@ export default function PricingPage() {
             isCurrent={currentPlan === 'free'}
             ctaLabel={currentPlan === 'free' ? 'Current plan' : 'Get started free'}
             ctaDisabled={currentPlan === 'free'}
-            onCta={() => router.push('/')}
+            onCta={() => {
+              if (currentPlan && currentPlan !== 'free') {
+                setShowDowngradeConfirm(true);
+              } else {
+                router.push('/');
+              }
+            }}
             accent="zinc"
           />
 
@@ -214,6 +233,42 @@ export default function PricingPage() {
           All prices in INR. Plans renew monthly. Cancel anytime. Payments secured by Razorpay.
         </p>
       </div>
+
+      {/* Downgrade to free confirmation */}
+      {showDowngradeConfirm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+          <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-6 max-w-sm w-full shadow-2xl">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-9 h-9 rounded-xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center shrink-0">
+                <AlertTriangle size={16} className="text-amber-400" />
+              </div>
+              <div>
+                <p className="text-sm font-semibold text-zinc-100">Switch to Free plan?</p>
+                <p className="text-xs text-zinc-500 mt-0.5">Your current subscription will be cancelled immediately.</p>
+              </div>
+            </div>
+            <p className="text-xs text-zinc-500 mb-5 leading-relaxed">
+              You&apos;ll lose access to your paid plan&apos;s features right away and usage limits will
+              reset to free tier. This cannot be undone.
+            </p>
+            <div className="flex gap-2">
+              <button
+                onClick={() => setShowDowngradeConfirm(false)}
+                className="flex-1 py-2 text-xs font-semibold rounded-lg border border-zinc-700 text-zinc-300 hover:bg-zinc-800 transition-colors"
+              >
+                Keep plan
+              </button>
+              <button
+                onClick={() => cancelMutation.mutate()}
+                disabled={cancelMutation.isPending}
+                className="flex-1 py-2 text-xs font-semibold rounded-lg bg-amber-500/10 text-amber-400 border border-amber-500/20 hover:bg-amber-500/20 transition-colors disabled:opacity-50"
+              >
+                {cancelMutation.isPending ? 'Switching…' : 'Yes, switch to free'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
