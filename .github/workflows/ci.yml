@@ -97,6 +97,9 @@ jobs:
           DATABASE_URL: postgresql://localhost/test
           NEXT_PUBLIC_APP_URL: http://localhost:3000
           OPENAI_API_KEY: sk-test-placeholder
+          CORSAIR_KEK: 0000000000000000000000000000000000000000000000000000000000000000
+          GOOGLE_CLIENT_ID: placeholder.apps.googleusercontent.com
+          GOOGLE_CLIENT_SECRET: placeholder-google-secret
           RAZORPAY_KEY_ID: rzp_test_placeholder
           RAZORPAY_KEY_SECRET: test_razorpay_secret_placeholder
           RAZORPAY_WEBHOOK_SECRET: test_webhook_secret_placeholder
