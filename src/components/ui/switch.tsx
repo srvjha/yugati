@@ -1,46 +1,41 @@
 "use client"
 
-import { Switch as SwitchPrimitive } from "@base-ui/react/switch"
-
 import { cn } from "@/lib/utils"
 
 function Switch({
+  checked = false,
+  onCheckedChange,
+  disabled = false,
   className,
-  size = "default",
-  ...props
-}: SwitchPrimitive.Root.Props & {
-  size?: "sm" | "default"
+}: {
+  checked?: boolean;
+  onCheckedChange?: (checked: boolean) => void;
+  disabled?: boolean;
+  className?: string;
 }) {
   return (
-    <SwitchPrimitive.Root
-      data-slot="switch"
-      data-size={size}
+    <button
+      type="button"
+      role="switch"
+      aria-checked={checked}
+      disabled={disabled}
+      onClick={() => onCheckedChange?.(!checked)}
+      style={{ backgroundColor: checked ? 'var(--switch-on)' : 'var(--switch-off)' }}
       className={cn(
-        "peer group/switch relative inline-flex shrink-0 items-center rounded-full transition-colors outline-none",
-        "after:absolute after:-inset-x-3 after:-inset-y-2",
-        "focus-visible:ring-2 focus-visible:ring-blue-500/50 focus-visible:ring-offset-2",
-        "data-[size=default]:h-[22px] data-[size=default]:w-[40px]",
-        "data-[size=sm]:h-[16px] data-[size=sm]:w-[28px]",
-        "data-checked:bg-blue-500",
-        "data-unchecked:bg-zinc-200 dark:data-unchecked:bg-zinc-600",
-        "data-disabled:cursor-not-allowed data-disabled:opacity-40",
-        className
+        "relative inline-flex h-[22px] w-[40px] shrink-0 cursor-pointer rounded-full transition-colors duration-200 outline-none",
+        "focus-visible:ring-2 focus-visible:ring-offset-1",
+        disabled && "cursor-not-allowed opacity-40",
+        className,
       )}
-      {...props}
     >
-      <SwitchPrimitive.Thumb
-        data-slot="switch-thumb"
+      <span
+        style={{ backgroundColor: '#ffffff' }}
         className={cn(
-          "pointer-events-none block rounded-full bg-white shadow-sm transition-transform",
-          "group-data-[size=default]/switch:size-[18px]",
-          "group-data-[size=sm]/switch:size-[12px]",
-          "group-data-[size=default]/switch:data-checked:translate-x-[19px]",
-          "group-data-[size=default]/switch:data-unchecked:translate-x-[2px]",
-          "group-data-[size=sm]/switch:data-checked:translate-x-[13px]",
-          "group-data-[size=sm]/switch:data-unchecked:translate-x-[2px]",
+          "pointer-events-none absolute top-[2px] h-[18px] w-[18px] rounded-full shadow-sm transition-transform duration-200",
+          checked ? "translate-x-[19px]" : "translate-x-[2px]",
         )}
       />
-    </SwitchPrimitive.Root>
+    </button>
   )
 }
 

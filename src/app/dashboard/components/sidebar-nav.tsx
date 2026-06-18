@@ -39,7 +39,7 @@ export function SidebarNav({ user, isAdmin }: { user: User; isAdmin?: boolean })
   }
 
   return (
-    <nav className="w-52 shrink-0 flex flex-col h-full bg-black border-r border-zinc-800/70">
+    <nav className="w-52 shrink-0 flex flex-col h-full bg-zinc-950 border-r border-zinc-800/70">
 
       {/* Logo */}
       <div className="px-4 h-14 flex items-center gap-2.5 border-b border-zinc-800/70">

@@ -9,7 +9,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
   }
 
   return (
-    <div className="h-screen overflow-hidden bg-black text-white">
+    <div className="h-screen overflow-hidden bg-zinc-950 text-zinc-50">
       {children}
     </div>
   );

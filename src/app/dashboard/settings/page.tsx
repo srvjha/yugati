@@ -12,7 +12,7 @@ import {
   Loader2, AlertCircle, Unplug, RefreshCw, Zap,
 } from 'lucide-react';
 import { Switch } from '@/components/ui/switch';
-import { useTheme, applyTheme } from '@/components/theme-toggle';
+import { ThemeToggle, useTheme, applyTheme } from '@/components/theme-toggle';
 
 // ─── Tab definitions ─────────────────────────────────────────────────────────
 
@@ -34,7 +34,7 @@ export default function SettingsPage() {
   const [activeTab, setActiveTab] = useState<Tab>('profile');
 
   return (
-    <div className="h-screen flex flex-col bg-black text-white overflow-hidden">
+    <div className="h-screen flex flex-col bg-zinc-950 text-zinc-50 overflow-hidden">
       {/* Top bar */}
       <header className="h-14 shrink-0 flex items-center gap-3 px-6 border-b border-zinc-800/70">
         <Link
@@ -46,6 +46,9 @@ export default function SettingsPage() {
         </Link>
         <div className="h-4 w-px bg-zinc-800" />
         <span className="text-sm font-semibold text-zinc-200">Settings</span>
+        <div className="ml-auto">
+          <ThemeToggle />
+        </div>
       </header>
 
       <div className="flex-1 flex overflow-hidden">

@@ -1,5 +1,8 @@
 import OpenAI       from 'openai';
 import { corsair }  from '@/server/corsair';
+import { db }       from '@/server/db';
+import { corsairAccounts, corsairIntegrations } from '@/server/db/schema';
+import { eq, and, inArray } from 'drizzle-orm';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -62,8 +65,10 @@ function domainToCountry(domain: string): string {
 
 export class StatsService {
   private readonly c: ReturnType<typeof corsair.withTenant>;
+  private readonly tenantId: string;
 
   constructor(tenantId: string) {
+    this.tenantId = tenantId;
     this.c = corsair.withTenant(tenantId);
   }
 
@@ -367,15 +372,17 @@ Give exactly 3 short insight bullets (one sentence each, no markdown). Each shou
   // ── Connection status ─────────────────────────────────────────────────────
 
   async getConnectionStatus() {
-    const [gmailOk, calOk] = await Promise.all([
-      this.c.gmail.api.labels.list({}).then(() => true).catch(() => false),
-      this.c.googlecalendar.api.events.getMany({
-        calendarId:  'primary',
-        maxResults:  1,
-        timeMin:     new Date().toISOString(),
-        timeMax:     new Date(Date.now() + 86_400_000).toISOString(),
-      }).then(() => true).catch(() => false),
-    ]);
-    return { gmail: gmailOk, googlecalendar: calOk };
+    const rows = await db
+      .select({ name: corsairIntegrations.name })
+      .from(corsairAccounts)
+      .innerJoin(corsairIntegrations, eq(corsairAccounts.integrationId, corsairIntegrations.id))
+      .where(
+        and(
+          eq(corsairAccounts.tenantId, this.tenantId),
+          inArray(corsairIntegrations.name, ['gmail', 'googlecalendar']),
+        ),
+      );
+    const connected = new Set(rows.map((r) => r.name));
+    return { gmail: connected.has('gmail'), googlecalendar: connected.has('googlecalendar') };
   }
 }

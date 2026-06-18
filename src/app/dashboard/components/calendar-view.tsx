@@ -728,7 +728,7 @@ function MonthGrid({
 }) {
   return (
     <div className="flex-1 overflow-y-auto">
-      <div className="grid grid-cols-7 border-b border-zinc-800 sticky top-0 bg-black z-10">
+      <div className="grid grid-cols-7 border-b border-zinc-800 sticky top-0 bg-zinc-950 z-10">
         {DAYS.map((d) => (
           <div key={d} className="py-2 text-center text-xs font-medium text-zinc-500">{d}</div>
         ))}

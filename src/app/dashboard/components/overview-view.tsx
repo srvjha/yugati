@@ -222,7 +222,7 @@ export function OverviewView({ userName }: { userName?: string }) {
   const hourlyData = (email?.byHour ?? []).filter((_, i) => i % 3 === 0 || i === 23);
 
   return (
-    <div className="h-full overflow-y-auto bg-black">
+    <div className="h-full overflow-y-auto bg-zinc-950">
       <div className="max-w-7xl mx-auto px-6 py-6 space-y-6">
 
         {/* ── Header ── */}

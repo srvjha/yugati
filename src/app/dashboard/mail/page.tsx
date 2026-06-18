@@ -327,7 +327,7 @@ export default function MailPage() {
 
   return (
     <Tooltip.Provider delayDuration={300}>
-      <div className="h-screen flex overflow-hidden bg-black text-white">
+      <div className="h-screen flex overflow-hidden bg-zinc-950 text-zinc-50">
         {paletteOpen && (
           <CommandPalette
             onClose={() => setPaletteOpen(false)}

@@ -32,7 +32,7 @@ export function CategoryTabs({
           >
             {tab.label}
             {count > 0 && (
-              <span className={`-translate-y-1 text-[10px] font-semibold px-2 py-0.5 rounded-full leading-none ${TAB_BADGE[tab.id] ?? "bg-zinc-500 text-white"}`}>
+              <span className={`tab-badge -translate-y-1 text-[10px] font-semibold px-2 py-0.5 rounded-full leading-none ${TAB_BADGE[tab.id] ?? "bg-zinc-500 text-white"}`}>
                 {count > 99 ? "99+" : count} new
               </span>
             )}

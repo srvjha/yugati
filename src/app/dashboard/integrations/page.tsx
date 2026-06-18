@@ -21,7 +21,7 @@ export default async function IntegrationsPage() {
   const connected = new Set(rows.map((r) => r.name));
 
   return (
-    <div className="flex h-screen overflow-hidden bg-black text-white">
+    <div className="flex h-screen overflow-hidden bg-zinc-950 text-zinc-50">
       <SidebarNav user={session!.user} isAdmin={session!.user.role === 'admin'} />
       <div className="flex-1 min-w-0 overflow-hidden">
         <IntegrationsView

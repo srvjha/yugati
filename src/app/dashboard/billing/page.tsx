@@ -65,9 +65,11 @@ function UsageCard({
         <>
           <div className="h-1.5 bg-zinc-800 rounded-full overflow-hidden mb-1.5">
             <div
-              className={`h-full rounded-full transition-all duration-700
-                ${full ? 'bg-red-500' : over ? 'bg-yellow-500' : 'bg-blue-500'}`}
-              style={{ width: `${pct}%` }}
+              className="h-full rounded-full transition-all duration-700"
+              style={{
+                width: `${pct}%`,
+                backgroundColor: full ? '#ef4444' : over ? '#eab308' : '#3b82f6',
+              }}
             />
           </div>
           <p className="text-[10px] text-zinc-600">{Math.round(pct)}% used this cycle</p>
@@ -112,12 +114,12 @@ export default function BillingPage() {
   const showReset = resetDate && resetDate.getFullYear() < 2090;
 
   return (
-    <div className="flex h-screen overflow-hidden bg-black text-white">
+    <div className="flex h-screen overflow-hidden bg-zinc-950 text-zinc-50">
       <SidebarNav user={user} isAdmin={isAdmin} />
 
-      <div className="flex-1 overflow-y-auto bg-black">
+      <div className="flex-1 overflow-y-auto bg-zinc-950">
         {/* Page header */}
-        <div className="border-b border-zinc-800/60 px-8 h-14 flex items-center gap-3 sticky top-0 bg-black/90 backdrop-blur-sm z-10">
+        <div className="border-b border-zinc-800/60 px-8 h-14 flex items-center gap-3 sticky top-0 bg-zinc-950/90 backdrop-blur-sm z-10">
           <CreditCard size={15} className="text-zinc-500" />
           <h1 className="text-sm font-semibold text-zinc-200">Billing & Plan</h1>
         </div>
