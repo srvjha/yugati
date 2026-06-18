@@ -23,10 +23,12 @@ Yugati is a production-grade AI productivity platform that connects to your Gmai
 15. [Voice Input](#voice-input)
 16. [Payment Integration](#payment-integration)
 17. [Middleware](#middleware)
-18. [Environment Variables](#environment-variables)
-19. [Local Development](#local-development)
-20. [Database Management](#database-management)
-21. [Deployment](#deployment)
+18. [Testing](#testing)
+19. [CI/CD](#cicd)
+20. [Environment Variables](#environment-variables)
+21. [Local Development](#local-development)
+22. [Database Management](#database-management)
+23. [Deployment](#deployment)
 
 ---
 
@@ -100,6 +102,9 @@ Every request to `/dashboard/*` and `/admin/*` is gated by middleware (`src/prox
 ---
 
 ## Project Structure
+
+<details>
+<summary>Click to expand full file tree</summary>
 
 ```
 src/
@@ -238,7 +243,23 @@ src/
 
   proxy.ts                          Next.js middleware — session check, route protection
   env.ts                            Zod-validated environment variables
+
+src/__tests__/
+  lib/
+    utils.test.ts                   cn() class merging
+    plans.test.ts                   PLANS data integrity
+    razorpay.test.ts                HMAC signature verification
+    schemas.test.ts                 Zod schema validation
+  agent/
+    sensitive-patterns.test.ts      SENSITIVE_PATTERNS regex coverage
+    output-guardrail.test.ts        sensitiveDataGuardrail.execute()
+    enhancer.test.ts                needsEnhancement() skip heuristic
+
+.github/workflows/
+  ci.yml                            Lint → Type-check → Tests → Build
 ```
+
+</details>
 
 ---
 
@@ -250,7 +271,7 @@ The `/dashboard/mail` page supports two modes, toggled by the user and persisted
 
 - **Manual mode** — a traditional email client. The left sidebar shows folder navigation (inbox, sent, drafts, trash, starred, spam, all mail) with unread counts. The main pane renders a paginated email list with sender, subject, date, snippet, and unread indicator. Clicking an email opens a read pane. Manual mode includes compose, reply, trash, archive, mark-read/unread, batch actions, and search.
 
-- **Agentic mode** — a conversational interface. The GPT-4.1 agent has access to Gmail and Google Calendar via Corsair tools. Responses stream over SSE in 20-character chunks (no artificial delay). A voice input button records audio transcribed by Whisper-1 and inserted into the chat field.
+- **Agentic mode** — a conversational interface. The GPT-4.1 agent has access to Gmail and Google Calendar via Corsair tools. Responses stream token-by-token over SSE via the OpenAI Agents SDK's `toTextStream()`. A voice input button records audio transcribed by Whisper-1 and inserted into the chat field.
 
 Mode is initialised from `localStorage` after hydration to avoid SSR/client mismatch.
 
@@ -320,7 +341,7 @@ Session persisted to DB
   Prompt logged to admin_prompt_logs (tokens, cost, reply, IP, UA, duration)
   |
   v
-SSE stream to client (20-char chunks, no artificial delay)
+SSE stream to client (true token streaming via SDK toTextStream + setEncoding('utf8'))
   Request timeout: 25 seconds (Promise.race)
 ```
 
@@ -719,6 +740,52 @@ Rules:
 
 ---
 
+## Testing
+
+Tests are written with [Vitest](https://vitest.dev/) and live in `src/__tests__/`. They cover pure/unit-testable modules — no database, no network, no OpenAI calls.
+
+```bash
+pnpm test              # run once
+pnpm test:watch        # watch mode
+pnpm test:coverage     # coverage report (v8)
+```
+
+**51 tests across 7 files:**
+
+| File | What's covered |
+|---|---|
+| `lib/utils.test.ts` | `cn()` — merges, deduplicates Tailwind classes, handles falsy values |
+| `lib/plans.test.ts` | PLANS data integrity — prices, paise = priceInr×100, tier ordering, required fields |
+| `lib/razorpay.test.ts` | `verifyPaymentSignature` + `verifyWebhookSignature` — valid HMAC, tampered signature, wrong-length guard |
+| `lib/schemas.test.ts` | `idSchema`, `emailSchema`, `isoDateTimeSchema`, `isoDateSchema` — valid and invalid inputs |
+| `agent/sensitive-patterns.test.ts` | SENSITIVE_PATTERNS — Bearer tokens, PEM headers, base64 blobs, safe content passes |
+| `agent/output-guardrail.test.ts` | `sensitiveDataGuardrail.execute` — clean output, token leak, PEM key, object output |
+| `agent/enhancer.test.ts` | `needsEnhancement()` — short messages / email addresses / follow-ups skip; long first messages enhance |
+
+Env vars required by Zod at import time are stubbed via `vi.mock('@/env', ...)` in the razorpay test. No real secrets are needed to run the suite.
+
+---
+
+## CI/CD
+
+GitHub Actions workflow at `.github/workflows/ci.yml` runs on every push and pull request to `main`.
+
+```
+push / PR to main
+  │
+  ├─ lint          ESLint + tsc --noEmit (parallel)
+  ├─ test          Vitest unit suite (parallel)
+  │
+  └─ build         next build  (only after lint + test pass)
+```
+
+- **Concurrency:** in-progress runs on the same ref are cancelled when a new push arrives.
+- **Node version:** 22 (satisfies pnpm v11's `>=22.13` requirement).
+- **pnpm version:** 11 (pinned via `pnpm/action-setup@v4`).
+- **Env vars:** build step stubs all required vars so Zod validation passes without real credentials.
+
+---
+
 ## Environment Variables
 
 All variables are validated at startup via Zod in `src/env.ts`. Missing required variables throw at boot with a descriptive error.
@@ -757,8 +824,8 @@ All variables are validated at startup via Zod in `src/env.ts`. Missing required
 
 ### Prerequisites
 
-- Node.js 20+
-- pnpm
+- Node.js 22+
+- pnpm 11+
 - Supabase project or local PostgreSQL
 - Google Cloud project with OAuth 2.0 credentials (see scopes below)
 - Upstash Redis database (free tier sufficient)
