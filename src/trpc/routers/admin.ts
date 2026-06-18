@@ -394,7 +394,7 @@ Return JSON: { "insights": [{ "title": "...", "body": "...", "severity": "info|w
 
     const client = new OpenAI();
     const res = await client.chat.completions.create({
-      model: 'gpt-4.1-nano',
+      model: 'gpt-5.4-nano',
       messages: [{ role: 'user', content: prompt }],
       response_format: { type: 'json_object' },
       temperature: 0.4,

@@ -11,7 +11,7 @@ export const safetyGuardrail: InputGuardrail = {
     const text = typeof input === 'string' ? input : JSON.stringify(input);
 
     const res = await client.chat.completions.create({
-      model:           'gpt-4.1-nano',
+      model:           'gpt-5.4-nano',
       messages:        [{ role: 'system', content: SAFETY_SYSTEM }, { role: 'user', content: text }],
       response_format: { type: 'json_object' },
       max_tokens:      80,

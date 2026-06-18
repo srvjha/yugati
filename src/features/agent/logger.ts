@@ -6,6 +6,10 @@ function uid() { return randomUUID(); }
 
 // Pricing per 1M tokens (USD). Approximate — update as OpenAI changes rates.
 const MODEL_PRICING: Record<string, { input: number; output: number }> = {
+  'gpt-5.5':       { input: 15.00, output: 60.00 },
+  'gpt-5.4':       { input: 3.00,  output: 12.00 },
+  'gpt-5.4-mini':  { input: 0.40,  output: 1.60  },
+  'gpt-5.4-nano':  { input: 0.10,  output: 0.40  },
   'gpt-4.1':       { input: 2.00,  output: 8.00  },
   'gpt-4.1-mini':  { input: 0.40,  output: 1.60  },
   'gpt-4.1-nano':  { input: 0.10,  output: 0.40  },

@@ -9,7 +9,7 @@ import { buildGmailTools } from './tools';
 import { logPrompt } from './logger';
 import type { ChatMessage } from './types';
 
-const MODEL = 'gpt-4.1';
+const MODEL = 'gpt-5.4-mini';
 
 // Cache agents per (tenantId, mode) — tool schemas don't change between requests
 const agentCache = new Map<string, Agent>();
@@ -60,100 +60,114 @@ export async function* streamChat(
   const raw                 = [...messages].reverse().find((m) => m.role === 'user')?.content ?? '';
   const enhanced            = await enhancePrompt(raw, messages);
 
-  try {
-    const streamedResult = await run(getAgent(tenantId, userName ?? 'User', mode), enhanced, {
-      session,
-      stream: true,
-    });
+  // Retry once on OpenAI 429 if no tokens have been streamed yet
+  for (let attempt = 1; attempt <= 2; attempt++) {
+    let yieldedTokens = false;
 
-    // Stream tokens to the caller as the model generates them.
-    // setEncoding('utf8') makes the Node Readable yield strings instead of Buffers —
-    // without it, chunks are Buffer objects and JSON.stringify produces {"type":"Buffer",...}
-    // which renders as [object Object] on the client.
-    const textStream = streamedResult.toTextStream({ compatibleWithNodeStreams: true });
-    textStream.setEncoding('utf8');
-    for await (const chunk of textStream) {
-      yield { type: 'delta', text: chunk as string };
-    }
-
-    // Ensure the full run (tool calls, guardrails) has completed before saving
-    await streamedResult.completed;
-    await saveSession(tenantId, id, session);
-
-    const usage = (streamedResult as unknown as { state: { usage: { inputTokens: number; outputTokens: number; totalTokens: number } } }).state.usage;
-    const promptTokens     = usage?.inputTokens  ?? 0;
-    const completionTokens = usage?.outputTokens ?? 0;
-
-    void logPrompt({
-      userId:           tenantId,
-      conversationId:   id,
-      rawPrompt:        raw,
-      enhancedPrompt:   enhanced !== raw ? enhanced : undefined,
-      agentReply:       (streamedResult.finalOutput as string) ?? undefined,
-      status:           'ok',
-      injectionFlag:    false,
-      model:            MODEL,
-      promptTokens,
-      completionTokens,
-      totalTokens:      promptTokens + completionTokens,
-      ipAddress:        meta.ipAddress,
-      userAgent:        meta.userAgent,
-      durationMs:       Date.now() - t0,
-    });
-
-    yield { type: 'done', conversationId: id };
-
-  } catch (err) {
-    const durationMs = Date.now() - t0;
-
-    if (err instanceof InputGuardrailTripwireTriggered) {
-      const reason = (err.result?.output?.outputInfo as { reason?: string })?.reason
-        ?? 'This request was blocked by the safety filter.';
-
-      void logPrompt({
-        userId: tenantId, conversationId: id, rawPrompt: raw,
-        enhancedPrompt: enhanced !== raw ? enhanced : undefined,
-        status: 'blocked_input', blockedReason: reason, injectionFlag: true,
-        model: MODEL, promptTokens: 0, completionTokens: 0, totalTokens: 0,
-        ipAddress: meta.ipAddress, userAgent: meta.userAgent, durationMs,
+    try {
+      const streamedResult = await run(getAgent(tenantId, userName ?? 'User', mode), enhanced, {
+        session,
+        stream: true,
       });
 
-      yield { type: 'blocked', reason, conversationId: id };
-      return;
-    }
+      // Stream tokens to the caller as the model generates them.
+      // setEncoding('utf8') makes the Node Readable yield strings instead of Buffers —
+      // without it, chunks are Buffer objects and JSON.stringify produces {"type":"Buffer",...}
+      // which renders as [object Object] on the client.
+      const textStream = streamedResult.toTextStream({ compatibleWithNodeStreams: true });
+      textStream.setEncoding('utf8');
+      for await (const chunk of textStream) {
+        yieldedTokens = true;
+        yield { type: 'delta', text: chunk as string };
+      }
 
-    if (err instanceof OutputGuardrailTripwireTriggered) {
-      const reason = 'The response was blocked to protect sensitive data.';
+      // Ensure the full run (tool calls, guardrails) has completed before saving
+      await streamedResult.completed;
+      await saveSession(tenantId, id, session);
+
+      const usage = (streamedResult as unknown as { state: { usage: { inputTokens: number; outputTokens: number; totalTokens: number } } }).state.usage;
+      const promptTokens     = usage?.inputTokens  ?? 0;
+      const completionTokens = usage?.outputTokens ?? 0;
+
       void logPrompt({
-        userId: tenantId, conversationId: id, rawPrompt: raw,
-        status: 'blocked_output', blockedReason: reason, injectionFlag: false,
-        model: MODEL, promptTokens: 0, completionTokens: 0, totalTokens: 0,
-        ipAddress: meta.ipAddress, userAgent: meta.userAgent, durationMs,
+        userId:           tenantId,
+        conversationId:   id,
+        rawPrompt:        raw,
+        enhancedPrompt:   enhanced !== raw ? enhanced : undefined,
+        agentReply:       (streamedResult.finalOutput as string) ?? undefined,
+        status:           'ok',
+        injectionFlag:    false,
+        model:            MODEL,
+        promptTokens,
+        completionTokens,
+        totalTokens:      promptTokens + completionTokens,
+        ipAddress:        meta.ipAddress,
+        userAgent:        meta.userAgent,
+        durationMs:       Date.now() - t0,
       });
 
-      yield { type: 'blocked', reason, conversationId: id };
+      yield { type: 'done', conversationId: id };
+      return;
+
+    } catch (err) {
+      const durationMs = Date.now() - t0;
+
+      if (err instanceof InputGuardrailTripwireTriggered) {
+        const reason = (err.result?.output?.outputInfo as { reason?: string })?.reason
+          ?? 'This request was blocked by the safety filter.';
+
+        void logPrompt({
+          userId: tenantId, conversationId: id, rawPrompt: raw,
+          enhancedPrompt: enhanced !== raw ? enhanced : undefined,
+          status: 'blocked_input', blockedReason: reason, injectionFlag: true,
+          model: MODEL, promptTokens: 0, completionTokens: 0, totalTokens: 0,
+          ipAddress: meta.ipAddress, userAgent: meta.userAgent, durationMs,
+        });
+
+        yield { type: 'blocked', reason, conversationId: id };
+        return;
+      }
+
+      if (err instanceof OutputGuardrailTripwireTriggered) {
+        const reason = 'The response was blocked to protect sensitive data.';
+        void logPrompt({
+          userId: tenantId, conversationId: id, rawPrompt: raw,
+          status: 'blocked_output', blockedReason: reason, injectionFlag: false,
+          model: MODEL, promptTokens: 0, completionTokens: 0, totalTokens: 0,
+          ipAddress: meta.ipAddress, userAgent: meta.userAgent, durationMs,
+        });
+
+        yield { type: 'blocked', reason, conversationId: id };
+        return;
+      }
+
+      const apiErr = err as { code?: string; status?: number };
+
+      // Retry once on OpenAI rate limit if we haven't streamed anything yet
+      if ((apiErr.code === 'rate_limit_exceeded' || apiErr.status === 429) && !yieldedTokens && attempt === 1) {
+        await new Promise<void>((r) => setTimeout(r, 2_000));
+        continue;
+      }
+
+      if (apiErr.code === 'rate_limit_exceeded' || apiErr.status === 429) {
+        yield { type: 'error', message: "I'm a bit busy right now — please try again in a moment.", conversationId: id };
+        return;
+      }
+
+      if (apiErr.code === 'context_length_exceeded') {
+        yield { type: 'blocked', reason: "That request pulled in too much content for a single call. Try asking for fewer emails at once or start a new conversation.", conversationId: id };
+        return;
+      }
+
+      // Only surface safe, user-facing error messages — never raw API errors
+      const msg = err instanceof Error ? err.message : '';
+      const safeMessage = (
+        msg.startsWith('Agent timed out') ||
+        msg.startsWith("I'm a bit busy") ||
+        msg.startsWith('That request pulled')
+      ) ? msg : 'Something went wrong — please try again.';
+      yield { type: 'error', message: safeMessage, conversationId: id };
       return;
     }
-
-    const apiErr = err as { code?: string; status?: number };
-
-    if (apiErr.code === 'rate_limit_exceeded' || apiErr.status === 429) {
-      yield { type: 'blocked', reason: 'Rate limit reached — please wait a few seconds and try again.', conversationId: id };
-      return;
-    }
-
-    if (apiErr.code === 'context_length_exceeded') {
-      yield { type: 'blocked', reason: "That request pulled in too much content for a single call. Try asking for fewer emails at once or start a new conversation.", conversationId: id };
-      return;
-    }
-
-    // Only surface safe, user-facing error messages — never raw API errors
-    const msg = err instanceof Error ? err.message : '';
-    const safeMessage = (
-      msg.startsWith('Agent timed out') ||
-      msg.startsWith('Rate limit reached') ||
-      msg.startsWith('That request pulled')
-    ) ? msg : 'Something went wrong — please try again.';
-    yield { type: 'error', message: safeMessage, conversationId: id };
   }
 }
