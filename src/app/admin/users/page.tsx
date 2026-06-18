@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useTRPC } from '@/trpc/client';
-import { Search, Users, Shield, ChevronLeft, ChevronRight, ExternalLink } from 'lucide-react';
+import { Search, Users, ChevronLeft, ChevronRight, ExternalLink } from 'lucide-react';
 
 function GmailDot({ on }: { on: boolean }) {
   return (

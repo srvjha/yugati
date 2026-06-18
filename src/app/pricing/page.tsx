@@ -4,7 +4,6 @@ import { useState }  from 'react';
 import { useRouter } from 'next/navigation';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useTRPC }   from '@/trpc/client';
-import { PLANS }     from '@/lib/plans';
 import { toast }     from 'sonner';
 import { Check, Zap, ArrowRight, Mail, PhoneCall, AlertTriangle } from 'lucide-react';
 

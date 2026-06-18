@@ -22,13 +22,14 @@ Yugati is a production-grade AI productivity platform that connects to your Gmai
 14. [Email Cache](#email-cache)
 15. [Voice Input](#voice-input)
 16. [Payment Integration](#payment-integration)
-17. [Middleware](#middleware)
-18. [Testing](#testing)
-19. [CI/CD](#cicd)
-20. [Environment Variables](#environment-variables)
-21. [Local Development](#local-development)
-22. [Database Management](#database-management)
-23. [Deployment](#deployment)
+17. [Theming](#theming)
+18. [Middleware](#middleware)
+19. [Testing](#testing)
+20. [CI/CD](#cicd)
+21. [Environment Variables](#environment-variables)
+22. [Local Development](#local-development)
+23. [Database Management](#database-management)
+24. [Deployment](#deployment)
 
 ---
 
@@ -41,7 +42,7 @@ Yugati integrates with Gmail and Google Calendar using Corsair, an integration l
 - A preferences system where users configure AI writing style, email focus areas, signatures, and digest settings.
 - An admin panel at `/admin` with full operational telemetry: user management, per-request AI cost tracking, prompt injection detection, live sessions, revenue, and GPT-generated platform insights.
 
-The platform enforces per-plan monthly usage quotas, per-minute rate limits, and per-message character limits. Payments are processed through Razorpay in INR.
+The platform enforces per-plan monthly usage quotas, per-minute rate limits, and per-message character limits. Payments are processed through Razorpay in INR. PDF invoices are generated automatically for every successful payment.
 
 ---
 
@@ -60,6 +61,7 @@ Browser
         +-- Agent SSE stream        /api/agent/chat
         +-- Voice transcription     /api/voice/transcribe
         +-- Payments                /api/payments/*
+        +-- Invoice PDF             /api/payments/invoice/[orderId]
         +-- tRPC                    /api/trpc/*
         +-- Corsair management      /api/corsair/*
         |
@@ -70,6 +72,7 @@ Browser
         +-- Supabase                Hosted PostgreSQL (pooler + direct URL)
         +-- Upstash Redis           Sliding-window rate limiter
         +-- Razorpay                Payment order creation and verification
+        +-- @react-pdf/renderer     Server-side PDF invoice generation
 ```
 
 Every request to `/dashboard/*` and `/admin/*` is gated by middleware (`src/proxy.ts`) that checks for a valid better-auth session cookie. Admin routes additionally require `session.user.role === 'admin'` enforced server-side in the layout and in the `adminProcedure` tRPC middleware.
@@ -94,6 +97,7 @@ Every request to `/dashboard/*` and `/admin/*` is gated by middleware (`src/prox
 | AI models | GPT-4.1 (agent), GPT-4.1-nano (guardrail + enhancer), Whisper-1 (voice) | |
 | Rate limiting | Upstash Redis (@upstash/ratelimit) | Sliding window, serverless-safe |
 | Payments | Razorpay | INR, order creation, HMAC verification, webhook |
+| PDF generation | @react-pdf/renderer | Server-side invoice PDFs |
 | Deployment | Vercel | Node.js runtime for all API routes |
 | Charts | Recharts | Area charts, bar charts |
 | Markdown | react-markdown + remark-gfm | Chat message rendering |
@@ -111,29 +115,30 @@ src/
   app/
     page.tsx                        Landing page
     layout.tsx                      Root layout, fonts, TRPCReactProvider, Toaster
-    globals.css                     Tailwind imports, CSS variables
+    globals.css                     Tailwind imports, CSS variables, light/dark theme
     pricing/
-      page.tsx                      Pricing page with Razorpay checkout
+      page.tsx                      Pricing page with Razorpay checkout + downgrade confirmation
     dashboard/
       page.tsx                      Redirect → /dashboard/mail
+      layout.tsx                    Dashboard layout (bg-zinc-950, theme-aware)
       mail/
         page.tsx                    Main mail page (Manual + Agentic modes)
         [id]/page.tsx               Single email thread view
         components/
-          MailSidebar.tsx           Collapsible sidebar (folders, nav, compose, admin link)
+          MailSidebar.tsx           Collapsible sidebar (folders, nav, compose, mode toggle)
           MailTopBar.tsx            Search, view controls
           ChatView.tsx              Agentic SSE chat UI + voice input
           ComposeModal.tsx          Email compose overlay
           CommandPalette.tsx        Keyboard command palette
           SubscriptionsPanel.tsx    Subscription management
-          MailInsightPanel.tsx      AI email insights panel
+          MailInsightPanel.tsx      AI email insights + upcoming events (sorted by date)
           AuthError.tsx             OAuth error state
           SkeletonList.tsx          Loading skeleton
           TooltipWrap.tsx           Radix tooltip wrapper
-          CategoryTabs.tsx          Inbox category tabs
+          CategoryTabs.tsx          Inbox category tabs with light-mode-aware badges
           EmailRow.tsx              Email list row
       billing/
-        page.tsx                    Plan card, usage meters, order history, upgrade
+        page.tsx                    Plan card, usage meters, order history, cancel subscription, invoice links
       calendar/
         page.tsx                    Google Calendar event list
       chat/
@@ -143,13 +148,14 @@ src/
       overview/
         page.tsx                    Dashboard overview with stats and charts
       settings/
-        page.tsx                    User settings
+        page.tsx                    User settings with theme toggle
       components/
         chat-view.tsx               Agentic chat UI
-        sidebar-nav.tsx             Left sidebar (nav links, UsagePill, admin link)
+        sidebar-nav.tsx             Left sidebar (nav links, UsagePill, Settings, admin link)
         integrations-view.tsx       OAuth popup flow + preferences modal
         overview-view.tsx           Overview stats and charts
-        theme-toggle.tsx            Dark/light mode toggle
+        calendar-view.tsx           Full calendar component
+        theme-toggle.tsx            Icon-only dark/light mode toggle
         usage-pill.tsx              Usage summary pill (collapsed + expanded)
     admin/
       layout.tsx                    Server component auth guard (role === 'admin')
@@ -158,33 +164,28 @@ src/
         admin-sidebar.tsx           Admin sidebar (red INTERNAL badge, 7 nav items)
         admin-stat-card.tsx         KPI card with optional delta badge
         prompt-snapshot.tsx         Injection "screenshot" card with regex highlighting
-      overview/
-        page.tsx                    8 KPI cards + daily prompts AreaChart + plan distribution
-      users/
-        page.tsx                    User table — search, ban/unban, plan badge, integrations
-        [id]/page.tsx               Full user profile — token stats, usage bars, recent prompts
-      prompts/
-        page.tsx                    All prompt logs — expandable rows, plan badge, AI reply
-      security/
-        page.tsx                    Injection attempts — PromptSnapshot cards
-      plans/
-        page.tsx                    Revenue totals + payment orders table
-      sessions/
-        page.tsx                    Live sessions — device parsing, browser, OS, IP
-      insights/
-        page.tsx                    GPT-4.1 generated platform insights (critical/warning/info)
+      overview/page.tsx             8 KPI cards + daily prompts AreaChart + plan distribution
+      users/page.tsx                User table — search, ban/unban, plan badge, integrations
+      users/[id]/page.tsx           Full user profile — token stats, usage bars, recent prompts
+      prompts/page.tsx              All prompt logs — expandable rows, plan badge, AI reply
+      security/page.tsx             Injection attempts — PromptSnapshot cards
+      plans/page.tsx                Revenue totals + payment orders table
+      sessions/page.tsx             Live sessions — device parsing, browser, OS, IP
+      insights/page.tsx             GPT-4.1 generated platform insights (critical/warning/info)
     api/
       agent/chat/route.ts           POST — runs agent, SSE stream, quota + rate limit
       auth/[...all]/route.ts        better-auth catch-all handler
       auth/clear-session/route.ts   DELETE — clears session cookie
-      corsair/callback/route.ts     OAuth callback for Corsair integrations
+      corsair/callback/route.ts     OAuth callback → redirects to /dashboard/integrations
       corsair/connect/route.ts      Initiates Corsair OAuth connect (popup-safe)
       corsair/disconnect/route.ts   Disconnects a Corsair integration
       payments/create-order/        POST — creates Razorpay order
       payments/verify/              POST — verifies HMAC, upgrades plan
       payments/webhook/             POST — Razorpay server webhook
+      payments/invoice/[orderId]/   GET — generates and streams a PDF invoice
       trpc/[trpc]/route.ts          tRPC HTTP handler
       voice/transcribe/route.ts     POST — Whisper transcription
+      webhooks/gmail/watch/         POST — registers Gmail push notifications (Pub/Sub)
 
   features/
     agent/
@@ -205,12 +206,16 @@ src/
         service.ts                  GmailService — cache-first Gmail API
         schema.ts                   Zod schemas
       calendar/
-        router.ts                   calendarRouter
-        service.ts                  CalendarService
+        router.ts                   calendarRouter — listEvents always sorted by startTime
+        service.ts                  CalendarService — singleEvents + orderBy: startTime
         schema.ts                   Zod schemas
       stats/
         router.ts                   statsRouter
-        service.ts                  StatsService
+        service.ts                  StatsService — getConnectionStatus via DB (no live API call)
+
+  components/
+    ui/
+      switch.tsx                    Accessible toggle switch with CSS-variable colours
 
   lib/
     auth.ts                         better-auth config (Google provider, admin plugin)
@@ -232,7 +237,7 @@ src/
   trpc/
     routers/
       _app.ts                       Root router (gmail, calendar, stats, plans, user, admin)
-      plans.ts                      getMyPlan, getOrders
+      plans.ts                      getMyPlan, getOrders, cancelSubscription
       user.ts                       getPreferences, savePreferences
       admin.ts                      Full admin router — 13 procedures
     trpc.ts                         createContext(), protectedProcedure, adminProcedure
@@ -273,17 +278,17 @@ The `/dashboard/mail` page supports two modes, toggled by the user and persisted
 
 - **Agentic mode** — a conversational interface. The GPT-4.1 agent has access to Gmail and Google Calendar via Corsair tools. Responses stream token-by-token over SSE via the OpenAI Agents SDK's `toTextStream()`. A voice input button records audio transcribed by Whisper-1 and inserted into the chat field.
 
-Mode is initialised from `localStorage` after hydration to avoid SSR/client mismatch.
+Mode is initialised to `false` (Manual) on both server and client for SSR consistency, then restored from `localStorage` in a `useEffect` after hydration. This avoids React hydration mismatches.
 
 ### Integrations and OAuth popup
 
-`/dashboard/integrations` shows the connection status of Gmail and Google Calendar. Clicking "Connect" opens a centred OAuth popup window (`600×660px`) instead of navigating away. A 500ms polling loop detects when the popup closes and automatically calls `refetch()` to update connection status — the user never leaves the page.
+`/dashboard/integrations` shows the connection status of Gmail and Google Calendar. Connection status is read directly from the `corsair_accounts` DB table — no live API call — so it loads instantly. Clicking "Connect" opens a centred OAuth popup window (`600×660px`) instead of navigating away. A 500ms polling loop detects when the popup closes and automatically calls `refetch()` to update connection status. The OAuth callback redirects to `/dashboard/integrations?connected=1` which triggers a success toast.
 
 ### Preferences
 
 The preferences modal (opened from the integrations page) lets users configure:
 
-- **Email focus areas** — suggestion chips (Job applications, Startup/freelancing, Urgent & OTPs, Finance & bills, Studies & deadlines, Inbox zero) plus a free-form tag input. A "Let AI decide" button bypasses manual selection and stores `__ai_decide__` as the signal. Saved to the DB via `trpc.user.savePreferences`, which shapes smart summaries and AI replies.
+- **Email focus areas** — suggestion chips (Job applications, Startup/freelancing, Urgent & OTPs, Finance & bills, Studies & deadlines, Inbox zero) plus a free-form tag input. A "Let AI decide" button bypasses manual selection and stores `__ai_decide__` as the signal.
 - **AI writing style** — Formal / Casual / Concise selector.
 - **Auto-suggest replies** — AI drafts a reply whenever an email is opened.
 - **Email signature** — appended to outbound drafts.
@@ -292,7 +297,11 @@ The preferences modal (opened from the integrations page) lets users configure:
 
 ### Calendar view
 
-`/dashboard/calendar` renders upcoming events from Google Calendar, grouped by date, via `calendarRouter.listEvents`.
+`/dashboard/calendar` renders upcoming events from Google Calendar, grouped by date. Events are always fetched with `singleEvents: true, orderBy: 'startTime'` and additionally sorted client-side to guarantee chronological order regardless of API caching behaviour.
+
+### Settings
+
+`/dashboard/settings` is linked from the main sidebar. It includes notification toggles, a theme switcher (icon-only `ThemeToggle` component), and other user preferences. Notification switches use CSS custom properties (`--switch-on`, `--switch-off`) to stay visually consistent across both light and dark themes.
 
 ### Overview and stats
 
@@ -347,44 +356,36 @@ SSE stream to client (true token streaming via SDK toTextStream + setEncoding('u
 
 ### Agent instance caching
 
-Agent instances are cached per `(tenantId, mode)` key at module level in `agent.ts`. `createAgent()` involves non-trivial work: instantiating `OpenAIAgentsProvider`, building Corsair tool schemas, and constructing Zod validators. Caching eliminates this cost on every request after the first.
+Agent instances are cached per `(tenantId, mode)` key at module level in `agent.ts`. Caching eliminates `createAgent()` overhead (Corsair tool schema construction, Zod validators) on every request after the first.
 
 ### Prompt enhancer skip heuristic
 
-`src/features/agent/enhancer.ts` implements `needsEnhancement()`:
-- Messages ≤ 6 words → skip (e.g. "show me my unread emails")
-- Message contains an email address → already specific, skip
+`needsEnhancement()` in `src/features/agent/enhancer.ts`:
+- Messages ≤ 6 words → skip
+- Message contains an email address → skip
 - Short follow-up (≤ 12 words) in an active conversation → skip
-
-When skipped, the raw message is passed directly to the agent — saving the entire `gpt-4.1-nano` round-trip (~300–500ms).
 
 ### Safety guardrail parallelism
 
-The `runInParallel` option on `safetyGuardrail` defaults to `true`, meaning the SDK fires the guardrail **concurrently with the first model call**. If the guardrail trips, the model response is discarded. If it passes, the model response is already in flight. Net latency added by the guardrail: ~0ms on safe requests.
-
-Previously `runInParallel: false` was set, causing a full blocking sequential LLM call (~600ms) before every request. Removing it was the single largest latency improvement.
+`runInParallel: true` on `safetyGuardrail` fires the guardrail concurrently with the first model call. Net latency on safe requests: ~0ms.
 
 ### Conversation sessions
 
-`src/features/agent/session.ts` uses the SDK `MemorySession`, hydrated from `chat_sessions` on each request. Session items are capped at the most recent 40 (roughly 10–15 turns with tool calls) to prevent context blowup on long conversations. After the run, items are written back to the DB.
-
-### Prompt logging
-
-Every `runChat()` call — successful, blocked, or errored — is logged to `admin_prompt_logs` via `logPrompt()` (fire-and-forget, never throws). Token counts are read from `result.state.usage.inputTokens` / `outputTokens` (the SDK's `Usage` class uses camelCase). Cost is calculated per-model from the pricing table in `logger.ts`. The full agent reply is stored in the `agentReply` column.
+`chat_sessions` items are capped at 40 (roughly 10–15 turns with tool calls) on read to prevent context blowup. Written back to DB after each run.
 
 ### System prompt
 
-`buildAgentInstructions()` produces the agent's system prompt (~1,900 tokens after cleanup). Key behaviours enforced:
+`buildAgentInstructions()` (~1,900 tokens). Key behaviours:
 
-- **Read-only queries** (list/show/summarise emails, events): execute immediately in one response, never ask "shall I proceed?". If `db.*` returns partial data, automatically fall back to `api.*`.
-- **Write actions** (send, delete, create): confirm once before executing.
-- `db.*` (Corsair entity cache) → try first for broad list queries. `api.*` (live Google) → fall back or use directly for specific lookups.
-- `entity_id` field (real Gmail/Calendar ID) must always be used for Google API calls, never `id` (internal Corsair UUID).
+- **Specific email lookups** — always use `api.messages.list` with the `q` parameter (from:, subject:, is:unread, has:attachment, date ranges, OR). Never use `db.*` for specific lookups — the local cache is incomplete.
+- **Purchase/receipt search** — 3-step fallback: (1) sender + product, (2) product + (purchase OR order OR receipt OR enroll), (3) just the product name. Never return "not found" after only one attempt.
+- **Read-only queries** — execute immediately, never ask "shall I proceed?". Fall back from `db.*` to `api.*` automatically.
+- **Write actions** — confirm once before executing.
+- `entity_id` (real Gmail/Calendar ID) must be used for all Google API calls, never `id` (internal Corsair UUID).
 - Never fetch more than 5 emails per tool call.
-- Email list format: bold heading line (number, sender, subject, date), Gmail deep link on the next line, no raw headers.
-- Calendar timezone: always `Asia/Kolkata` (`RFC 3339` datetimes with `+05:30`).
-- Two-step calendar event creation: `events.create` with `sendUpdates: 'all'`, then `events.update` to attach a Google Meet link via `conferenceDataVersion: 1`.
-- `send_email` tool only — never call raw `messages.send` (requires RFC 2822 encoding that `send_email` handles).
+- Email list format: bold heading, Gmail deep link, no raw headers.
+- Calendar: always `Asia/Kolkata` (RFC 3339 `+05:30`). Two-step event creation: `events.create` with `sendUpdates: 'all'`, then `events.update` for Google Meet link.
+- `send_email` tool only — never raw `messages.send`.
 
 ---
 
@@ -394,11 +395,9 @@ better-auth handles authentication:
 
 - **Provider:** Google OAuth 2.0
 - **Scopes:** `gmail.compose`, `gmail.labels`, `gmail.modify`, `gmail.send`, `calendar`, `userinfo.email`, `userinfo.profile`
-- **Admin plugin:** adds `role`, `banned`, `banReason`, `banExpires` fields to the `user` table
-- **Default role:** `user`. Admin role set via SQL: `UPDATE "user" SET role = 'admin' WHERE email = '...'`
+- **Admin plugin:** adds `role`, `banned`, `banReason`, `banExpires` to the `user` table
+- **Default role:** `user`. Admin role set via SQL or seed script.
 - **Session:** HTTP-only cookie — `better-auth.session_token` (HTTP) / `__Secure-better-auth.session_token` (HTTPS)
-
-The middleware checks both cookie names. Logged-in users visiting `/` are redirected to `/dashboard`. Unauthenticated users visiting `/dashboard/*` or `/admin/*` are redirected to `/`.
 
 ### Seeding admin
 
@@ -406,7 +405,7 @@ The middleware checks both cookie names. Logged-in users visiting `/` are redire
 pnpm tsx src/server/scripts/seed-admin.ts
 ```
 
-Sets role to `admin`, assigns Premium plan, sets `usageResetAt` to 2099-01-01 so the admin never hits usage limits.
+Sets role to `admin`, assigns Premium plan, sets `usageResetAt` to 2099-01-01.
 
 ---
 
@@ -419,7 +418,7 @@ All tables are defined in `src/server/db/schema.ts`.
 | Table | Purpose |
 |---|---|
 | `user` | User accounts. Extra fields: `role`, `banned`, `banReason`, `banExpires`. |
-| `session` | Active sessions with `expiresAt`, `ipAddress`, `userAgent`. References `user.id`. |
+| `session` | Active sessions with `expiresAt`, `ipAddress`, `userAgent`. |
 | `account` | OAuth account links — access token, refresh token, scopes. |
 | `verification` | Email/phone verification tokens. |
 
@@ -427,7 +426,7 @@ All tables are defined in `src/server/db/schema.ts`.
 
 | Table | Purpose |
 |---|---|
-| `corsair_integrations` | One row per integration (gmail, googlecalendar). Encrypted config and DEK. |
+| `corsair_integrations` | One row per integration (gmail, googlecalendar). |
 | `corsair_accounts` | One row per (tenant, integration) pair. Encrypted OAuth credentials. |
 | `corsair_entities` | Entity cache. `entity_type`, `entity_id`, `account_id`, `data` (jsonb). |
 | `corsair_events` | Webhook event log. |
@@ -436,50 +435,17 @@ All tables are defined in `src/server/db/schema.ts`.
 
 | Table | Purpose |
 |---|---|
-| `chat_sessions` | OpenAI Agents SDK `AgentInputItem[]` per user. `items` is jsonb. Capped at 40 items on read. |
-| `user_plans` | Plan, usage counters (`messagesUsed`, `voiceUsed`, `composeUsed`), `usageResetAt`, Razorpay fields. |
-| `user_preferences` | `focuses` (text[]), `onboardingDone` (bool). One row per user. |
+| `chat_sessions` | OpenAI Agents SDK `AgentInputItem[]` per user. Capped at 40 items on read. |
+| `user_plans` | Plan, usage counters, `usageResetAt`, `subscriptionStatus`, Razorpay fields. |
+| `user_preferences` | `focuses` (text[]), `onboardingDone` (bool). |
 | `orders` | Razorpay payment orders. `razorpayOrderId`, `razorpayPaymentId`, `plan`, `amount` (paise), `status`. |
 
 ### Admin tables
 
 | Table | Purpose |
 |---|---|
-| `admin_prompt_logs` | Every `runChat()` call. Full prompt, enhanced prompt, AI reply, status, injection flag, model, tokens (prompt + completion + total), cost (USD, numeric 10,6), IP, user agent, duration. |
-| `admin_audit_log` | Every admin action (ban, unban, plan change). `adminId`, `action`, `targetId`, `meta` (jsonb). |
-
-**`admin_prompt_logs` columns:**
-
-| Column | Type | Notes |
-|---|---|---|
-| `id` | text PK | random uid |
-| `userId` | text → user.id | cascade delete |
-| `conversationId` | text | nullable |
-| `rawPrompt` | text | exactly what the user typed |
-| `enhancedPrompt` | text | after enhancer pass, null if same as raw |
-| `agentReply` | text | `result.finalOutput` — the full AI response |
-| `status` | text | `ok` \| `blocked_input` \| `blocked_output` \| `error` |
-| `blockedReason` | text | guardrail reason, null if ok |
-| `injectionFlag` | bool | true when `InputGuardrailTripwireTriggered` caught |
-| `model` | text | default `gpt-4.1` |
-| `promptTokens` | int | `result.state.usage.inputTokens` |
-| `completionTokens` | int | `result.state.usage.outputTokens` |
-| `totalTokens` | int | sum |
-| `estimatedCostUsd` | numeric(10,6) | per model pricing table in `logger.ts` |
-| `ipAddress` | text | `x-forwarded-for` / `x-real-ip` header |
-| `userAgent` | text | `user-agent` header |
-| `durationMs` | int | wall-clock from before enhancer call |
-| `createdAt` | timestamp with tz | auto |
-
-**Model pricing table (`logger.ts`):**
-
-| Model | Input $/1M | Output $/1M |
-|---|---|---|
-| gpt-4.1 | $2.00 | $8.00 |
-| gpt-4.1-mini | $0.40 | $1.60 |
-| gpt-4.1-nano | $0.10 | $0.40 |
-| gpt-4o | $5.00 | $15.00 |
-| gpt-4o-mini | $0.15 | $0.60 |
+| `admin_prompt_logs` | Every `runChat()` call. Full prompt, AI reply, status, injection flag, tokens, cost, IP, UA, duration. |
+| `admin_audit_log` | Every admin action (ban, unban, plan change). |
 
 ---
 
@@ -487,54 +453,55 @@ All tables are defined in `src/server/db/schema.ts`.
 
 ### POST /api/agent/chat
 
-Three-layer gating before running the agent:
-
-1. **Character limit** — checks last user message length against plan `charLimit`. Returns 400 if exceeded.
-2. **Rate limit** — Upstash Redis sliding window per user per plan tier. Returns 429 with `Retry-After` header.
-3. **Monthly quota** — atomic increment of `messagesUsed`. Returns 429 when cap reached.
-
-Runs `runChat()` wrapped in a 25-second `Promise.race` timeout. Streams the result as SSE:
-
-| Type | Payload |
-|---|---|
-| `delta` | `{ type: "delta", text: string }` — 20-char chunk, no delay |
-| `done` | `{ type: "done", conversationId: string }` |
-| `blocked` | `{ type: "blocked", reason: string, conversationId: string }` |
-| `error` | `{ type: "error", message: string }` |
+Three-layer gating: character limit (400) → rate limit (429) → monthly quota (429). Streams SSE: `delta`, `done`, `blocked`, `error`.
 
 ### POST /api/voice/transcribe
 
-Accepts `multipart/form-data` with an `audio` field (webm blob). Checks and increments `voiceUsed` quota. Calls OpenAI `whisper-1`. Returns `{ text: string }`.
+`multipart/form-data` with `audio` field (webm). Checks/increments `voiceUsed`. Returns `{ text: string }`.
 
 ### POST /api/payments/create-order
 
-Creates a Razorpay order for `standard` or `premium`. Inserts an `orders` row with status `created`. Returns `{ orderId, amount, currency, keyId, planName }`.
+Creates Razorpay order. Returns `{ orderId, amount, currency, keyId, planName }`.
 
 ### POST /api/payments/verify
 
-Verifies HMAC: `hmac_sha256(orderId + "|" + paymentId, RAZORPAY_KEY_SECRET)`. On success: updates `user_plans` to new plan, resets usage counters, sets `usageResetAt` to 30 days from now, marks order as `paid`. Redirects to `/dashboard/billing?upgraded=1`.
+Verifies HMAC. On success: upgrades `user_plans`, resets counters, sets `usageResetAt` to 30 days out, redirects to `/dashboard/billing?upgraded=1`.
 
 ### POST /api/payments/webhook
 
-Server-to-server Razorpay backup. Verifies `X-Razorpay-Signature` header. Handles `payment.captured` to update order status as failsafe.
+Server-to-server Razorpay backup for `payment.captured`. Verifies `X-Razorpay-Signature`.
+
+### GET /api/payments/invoice/[orderId]
+
+Generates and streams a PDF invoice using `@react-pdf/renderer`. Authenticates the request and verifies the order belongs to the session user. The PDF includes:
+- Invoice number (`YUG-{year}-{orderId suffix}`)
+- Bill-to (user name + email) and from (Yugati)
+- Line items: subscription subtotal + GST (18%, extracted from inclusive price)
+- Total paid
+- Razorpay order ID and payment ID
+- Download / Print button
+
+Linked from the payment history table in `/dashboard/billing` via the `ExternalLink` icon on each paid order.
 
 ### GET /api/corsair/connect
 
-Initiates Corsair OAuth connect flow. Designed to work inside a popup — the OAuth flow completes in the popup and the parent window polls `popup.closed` to detect completion, then refetches connection status.
+Initiates Corsair OAuth. Designed for popup use — parent polls `popup.closed`, then refetches connection status.
 
 ### GET /api/corsair/callback
 
-Handles the OAuth callback. Stores access and refresh tokens in `corsair_accounts`.
+Handles OAuth callback. On success redirects to `/dashboard/integrations?connected=1`. On error redirects to `/dashboard/integrations?error=connect_failed`.
 
 ### GET /api/corsair/disconnect
 
-Disconnects a Corsair integration by removing the `corsair_accounts` row.
+Removes `corsair_accounts` row.
+
+### POST /api/webhooks/gmail/watch
+
+Registers Gmail push notifications for a tenant via Google Pub/Sub (`gmail.users.watch`). Requires `GMAIL_PUBSUB_TOPIC` env var. Body: `{ tenantId: string }`.
 
 ---
 
 ## tRPC Routers
-
-All user-facing procedures use `protectedProcedure` (enforces authentication). Admin procedures use `adminProcedure` (additionally queries `user.role === 'admin'`).
 
 ### gmailRouter
 
@@ -563,11 +530,11 @@ All user-facing procedures use `protectedProcedure` (enforces authentication). A
 
 ### calendarRouter
 
-`listEvents`, `createEvent`, `updateEvent`, `deleteEvent` — backed by Google Calendar via Corsair.
+`listEvents` (always `singleEvents: true, orderBy: 'startTime'`), `createEvent`, `updateEvent`, `deleteEvent`.
 
 ### statsRouter
 
-Email volume aggregation queries for the overview dashboard and connection status check.
+Email volume aggregation for the overview dashboard. `getConnectionStatus` checks `corsair_accounts` via DB join — no live Google API call.
 
 ### plansRouter
 
@@ -575,85 +542,45 @@ Email volume aggregation queries for the overview dashboard and connection statu
 |---|---|---|
 | `getMyPlan` | query | Current plan, usage counters, limits, reset date |
 | `getOrders` | query | Payment history from `orders` table |
+| `cancelSubscription` | mutation | Sets plan → `free`, `subscriptionStatus` → `cancelled` immediately |
 
 ### userRouter
 
 | Procedure | Type | Description |
 |---|---|---|
 | `getPreferences` | query | Returns `{ focuses: string[], onboardingDone: boolean }` |
-| `savePreferences` | mutation | Upserts `user_preferences` row, sets `onboardingDone: true` |
+| `savePreferences` | mutation | Upserts `user_preferences`, sets `onboardingDone: true` |
 
 ### adminRouter
 
-All procedures require `role === 'admin'`. See [Admin Panel](#admin-panel) for full details.
+All 13 procedures require `role === 'admin'`. See [Admin Panel](#admin-panel).
 
 ---
 
 ## Admin Panel
 
-The admin panel at `/admin` is a role-gated internal operations centre. Access requires `user.role = 'admin'` in the database.
-
-### Setting admin role
+Role-gated at `/admin`. Requires `user.role = 'admin'`.
 
 ```sql
 UPDATE "user" SET role = 'admin' WHERE email = 'your@email.com';
 ```
 
-Or run the seed script:
-
-```bash
-pnpm tsx src/server/scripts/seed-admin.ts
-```
-
-### Sections
-
 | Route | What it shows |
 |---|---|
-| `/admin/overview` | 8 KPI cards: total users, new today/week, active sessions, total prompts, prompts today, blocked today, injection attempts, total cost. 30-day daily prompts AreaChart (zero-filled). Plan distribution bars. |
-| `/admin/users` | Paginated user table with search and plan filter. Per-user: avatar, name, email, plan badge, prompt count, Gmail/Calendar integration status (coloured icons), join date, active/banned status. Ban/unban mutations with audit logging. Link to full profile. |
-| `/admin/users/[id]` | Full user profile: token usage bars, estimated cost, recent prompt logs, active sessions. |
-| `/admin/prompts` | Every `runChat()` call. Columns: user, plan badge, prompt (truncated), status badge, tokens, cost, duration, date+time (UTC AM/PM). Click to expand: raw prompt, enhanced prompt, AI reply, model, token breakdown, IP. Searchable and filterable by status. |
-| `/admin/security` | Injection attempts only (`injectionFlag = true`). `PromptSnapshot` cards: monospace prompt display with regex-highlighted danger phrases (`ignore.*instructions`, `act as`, `jailbreak`, `DAN mode`, `[INST]`, `<|im_start|>` etc). Red/amber border by status. |
-| `/admin/plans` | Total ₹ revenue, plan distribution, all payment orders with status. |
-| `/admin/sessions` | Active (non-expired) sessions. Per session: user, device type (mobile/tablet/desktop), browser, OS (parsed from user agent), IP address, start time, expiry — all in UTC AM/PM, `whitespace-nowrap`. |
-| `/admin/insights` | GPT-4.1 analyses the last 30 days of platform metrics and returns 5 insights with `critical` / `warning` / `info` severity badges. |
-
-### Admin tRPC procedures (`trpc.admin.*`)
-
-| Procedure | Type | Description |
-|---|---|---|
-| `getStats` | query | Overview KPIs + 30-day daily prompt chart data |
-| `listUsers` | query | Paginated users with plan, prompt count, per-integration status |
-| `getUser` | query | Full profile + token stats + recent prompts + sessions |
-| `banUser` | mutation | Sets `banned = true`, logs to `admin_audit_log` |
-| `unbanUser` | mutation | Clears ban, logs to `admin_audit_log` |
-| `changeUserPlan` | mutation | Updates `userPlans.plan`, logs to `admin_audit_log` |
-| `listPromptLogs` | query | Paginated logs with user + plan join, filter by status/injection/search |
-| `getPromptLog` | query | Single log with user details |
-| `listInjections` | query | `injectionFlag = true` rows only |
-| `listSessions` | query | Non-expired sessions with user join |
-| `listOrders` | query | Payment orders, filter by status |
-| `getAiInsights` | query | GPT-4.1 platform analysis, 5 insights with severity |
-| `listAuditLog` | query | Admin action history |
-
-### Injection detection
-
-`InputGuardrailTripwireTriggered` is caught in `runChat()` and logged with `injectionFlag: true`, `status: 'blocked_input'`. The `PromptSnapshot` component renders the raw prompt with client-side regex scanning — matched spans are wrapped in `<mark>` with `bg-red-500/25 text-red-300`. No real browser screenshot is taken (GDPR/IT Act compliance). The styled card captures more forensic detail than a screenshot.
-
-### Sessions device parsing
-
-`parseUA(ua)` in `/admin/sessions/page.tsx` extracts:
-- **Browser:** Edge / Chrome / Safari / Firefox / Opera
-- **OS:** Windows 11/10 / Windows / macOS / Android / iOS / Linux
-- **Device:** mobile / tablet / desktop (from iPhone/iPad/Android UA strings)
-
-Dates shown as `DD/MM/YY, HH:MM AM/PM UTC`.
+| `/admin/overview` | 8 KPI cards, 30-day prompts AreaChart, plan distribution |
+| `/admin/users` | User table — search, ban/unban, plan badge, integration status |
+| `/admin/users/[id]` | Full profile: token stats, usage bars, recent prompts, sessions |
+| `/admin/prompts` | All `runChat()` calls — expandable rows, searchable, filterable |
+| `/admin/security` | `injectionFlag = true` rows — regex-highlighted PromptSnapshot cards |
+| `/admin/plans` | Revenue totals, plan distribution, all payment orders |
+| `/admin/sessions` | Non-expired sessions — device, browser, OS, IP, expiry |
+| `/admin/insights` | GPT-4.1 platform analysis — 5 insights with critical/warning/info severity |
 
 ---
 
 ## Plans and Billing
 
-All plan limits are defined in `src/lib/plans.ts`.
+All limits defined in `src/lib/plans.ts`.
 
 | Tier | Price | AI Messages | Voice | Email Compose | Char Limit | Rate (req/min) |
 |---|---|---|---|---|---|---|
@@ -662,87 +589,113 @@ All plan limits are defined in `src/lib/plans.ts`.
 | Premium | ₹499 / month | 500 / month | 30 / month | 150 / month | 5,000 | 60 |
 | Enterprise | Custom | Unlimited | Unlimited | Unlimited | 10,000 | 120 |
 
-Usage counters (`messagesUsed`, `voiceUsed`, `composeUsed`) are stored in `user_plans`. `checkAndIncrement` atomically increments the counter. If `usageResetAt` has passed, all counters reset to zero before the check.
+### Invoice generation
 
-A free-plan row is created automatically on the first chat request. No extra step required beyond Google sign-in.
+Every paid order gets a downloadable PDF invoice at `/api/payments/invoice/[orderId]`. The invoice is generated server-side using `@react-pdf/renderer` and includes itemised subtotal, GST (18% extracted from inclusive price), Razorpay reference IDs, and a print-to-PDF button. Accessible from the `ExternalLink` icon in the billing page payment history.
+
+### Cancel subscription
+
+Users can cancel their subscription from `/dashboard/billing` (Cancel subscription button) or from `/pricing` (Get started free button when on a paid plan). Both flows show a confirmation dialog before executing the `plans.cancelSubscription` mutation, which immediately sets `plan = 'free'` and `subscriptionStatus = 'cancelled'`. No pro-rated refund logic — cancellation is effective immediately.
+
+### Usage counters
+
+`checkAndIncrement` atomically increments the relevant counter. If `usageResetAt` has passed, all counters reset to zero first. A free-plan row is created automatically on the first chat request.
 
 ---
 
 ## Rate Limiting and Quotas
 
-Rate limiting uses Upstash Redis with a sliding window algorithm, defined per plan tier in `src/lib/rate-limit.ts`.
+Upstash Redis sliding-window per user per plan tier. Per-request checks:
 
-In addition to per-minute rate limiting, every chat request checks:
-
-1. **Character limit** — enforced client-side (counter turns yellow → red) and server-side (400 with clear error).
-2. **Monthly message quota** — atomic increment, 429 when exhausted.
+1. **Character limit** — client-side counter + server-side 400.
+2. **Monthly message quota** — atomic increment, 429 on exhaustion.
 3. **Monthly voice quota** — incremented on each Whisper call.
-
-`MAX_PROMPT_CHARS` is exported from `src/lib/constants.ts` to keep the Redis client out of the browser bundle.
 
 ---
 
 ## Email Cache
 
-`GmailService.listInbox` uses a two-level cache strategy:
-
-1. **Cache read** — `corsair.gmail.db.messages.list({ limit })` reads from `corsair_entities`.
-2. **Freshness check** — if the most recent `updated_at` is within 3 minutes, return cached data sorted by `internalDate` desc.
-3. **Cache miss** — fetch from Gmail API, upsert each message via `corsair.gmail.db.messages.upsertByEntityId`.
-4. **Search bypass** — `q` parameter always bypasses cache and hits Gmail API directly.
-5. **Mutation eviction** — `trashMessage` and `modifyMessage` call `deleteByEntityId` to evict stale cache entries.
+`GmailService.listInbox` two-level strategy:
+1. Read from `corsair_entities` (Corsair entity DB).
+2. If most recent `updated_at` is within 3 minutes, return sorted by `internalDate` desc.
+3. On cache miss, fetch from Gmail API and upsert.
+4. `q` parameter always bypasses cache and hits Gmail API directly.
+5. `trashMessage` and `modifyMessage` call `deleteByEntityId` to evict stale entries.
 
 ---
 
 ## Voice Input
 
-1. User clicks the microphone button. Browser requests `getUserMedia({ audio: true })`.
-2. Recording starts via `MediaRecorder` (webm). 20-second hard limit.
-3. On stop, audio blob is sent as `multipart/form-data` to `/api/voice/transcribe`.
-4. Route checks and increments `voiceUsed`, calls `whisper-1`.
-5. Transcription is inserted into the chat input field.
+1. Microphone button → `getUserMedia({ audio: true })`.
+2. `MediaRecorder` (webm), 20-second hard limit.
+3. Blob sent to `/api/voice/transcribe` as `multipart/form-data`.
+4. Checks/increments `voiceUsed`, calls `whisper-1`.
+5. Transcription inserted into chat input.
 
 ---
 
 ## Payment Integration
 
-Razorpay processes all payments. Lazy instantiation via `getRazorpay()` avoids build-time crashes during Vercel static page collection.
-
 ### Order flow
 
 1. User clicks upgrade on `/pricing` or `/dashboard/billing`.
-2. Browser calls `POST /api/payments/create-order` with `{ plan }`.
-3. Server creates Razorpay order, returns `{ orderId, amount, currency, keyId }`.
-4. Razorpay checkout modal opens.
-5. On payment success, Razorpay calls the handler with `{ razorpay_order_id, razorpay_payment_id, razorpay_signature }`.
-6. Browser sends to `POST /api/payments/verify`.
-7. Server verifies: `hmac_sha256(orderId + "|" + paymentId, RAZORPAY_KEY_SECRET)`.
-8. On success: plan upgraded, counters reset, redirect to `/dashboard/billing?upgraded=1`.
+2. `POST /api/payments/create-order` → Razorpay order created.
+3. Razorpay checkout modal opens in-browser.
+4. On success → `POST /api/payments/verify` → HMAC verified → plan upgraded.
+5. Redirect to `/dashboard/billing?upgraded=1` → success toast.
+6. Invoice PDF available at `/api/payments/invoice/{orderId}`.
 
 ### Webhook
 
-`POST /api/payments/webhook` handles `payment.captured` as a server-to-server backup. Verifies `X-Razorpay-Signature` using `RAZORPAY_WEBHOOK_SECRET`.
+`POST /api/payments/webhook` handles `payment.captured` as server-to-server backup. Verifies `X-Razorpay-Signature`.
+
+### Downgrade to free
+
+- From `/pricing`: clicking "Get started free" when on a paid plan shows an amber confirmation dialog. On confirm: `plans.cancelSubscription` → redirect to `/dashboard/billing`.
+- From `/dashboard/billing`: "Cancel subscription" shows a red confirmation dialog. On confirm: `plans.cancelSubscription` → success toast, plan card updates.
+
+---
+
+## Theming
+
+Yugati ships a full dark/light theme system built on Tailwind CSS 4 custom properties.
+
+### How it works
+
+- **Dark mode (default):** `:root` defines `--background: #000000` and the full zinc/blue/green color ladder as dark values.
+- **Light mode:** `:root[data-theme='light']` redefines all color tokens. The zinc scale is fully inverted (zinc-950 = `#faf6ec` cream, zinc-50 = dark ink). Blue remaps to near-black ink (`#211d16`) maintaining the paper aesthetic. Green softens to earthy sage.
+- **Body:** `background-color: var(--background); color: var(--foreground)` ensures every page inherits the theme without per-page overrides.
+- **Toggle:** `ThemeToggle` component (icon-only, no text label) sets `data-theme='light'` on `<html>` and persists to `localStorage`.
+
+### Special-case overrides
+
+Several components need explicit fixes because their colours don't remap cleanly:
+
+| Component | Fix |
+|---|---|
+| Switch thumb | `style={{ backgroundColor: '#ffffff' }}` — bypasses theme remapping |
+| Switch track | `--switch-on: #3b82f6` / `--switch-off: #cfc5ab` — explicit CSS vars |
+| Progress bars | Inline `style` with hardcoded hex (`#3b82f6`, `#ef4444`, `#eab308`) |
+| Category tab badges | `.tab-badge` class + light-mode overrides in `globals.css` |
+| Primary action buttons (`bg-white`) | Global rule → warm espresso (`#5c4535`) in light mode |
+| Overlay scrims (`bg-black/60`) | Remapped to warm dark `rgba(35,31,22,0.45)` |
+| Calendar event pills | Soft pastels via `.cal-event.bg-*` overrides |
 
 ---
 
 ## Middleware
 
-`src/proxy.ts` runs on every request except `_next/static`, `_next/image`, `favicon.ico`, and `api/auth` routes.
+`src/proxy.ts` runs on every request except static assets and `api/auth` routes.
 
-Checks both cookie names:
-- `better-auth.session_token` (HTTP / development)
-- `__Secure-better-auth.session_token` (HTTPS / production)
-
-Rules:
-- Unauthenticated → `/dashboard/*` or `/admin/*`: redirect to `/`
-- Authenticated → `/`: redirect to `/dashboard`
-- All other requests: pass through
+- Checks `better-auth.session_token` (HTTP) and `__Secure-better-auth.session_token` (HTTPS).
+- Unauthenticated → `/dashboard/*` or `/admin/*`: redirect to `/`.
+- Authenticated → `/`: redirect to `/dashboard`.
 
 ---
 
 ## Testing
 
-Tests are written with [Vitest](https://vitest.dev/) and live in `src/__tests__/`. They cover pure/unit-testable modules — no database, no network, no OpenAI calls.
+[Vitest](https://vitest.dev/). No database, no network, no OpenAI calls.
 
 ```bash
 pnpm test              # run once
@@ -754,21 +707,19 @@ pnpm test:coverage     # coverage report (v8)
 
 | File | What's covered |
 |---|---|
-| `lib/utils.test.ts` | `cn()` — merges, deduplicates Tailwind classes, handles falsy values |
-| `lib/plans.test.ts` | PLANS data integrity — prices, paise = priceInr×100, tier ordering, required fields |
-| `lib/razorpay.test.ts` | `verifyPaymentSignature` + `verifyWebhookSignature` — valid HMAC, tampered signature, wrong-length guard |
-| `lib/schemas.test.ts` | `idSchema`, `emailSchema`, `isoDateTimeSchema`, `isoDateSchema` — valid and invalid inputs |
-| `agent/sensitive-patterns.test.ts` | SENSITIVE_PATTERNS — Bearer tokens, PEM headers, base64 blobs, safe content passes |
-| `agent/output-guardrail.test.ts` | `sensitiveDataGuardrail.execute` — clean output, token leak, PEM key, object output |
-| `agent/enhancer.test.ts` | `needsEnhancement()` — short messages / email addresses / follow-ups skip; long first messages enhance |
-
-Env vars required by Zod at import time are stubbed via `vi.mock('@/env', ...)` in the razorpay test. No real secrets are needed to run the suite.
+| `lib/utils.test.ts` | `cn()` — merges, deduplicates Tailwind classes |
+| `lib/plans.test.ts` | PLANS data integrity — prices, paise, tier ordering |
+| `lib/razorpay.test.ts` | `verifyPaymentSignature` + `verifyWebhookSignature` |
+| `lib/schemas.test.ts` | `idSchema`, `emailSchema`, date schemas |
+| `agent/sensitive-patterns.test.ts` | SENSITIVE_PATTERNS regex coverage |
+| `agent/output-guardrail.test.ts` | `sensitiveDataGuardrail.execute` |
+| `agent/enhancer.test.ts` | `needsEnhancement()` — skip heuristic cases |
 
 ---
 
 ## CI/CD
 
-GitHub Actions workflow at `.github/workflows/ci.yml` runs on every push and pull request to `main`.
+GitHub Actions at `.github/workflows/ci.yml`. Runs on every push and PR to `main`.
 
 ```
 push / PR to main
@@ -779,35 +730,34 @@ push / PR to main
   └─ build         next build  (only after lint + test pass)
 ```
 
-- **Concurrency:** in-progress runs on the same ref are cancelled when a new push arrives.
-- **Node version:** 22 (satisfies pnpm v11's `>=22.13` requirement).
-- **pnpm version:** 11 (pinned via `pnpm/action-setup@v4`).
-- **Env vars:** build step stubs all required vars so Zod validation passes without real credentials.
+- In-progress runs on the same ref are cancelled on new push.
+- Node 22, pnpm 11.
+- Build step stubs all required env vars for Zod validation.
 
 ---
 
 ## Environment Variables
 
-All variables are validated at startup via Zod in `src/env.ts`. Missing required variables throw at boot with a descriptive error.
+All validated at startup via Zod in `src/env.ts`.
 
 ### Required
 
 | Variable | Description |
 |---|---|
-| `DATABASE_URL` | Supabase PostgreSQL pooler URL (port 6543) for application queries |
+| `DATABASE_URL` | Supabase PostgreSQL pooler URL (port 6543) |
 | `DIRECT_URL` | Supabase PostgreSQL direct URL (port 5432) for migrations |
 | `CORSAIR_KEK` | Key Encryption Key for Corsair credential encryption |
 | `GOOGLE_CLIENT_ID` | Google OAuth 2.0 client ID |
 | `GOOGLE_CLIENT_SECRET` | Google OAuth 2.0 client secret |
-| `BETTER_AUTH_SECRET` | Secret for better-auth session signing (min 32 random bytes) |
-| `NEXT_PUBLIC_APP_URL` | Full public URL (e.g. `https://www.yugati.in`). Defaults to `http://localhost:3000`. |
-| `OPENAI_API_KEY` | OpenAI API key — used for GPT-4.1, GPT-4.1-nano, Whisper-1 |
+| `BETTER_AUTH_SECRET` | Secret for better-auth session signing (min 32 bytes) |
+| `NEXT_PUBLIC_APP_URL` | Full public URL (e.g. `https://www.yugati.in`) |
+| `OPENAI_API_KEY` | OpenAI API key — GPT-4.1, GPT-4.1-nano, Whisper-1 |
 
 ### Rate limiting
 
 | Variable | Description |
 |---|---|
-| `UPSTASH_REDIS_REST_URL` | Upstash Redis REST endpoint URL |
+| `UPSTASH_REDIS_REST_URL` | Upstash Redis REST endpoint |
 | `UPSTASH_REDIS_REST_TOKEN` | Upstash Redis REST token |
 
 ### Payments
@@ -818,6 +768,12 @@ All variables are validated at startup via Zod in `src/env.ts`. Missing required
 | `RAZORPAY_KEY_SECRET` | Razorpay API key secret |
 | `RAZORPAY_WEBHOOK_SECRET` | Razorpay webhook signature secret |
 
+### Webhooks (optional)
+
+| Variable | Description |
+|---|---|
+| `GMAIL_PUBSUB_TOPIC` | Google Pub/Sub topic name for Gmail push notifications |
+
 ---
 
 ## Local Development
@@ -827,7 +783,7 @@ All variables are validated at startup via Zod in `src/env.ts`. Missing required
 - Node.js 22+
 - pnpm 11+
 - Supabase project or local PostgreSQL
-- Google Cloud project with OAuth 2.0 credentials (see scopes below)
+- Google Cloud project with OAuth 2.0 credentials
 - Upstash Redis database (free tier sufficient)
 - Razorpay account (optional — only for payment testing)
 
@@ -845,7 +801,7 @@ App available at `http://localhost:3000`.
 
 ### Google OAuth setup
 
-In Google Cloud Console → OAuth 2.0 client → Authorised JavaScript origins:
+Authorised JavaScript origins:
 ```
 http://localhost:3000
 https://www.yugati.in
@@ -858,9 +814,6 @@ http://localhost:3000/api/corsair/callback
 https://www.yugati.in/api/auth/callback/google
 https://www.yugati.in/api/corsair/callback
 ```
-
-`/api/auth/callback/google` — better-auth sign-in flow.
-`/api/corsair/callback` — Corsair integration OAuth flow.
 
 Required OAuth scopes:
 ```
@@ -875,18 +828,15 @@ https://www.googleapis.com/auth/userinfo.profile
 
 ### Setting up admin access
 
-Sign in with the target email at least once, then either run the seed script or set via SQL:
-
 ```bash
 pnpm tsx src/server/scripts/seed-admin.ts
 ```
 
 ```sql
--- Manual promotion
 UPDATE "user" SET role = 'admin' WHERE email = 'your@email.com';
 ```
 
-Navigate to `/admin` or click the Admin link in the sidebar (only visible to admin users).
+Navigate to `/admin` or click the Admin link in the sidebar.
 
 ---
 
@@ -906,37 +856,28 @@ pnpm db:migrate
 pnpm db:studio
 ```
 
-If `drizzle.config.js` doesn't load `.env.local` automatically:
-
-```bash
-DATABASE_URL="postgresql://..." DIRECT_URL="postgresql://..." pnpm db:push
-```
-
-Use the pooler URL (port 6543) for `DATABASE_URL` at runtime. Use the direct URL (port 5432) for `DIRECT_URL` for DDL operations — Supabase requires a non-pooled connection for schema changes.
+Use the pooler URL (port 6543) for `DATABASE_URL` at runtime. Use the direct URL (port 5432) for `DIRECT_URL` for DDL — Supabase requires a non-pooled connection for schema changes.
 
 ---
 
 ## Deployment
 
-Deployed on Vercel. All API routes with Node.js-only modules export `export const runtime = 'nodejs'`.
+Deployed on Vercel. All API routes with Node.js-only modules export `export const runtime = 'nodejs'` (required for `@react-pdf/renderer` and other native modules).
 
 ### Vercel environment variables
 
-Set all variables from [Environment Variables](#environment-variables) under Settings → Environment Variables.
+Set all variables from [Environment Variables](#environment-variables).
 
-- `NEXT_PUBLIC_APP_URL` must be the production domain for better-auth to construct correct OAuth redirect URLs.
+- `NEXT_PUBLIC_APP_URL` must be the production domain.
 - `DATABASE_URL` must be the pooler URL (port 6543).
-- `DIRECT_URL` (port 5432) only needed if running migrations from CI.
 
 ### Razorpay webhook
-
-Create a webhook in the Razorpay dashboard pointing to:
 
 ```
 https://www.yugati.in/api/payments/webhook
 ```
 
-Enable the `payment.captured` event. Copy the webhook secret to `RAZORPAY_WEBHOOK_SECRET` in Vercel.
+Enable `payment.captured`. Copy the webhook secret to `RAZORPAY_WEBHOOK_SECRET`.
 
 ### Build
 
@@ -944,4 +885,4 @@ Enable the `payment.captured` event. Copy the webhook secret to `RAZORPAY_WEBHOO
 pnpm build
 ```
 
-Build fails if required environment variables are missing. Razorpay is lazily instantiated to prevent failures during Vercel's static page collection phase, which runs without payment variables.
+Build fails if required environment variables are missing. Razorpay is lazily instantiated to avoid failures during Vercel's static collection phase.

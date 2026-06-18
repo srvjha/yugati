@@ -8,7 +8,7 @@ import {
   TrendingUp, AlertTriangle, Clock, RefreshCw,
 } from 'lucide-react';
 import {
-  AreaChart, Area, BarChart, Bar, XAxis, YAxis,
+  AreaChart, Area, XAxis, YAxis,
   Tooltip, ResponsiveContainer, CartesianGrid,
 } from 'recharts';
 

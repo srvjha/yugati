@@ -33,10 +33,6 @@ function last30Days(): string[] {
   return days;
 }
 
-function last7Days(): string[] {
-  return last30Days().slice(-7);
-}
-
 function minutesBetween(start?: string, end?: string): number {
   if (!start || !end) return 0;
   return Math.max(0, (new Date(end).getTime() - new Date(start).getTime()) / 60_000);

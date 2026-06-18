@@ -1,7 +1,7 @@
 "use client";
 
-import { useState, useMemo, useEffect } from "react";
-import { useSearchParams, useRouter } from "next/navigation";
+import { useState, useMemo, useEffect, startTransition } from "react";
+import { useRouter } from "next/navigation";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { useTRPC } from "@/trpc/client";
@@ -78,7 +78,6 @@ type SessionUser = {
 
 export default function MailPage() {
   const trpc = useTRPC();
-  const searchParams = useSearchParams();
   const router = useRouter();
   const { data: authData } = useSession();
   const user = authData?.user as SessionUser | undefined;
@@ -97,16 +96,21 @@ export default function MailPage() {
   const [showSubscriptions, setShowSubscriptions] = useState(false);
   const [fetchedCount, setFetchedCount] = useState(20);
 
-  // Restore mode + reply context from localStorage after hydration (avoids SSR mismatch)
+  // Restore mode + reply context from localStorage after hydration (avoids SSR mismatch).
+  // startTransition defers the state updates so they don't cascade synchronously in the effect.
   useEffect(() => {
     const replyPrompt = popReplyContext();
     if (replyPrompt) {
-      setChatMode(true);
-      setSummarizePrompt(replyPrompt);
+      startTransition(() => {
+        setChatMode(true);
+        setSummarizePrompt(replyPrompt);
+      });
       return;
     }
     try {
-      if (localStorage.getItem("yugati_mail_mode") === "chat") setChatMode(true);
+      if (localStorage.getItem("yugati_mail_mode") === "chat") {
+        startTransition(() => setChatMode(true));
+      }
     } catch {}
   }, []);
 
@@ -244,10 +248,6 @@ export default function MailPage() {
     description: string;
     onConfirm: () => Promise<void>;
   } | null>(null);
-
-  useEffect(() => {
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
 
   useEffect(() => {
     function handler(e: KeyboardEvent) {

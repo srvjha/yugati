@@ -175,7 +175,7 @@ export function CalendarView({ userName }: { userName?: string }) {
   const [month, setMonth] = useState(today.getMonth());
   const [day,   setDay]   = useState(today.getDate());
 
-  const { preview, show: showPreview, showDay: showDayPreview, hide: hidePreview, cancelHide } = useEventPreview();
+  const { preview, show: showPreview, hide: hidePreview, cancelHide } = useEventPreview();
 
   const [modeOpen,      setModeOpen]      = useState(false);
   const [aiOpen,        setAiOpen]        = useState(false);
@@ -638,7 +638,7 @@ function WeekView({
                       const endMin   = ev.end?.dateTime ? minutesFromMidnight(ev.end.dateTime) : startMin + 60;
                       const top      = (startMin / 60) * HOUR_HEIGHT;
                       const height   = Math.max(((endMin - startMin) / 60) * HOUR_HEIGHT - 2, 22);
-                      const { border, dot } = eventAccent(ev.id);
+                      const { dot } = eventAccent(ev.id);
                       const isShort  = height < 44;
 
                       return (
@@ -1452,12 +1452,6 @@ function EventPreviewCard({
     ? `${fmtTime(startDt)}${endDt ? ` – ${fmtTime(endDt)}` : ''}`
     : isAllDay ? 'All day' : '';
 
-  const dateStr = startDt
-    ? new Date(startDt).toLocaleDateString('en-IN', { weekday: 'short', month: 'short', day: 'numeric' })
-    : event.start?.date
-      ? new Date(`${event.start.date}T12:00:00`).toLocaleDateString('en-IN', { weekday: 'short', month: 'short', day: 'numeric' })
-      : '';
-
   const { dot } = eventAccent(event.id);
   const firstAttendee = event.attendees?.[0];
   const avatarLabel = (firstAttendee?.displayName ?? firstAttendee?.email ?? '?')[0]?.toUpperCase();
@@ -1500,80 +1494,6 @@ function EventPreviewCard({
           </div>
         )}
       </div>
-    </div>
-  );
-}
-
-// ─── Day hover preview card (month view) ─────────────────────────────────────
-
-function DayPreviewCard({
-  date, events, pos, onMouseEnter, onMouseLeave,
-}: {
-  date: Date;
-  events: CalEvent[];
-  pos: PreviewPos;
-  onMouseEnter: () => void;
-  onMouseLeave: () => void;
-}) {
-  const cardRef = useRef<HTMLDivElement>(null);
-  const [adjusted, setAdjusted] = useState(pos);
-
-  useEffect(() => {
-    const el = cardRef.current;
-    if (!el) return;
-    const { width, height } = el.getBoundingClientRect();
-    const vw = window.innerWidth;
-    const vh = window.innerHeight;
-    let x = pos.x + 14;
-    let y = pos.y - 8;
-    if (x + width > vw - 16)  x = pos.x - width - 14;
-    if (y + height > vh - 16) y = vh - height - 16;
-    if (y < 8) y = 8;
-    setAdjusted({ x, y });
-  }, [pos]);
-
-  const dateLabel = date.toLocaleDateString('en-IN', { weekday: 'long', month: 'long', day: 'numeric' });
-  const timedEvents  = events.filter((e) => !!e.start?.dateTime).sort((a, b) => {
-    const at = new Date(a.start!.dateTime!).getTime();
-    const bt = new Date(b.start!.dateTime!).getTime();
-    return at - bt;
-  });
-  const allDayEvents = events.filter((e) => !e.start?.dateTime);
-
-  return (
-    <div
-      ref={cardRef}
-      onMouseEnter={onMouseEnter}
-      onMouseLeave={onMouseLeave}
-      className="fixed z-[100] w-64 bg-zinc-900 border border-zinc-700 rounded-2xl shadow-2xl shadow-black/60 overflow-hidden pointer-events-auto"
-      style={{ left: adjusted.x, top: adjusted.y }}
-    >
-      <div className="px-4 py-3 border-b border-zinc-800">
-        <p className="text-xs font-semibold text-zinc-200">{dateLabel}</p>
-        <p className="text-[10px] text-zinc-600 mt-0.5">
-          {events.length === 0 ? 'No events' : `${events.length} event${events.length !== 1 ? 's' : ''}`}
-        </p>
-      </div>
-      {events.length === 0 ? (
-        <div className="px-4 py-4 text-xs text-zinc-600 text-center">Click to create an event</div>
-      ) : (
-        <div className="px-3 py-2.5 space-y-1.5 max-h-52 overflow-y-auto">
-          {allDayEvents.map((ev) => (
-            <div key={ev.id} className="flex items-center gap-2">
-              <div className={`w-1.5 h-1.5 rounded-full ${eventAccent(ev.id).dot} shrink-0`} />
-              <span className="text-xs text-zinc-300 truncate">{ev.summary ?? '(no title)'}</span>
-              <span className="text-[10px] text-zinc-600 shrink-0">All day</span>
-            </div>
-          ))}
-          {timedEvents.map((ev) => (
-            <div key={ev.id} className="flex items-center gap-2">
-              <div className={`w-1.5 h-1.5 rounded-full ${eventAccent(ev.id).dot} shrink-0`} />
-              <span className="text-xs text-zinc-300 truncate flex-1">{ev.summary ?? '(no title)'}</span>
-              <span className="text-[10px] text-zinc-500 shrink-0">{fmtTime(ev.start?.dateTime)}</span>
-            </div>
-          ))}
-        </div>
-      )}
     </div>
   );
 }

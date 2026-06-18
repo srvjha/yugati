@@ -270,7 +270,7 @@ export function OverviewView({ userName }: { userName?: string }) {
               {Object.entries(FOCUS_META).map(([id, meta]) => {
                 const active = draft.has(id);
                 return (
-                  <button key={id} onClick={() => setDraft((prev) => { const next = new Set(prev); next.has(id) ? next.delete(id) : next.add(id); return next; })}
+                  <button key={id} onClick={() => setDraft((prev) => { const next = new Set(prev); if (next.has(id)) { next.delete(id); } else { next.add(id); } return next; })}
                     className={`text-left px-4 py-3 rounded-xl border transition-all ${active ? 'bg-white/8 border-white/20 ring-1 ring-white/10' : 'bg-zinc-900/60 border-zinc-800/60 hover:border-zinc-700'}`}
                   >
                     <div className="flex items-center justify-between mb-1.5">

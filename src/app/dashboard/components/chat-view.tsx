@@ -1,12 +1,12 @@
 'use client';
 
-import { useState, useRef, useEffect, useCallback } from 'react';
+import { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import {
   ArrowUp, Loader2, Mail, Calendar, Zap,
   Copy, RefreshCw, Pencil, Check, Plus, MessageSquare,
-  Maximize2, Minimize2, Trash2, X, Mic, MicOff, Square, PanelLeftClose,
+  Maximize2, Minimize2, Trash2, Mic, MicOff, Square, PanelLeftClose,
 } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 import { useTRPC }  from '@/trpc/client';
@@ -430,7 +430,6 @@ export function ChatView({
 
   const voice = useVoiceInput((transcript) => { void submit(transcript); });
   const [copiedId,         setCopiedId]         = useState<string | null>(null);
-  const [hoveredMsgId,     setHoveredMsgId]     = useState<string | null>(null);
   const [editingSessionId, setEditingSessionId] = useState<string | null>(null);
   const [editSessionTitle, setEditSessionTitle] = useState('');
 
@@ -442,7 +441,7 @@ export function ChatView({
 
 
   const activeSession  = sessions.find((s) => s.id === activeId);
-  const messages       = activeSession?.messages ?? [];
+  const messages       = useMemo(() => activeSession?.messages ?? [], [activeSession]);
   const sidebarVisible = sidebarOpen;
   const lastQuery      = [...messages].reverse().find((m) => m.role === 'user')?.content ?? '';
   const fillerText     = useFillerText(isLoading, lastQuery);
@@ -877,8 +876,6 @@ export function ChatView({
                 <div
                   key={msg.id}
                   className="group"
-                  onMouseEnter={() => setHoveredMsgId(msg.id)}
-                  onMouseLeave={() => setHoveredMsgId(null)}
                 >
                   {msg.role === 'user' ? (
 

@@ -3,9 +3,7 @@ import { randomUUID } from 'crypto';
 import { z } from 'zod';
 import { db } from '@/server/db';
 import { user, session, userPlans, userPreferences, orders, adminPromptLogs, adminAuditLog, corsairAccounts, corsairIntegrations } from '@/server/db/schema';
-import { eq, desc, and, like, or, count, sum, sql, gte, lte, ne, inArray } from 'drizzle-orm';
-import { auth } from '@/lib/auth';
-import { PLANS } from '@/lib/plans';
+import { eq, desc, and, like, or, count, sum, sql, gte, ne, inArray } from 'drizzle-orm';
 import type { TRPCContext } from '../types';
 import OpenAI from 'openai';
 

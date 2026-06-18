@@ -330,7 +330,6 @@ export function ComposeModal({
   );
 
   function execFormat(cmd: string, value?: string) {
-    // eslint-disable-next-line @typescript-eslint/no-deprecated
     document.execCommand(cmd, false, value ?? "");
     editorRef.current?.focus();
   }

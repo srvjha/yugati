@@ -3,7 +3,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useTRPC } from '@/trpc/client';
 import { useParams, useRouter } from 'next/navigation';
-import { ArrowLeft, Shield, MessageSquare, CreditCard, Monitor, Cpu, DollarSign } from 'lucide-react';
+import { ArrowLeft, MessageSquare, CreditCard, Monitor, Cpu, DollarSign } from 'lucide-react';
 import Image from 'next/image';
 
 const PLAN_COLORS: Record<string, string> = {

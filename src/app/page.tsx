@@ -350,8 +350,7 @@ const MOCK_EVENTS = [
 
 const INBOX_FOLDERS  = ['Primary', 'Promotions', 'Social', 'Updates'] as const;
 const OTHER_FOLDERS  = ['Sent', 'Drafts', 'Spam'] as const;
-const ALL_FOLDERS    = [...INBOX_FOLDERS, ...OTHER_FOLDERS] as const;
-type  Folder         = typeof ALL_FOLDERS[number];
+type  Folder         = typeof INBOX_FOLDERS[number] | typeof OTHER_FOLDERS[number];
 
 // Flowing dashed-line SVG paths — Corsair-style decorative arcs
 function DashedPaths() {
