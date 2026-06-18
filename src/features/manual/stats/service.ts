@@ -369,7 +369,7 @@ Give exactly 3 short insight bullets (one sentence each, no markdown). Each shou
 
   async getConnectionStatus() {
     const rows = await db
-      .select({ name: corsairIntegrations.name })
+      .select({ name: corsairIntegrations.name, config: corsairAccounts.config })
       .from(corsairAccounts)
       .innerJoin(corsairIntegrations, eq(corsairAccounts.integrationId, corsairIntegrations.id))
       .where(
@@ -378,7 +378,13 @@ Give exactly 3 short insight bullets (one sentence each, no markdown). Each shou
           inArray(corsairIntegrations.name, ['gmail', 'googlecalendar']),
         ),
       );
-    const connected = new Set(rows.map((r) => r.name));
+    // A provisioned-but-never-authorized account has an empty config ({}).
+    // Only count it as connected once OAuth tokens have been stored.
+    const connected = new Set(
+      rows
+        .filter((r) => Object.keys(r.config as Record<string, unknown>).length > 0)
+        .map((r) => r.name),
+    );
     return { gmail: connected.has('gmail'), googlecalendar: connected.has('googlecalendar') };
   }
 }

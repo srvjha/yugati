@@ -8,7 +8,6 @@ import {
   Plus, Sparkles, Tag,
 } from 'lucide-react';
 import { useState, useRef, KeyboardEvent, useEffect } from 'react';
-import { useSearchParams, useRouter } from 'next/navigation';
 import { toast } from 'sonner';
 
 function GmailIcon({ size = 20 }: { size?: number }) {
@@ -495,21 +494,21 @@ export function IntegrationsView({
   });
 
   const [showPrefs, setShowPrefs] = useState(false);
-  const searchParams = useSearchParams();
-  const router = useRouter();
 
   useEffect(() => {
-    if (searchParams.get('connected') === '1') {
-      toast.success('Integration connected!');
-      router.replace('/dashboard/integrations');
-      void refetch();
+    function onMessage(e: MessageEvent) {
+      if (e.origin !== window.location.origin) return;
+      if (e.data?.type !== 'yugati_oauth') return;
+      if (e.data.error) {
+        toast.error('Failed to connect integration.');
+      } else {
+        toast.success('Integration connected!');
+        void refetch();
+      }
     }
-    if (searchParams.get('error') === 'connect_failed') {
-      toast.error('Failed to connect integration.');
-      router.replace('/dashboard/integrations');
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+    window.addEventListener('message', onMessage);
+    return () => window.removeEventListener('message', onMessage);
+  }, [refetch]);
 
   function handleOAuth(url: string) {
     openOAuthPopup(url, () => void refetch());

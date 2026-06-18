@@ -5,7 +5,7 @@ import { initCorsair }      from '@/server/corsair';
 import { IntegrationsView } from '../components/integrations-view';
 import { db }               from '@/server/db';
 import { corsairAccounts, corsairIntegrations } from '@/server/db/schema';
-import { eq }               from 'drizzle-orm';
+import { eq, and, inArray } from 'drizzle-orm';
 
 export default async function IntegrationsPage() {
   await initCorsair();
@@ -13,12 +13,21 @@ export default async function IntegrationsPage() {
   const userId  = session!.user.id;
 
   const rows = await db
-    .select({ name: corsairIntegrations.name })
+    .select({ name: corsairIntegrations.name, config: corsairAccounts.config })
     .from(corsairAccounts)
     .innerJoin(corsairIntegrations, eq(corsairAccounts.integrationId, corsairIntegrations.id))
-    .where(eq(corsairAccounts.tenantId, userId));
+    .where(
+      and(
+        eq(corsairAccounts.tenantId, userId),
+        inArray(corsairIntegrations.name, ['gmail', 'googlecalendar']),
+      ),
+    );
 
-  const connected = new Set(rows.map((r) => r.name));
+  const connected = new Set(
+    rows
+      .filter((r) => Object.keys(r.config as Record<string, unknown>).length > 0)
+      .map((r) => r.name),
+  );
 
   return (
     <div className="flex h-screen overflow-hidden bg-zinc-950 text-zinc-50">
