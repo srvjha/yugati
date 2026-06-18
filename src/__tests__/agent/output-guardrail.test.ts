@@ -1,9 +1,9 @@
 import { describe, it, expect } from 'vitest';
 import { sensitiveDataGuardrail } from '@/features/agent/guardrails';
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type ExecArgs = Parameters<typeof sensitiveDataGuardrail.execute>[0];
 const exec = (agentOutput: string) =>
-  sensitiveDataGuardrail.execute({ agentOutput } as any);
+  sensitiveDataGuardrail.execute({ agentOutput } as ExecArgs);
 
 describe('sensitiveDataGuardrail', () => {
   it('passes clean assistant output', async () => {

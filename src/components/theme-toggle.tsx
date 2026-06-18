@@ -20,12 +20,15 @@ export function applyTheme(theme: Theme) {
 /** Reads the current theme from the DOM (set during SSR from the theme
  *  cookie) and stays in sync with other toggles. */
 export function useTheme() {
-  const [theme, setTheme] = useState<Theme>('dark');
+  // Read the initial theme from the DOM attribute (set during SSR from the
+  // theme cookie) in the state initializer so it runs synchronously on mount
+  // and avoids a setState-in-effect that triggers a second render.
+  const [theme, setTheme] = useState<Theme>(() => {
+    if (typeof window === 'undefined') return 'dark';
+    return document.documentElement.getAttribute('data-theme') === 'light' ? 'light' : 'dark';
+  });
 
   useEffect(() => {
-    const current = document.documentElement.getAttribute('data-theme');
-    setTheme(current === 'light' ? 'light' : 'dark');
-
     const onChange = (e: Event) => setTheme((e as CustomEvent<Theme>).detail);
     window.addEventListener(EVENT, onChange as EventListener);
     return () => window.removeEventListener(EVENT, onChange as EventListener);

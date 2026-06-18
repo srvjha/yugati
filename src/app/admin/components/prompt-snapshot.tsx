@@ -33,7 +33,7 @@ function HighlightedPrompt({ text }: { text: string }) {
     /<\|im_start\|>|<\|im_end\|>/g,
   ];
 
-  let highlighted = text;
+  const highlighted = text;
   const matches: { start: number; end: number }[] = [];
 
   injectionPatterns.forEach((pattern) => {

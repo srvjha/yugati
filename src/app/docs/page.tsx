@@ -143,8 +143,8 @@ export default function DocsPage() {
                 </Step>
                 <Step n={4} title="Start a conversation">
                   Open <strong>Agentic</strong> in the sidebar and type your first request — for
-                  example: <em>"Summarise my unread emails from today"</em> or{' '}
-                  <em>"Schedule a 30-min call with Alex next Tuesday afternoon."</em>
+                  example: <em>&ldquo;Summarise my unread emails from today&rdquo;</em> or{' '}
+                  <em>&ldquo;Schedule a 30-min call with Alex next Tuesday afternoon.&rdquo;</em>
                 </Step>
               </ol>
             </Section>
@@ -272,8 +272,8 @@ export default function DocsPage() {
               <SubHeading>Timezone handling</SubHeading>
               <p>
                 Yugati uses your browser&apos;s detected timezone for display. When asking the
-                agent to schedule across time zones, be explicit: <em>"4pm EST"</em> or{' '}
-                <em>"noon in London"</em>. The agent passes the correct UTC offset to Google
+                agent to schedule across time zones, be explicit: <em>&ldquo;4pm EST&rdquo;</em> or{' '}
+                <em>&ldquo;noon in London&rdquo;</em>. The agent passes the correct UTC offset to Google
                 Calendar.
               </p>
             </Section>

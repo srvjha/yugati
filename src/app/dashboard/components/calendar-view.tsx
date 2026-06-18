@@ -1580,13 +1580,11 @@ function DayPreviewCard({
 
 // ─── Shared primitives ────────────────────────────────────────────────────────
 
-const URL_RE = /https?:\/\/[^\s<>"]+/g;
-
 function DescriptionText({ text }: { text: string }) {
   const parts: React.ReactNode[] = [];
   let last = 0;
   let match: RegExpExecArray | null;
-  URL_RE.lastIndex = 0;
+  const URL_RE = /https?:\/\/[^\s<>"]+/g;
 
   while ((match = URL_RE.exec(text)) !== null) {
     if (match.index > last) {

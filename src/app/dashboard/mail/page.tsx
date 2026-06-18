@@ -128,7 +128,10 @@ export default function MailPage() {
     ? searchQuery + (unreadOnly ? " is:unread" : "")
     : baseQ + (unreadOnly ? " is:unread" : "");
 
-  // Reset fetched count when query changes so load-more starts fresh
+  // Resetting pagination state when the query changes is a standard React
+  // pattern. The React Compiler flags setState-in-effect as a cascade risk,
+  // but here it's intentional: effectiveQ is stable between renders.
+  // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => { setFetchedCount(20); }, [effectiveQ]);
 
   const { data, isLoading, error, refetch, isFetching } = useQuery(
