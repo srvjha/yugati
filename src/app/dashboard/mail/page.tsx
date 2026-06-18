@@ -85,24 +85,7 @@ export default function MailPage() {
 
   const [collapsed, setCollapsed] = useState(false);
 
-  // Read browser storage once, synchronously, during first render to avoid
-  // cascading re-renders that setState-in-useEffect would cause.
-  const [_boot] = useState(() => {
-    const replyPrompt = popReplyContext();
-    const fromStorage = (() => {
-      try {
-        return localStorage.getItem("yugati_mail_mode") !== "manual";
-      } catch {
-        return true; // SSR can't read localStorage — match client default (agentic)
-      }
-    })();
-    return {
-      chatMode: replyPrompt !== null || fromStorage,
-      summarizePrompt: replyPrompt ?? undefined,
-    };
-  });
-
-  const [chatMode, setChatMode] = useState(_boot.chatMode);
+  const [chatMode, setChatMode] = useState(false);
   const [activeFolder, setActiveFolder] = useState<SidebarFolder>("inbox");
   const [activeTab, setActiveTab] = useState<InboxTab>("all");
   const [searchQuery, setSearchQuery] = useState("");
@@ -110,9 +93,22 @@ export default function MailPage() {
   const [paletteOpen, setPaletteOpen] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [unreadOnly, setUnreadOnly] = useState(false);
-  const [summarizePrompt, setSummarizePrompt] = useState<string | undefined>(_boot.summarizePrompt);
+  const [summarizePrompt, setSummarizePrompt] = useState<string | undefined>(undefined);
   const [showSubscriptions, setShowSubscriptions] = useState(false);
   const [fetchedCount, setFetchedCount] = useState(20);
+
+  // Restore mode + reply context from localStorage after hydration (avoids SSR mismatch)
+  useEffect(() => {
+    const replyPrompt = popReplyContext();
+    if (replyPrompt) {
+      setChatMode(true);
+      setSummarizePrompt(replyPrompt);
+      return;
+    }
+    try {
+      if (localStorage.getItem("yugati_mail_mode") === "chat") setChatMode(true);
+    } catch {}
+  }, []);
 
   useEffect(() => {
     try {

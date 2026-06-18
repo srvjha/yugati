@@ -66,7 +66,13 @@ export function MailInsightPanel() {
 
   const insights = insightsData?.insights?.slice(0, 3) ?? [];
   const urgentEmails = (urgentData?.messages ?? []) as EmailMsg[];
-  const events = ((calData?.items ?? []) as CalEvent[]).slice(0, 4);
+  const events = ((calData?.items ?? []) as CalEvent[])
+    .sort((a, b) => {
+      const ta = a.start?.dateTime ?? a.start?.date ?? '';
+      const tb = b.start?.dateTime ?? b.start?.date ?? '';
+      return ta < tb ? -1 : ta > tb ? 1 : 0;
+    })
+    .slice(0, 4);
   const calAuthError = (calError as { data?: { code?: string } } | null)?.data?.code === "UNAUTHORIZED";
 
   return (

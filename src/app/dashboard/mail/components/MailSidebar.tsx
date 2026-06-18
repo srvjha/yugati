@@ -84,7 +84,7 @@ function NavItem({
   badge?: number;
   isNew?: boolean;
 }) {
-  const cls = `mx-1.5 flex items-center gap-2.5 px-2 py-2.5 text-sm font-medium rounded-lg transition-colors text-left overflow-hidden
+  const cls = `w-full flex items-center gap-2.5 px-3.5 py-2 text-sm font-medium rounded-lg transition-colors text-left overflow-hidden
     ${active ? "bg-zinc-800 text-white" : "text-zinc-200 hover:text-white hover:bg-zinc-900"}
     ${collapsed ? "justify-center" : ""}`;
 
@@ -249,7 +249,7 @@ export function MailSidebar({
 
       {/* Nav */}
       <ScrollArea.Root className="flex-1 overflow-hidden">
-        <ScrollArea.Viewport className="h-full w-full py-2">
+        <ScrollArea.Viewport className="h-full w-full py-2 px-1.5 space-y-0.5">
           {SIDEBAR_FOLDERS.map((f) => (
             <NavItem
               key={f.id}

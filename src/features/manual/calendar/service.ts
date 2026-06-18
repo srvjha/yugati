@@ -9,12 +9,14 @@ export class CalendarService {
     this.c = corsair.withTenant(tenantId);
   }
 
-  listEvents(opts: { calendarId?: string; timeMin?: string; timeMax?: string; maxResults?: number } = {}) {
+  listEvents(opts: { calendarId?: string; timeMin?: string; timeMax?: string; maxResults?: number; singleEvents?: boolean } = {}) {
     return this.c.googlecalendar.api.events.getMany({
-      calendarId:  opts.calendarId ?? 'primary',
-      timeMin:     opts.timeMin,
-      timeMax:     opts.timeMax,
-      maxResults:  opts.maxResults ?? 20,
+      calendarId:   opts.calendarId ?? 'primary',
+      timeMin:      opts.timeMin,
+      timeMax:      opts.timeMax,
+      maxResults:   opts.maxResults ?? 20,
+      singleEvents: opts.singleEvents ?? true,
+      orderBy:      'startTime',
     });
   }
 
