@@ -1,6 +1,8 @@
 # Yugati
 
-**🔗 Live:** https://www.yugati.in · **📖 Docs:** https://www.yugati.in/docs · **🎬 Demo:** https://youtu.be/0iPLn7NM6K4
+- **Live:** https://www.yugati.in
+- **Docs:** https://www.yugati.in/docs
+- **Demo:** https://youtu.be/0iPLn7NM6K4
 
 ---
 
