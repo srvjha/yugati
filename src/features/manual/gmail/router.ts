@@ -114,7 +114,7 @@ export const gmailRouter = createTRPCRouter({
     .query(({ ctx, input }) => new GmailService(ctx.tenantId).listSubscriptions(input?.maxResults)),
 
   unsubscribeViaEmail: protectedProcedure
-    .input(z.object({ mailtoUrl: z.string().min(1) }))
+    .input(z.object({ mailtoUrl: z.string().startsWith('mailto:').max(2000) }))
     .mutation(({ ctx, input }) => new GmailService(ctx.tenantId).unsubscribeViaEmail(input.mailtoUrl)),
 
 });

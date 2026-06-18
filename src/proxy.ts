@@ -2,7 +2,7 @@ import { NextResponse, type NextRequest } from 'next/server';
 
 // better-auth uses __Secure- prefix on HTTPS (production), plain name on HTTP (dev)
 const SESSION_COOKIES = ['better-auth.session_token', '__Secure-better-auth.session_token'];
-const PROTECTED_PREFIXES = ['/dashboard'];
+const PROTECTED_PREFIXES = ['/dashboard', '/admin'];
 
 export function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;

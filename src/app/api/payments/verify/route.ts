@@ -3,8 +3,10 @@ import { headers }             from 'next/headers';
 import { verifyPaymentSignature } from '@/lib/razorpay';
 import { db }                  from '@/server/db';
 import { orders, userPlans }   from '@/server/db/schema';
+import { randomUUID }          from 'crypto';
 import { eq }                  from 'drizzle-orm';
 import { z }                   from 'zod';
+import { paymentLimiter }      from '@/lib/rate-limit';
 
 export const runtime = 'nodejs';
 
@@ -18,6 +20,9 @@ export async function POST(request: Request) {
   const session = await auth.api.getSession({ headers: await headers() });
   if (!session) return Response.json({ error: 'Unauthorized' }, { status: 401 });
 
+  const { success } = await paymentLimiter.limit(session.user.id);
+  if (!success) return Response.json({ error: 'Too many requests — slow down.' }, { status: 429 });
+
   const body = bodySchema.safeParse(await request.json());
   if (!body.success) return Response.json({ error: 'Invalid payload' }, { status: 400 });
 
@@ -30,6 +35,7 @@ export async function POST(request: Request) {
   if (!order || order.userId !== session.user.id) {
     return Response.json({ error: 'Order not found' }, { status: 404 });
   }
+  if (order.status === 'paid') return Response.json({ success: true, plan: order.plan });
 
   // Mark order as paid
   await db.update(orders).set({
@@ -57,7 +63,7 @@ export async function POST(request: Request) {
     }).where(eq(userPlans.userId, session.user.id));
   } else {
     await db.insert(userPlans).values({
-      id:                     Math.random().toString(36).slice(2) + Date.now().toString(36),
+      id:                     randomUUID(),
       userId:                 session.user.id,
       plan:                   order.plan,
       messagesUsed:           0,

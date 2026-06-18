@@ -4,6 +4,7 @@ import { env } from '@/env';
 import { setupCorsair } from 'corsair';
 import { generateOAuthUrl } from 'corsair/oauth';
 import { type NextRequest } from 'next/server';
+import { corsairLimiter } from '@/lib/rate-limit';
 
 const REDIRECT_URI = `${env.NEXT_PUBLIC_APP_URL}/api/corsair/callback`;
 const ALLOWED_PLUGINS = ['gmail', 'googlecalendar'] as const;
@@ -11,6 +12,9 @@ const ALLOWED_PLUGINS = ['gmail', 'googlecalendar'] as const;
 export async function GET(request: NextRequest) {
   const session = await auth.api.getSession({ headers: request.headers });
   if (!session) return Response.json({ error: 'Unauthorized' }, { status: 401 });
+
+  const { success } = await corsairLimiter.limit(session.user.id);
+  if (!success) return Response.json({ error: 'Too many requests — slow down.' }, { status: 429 });
 
   const plugin = request.nextUrl.searchParams.get('plugin');
   if (!plugin || !ALLOWED_PLUGINS.includes(plugin as (typeof ALLOWED_PLUGINS)[number])) {
@@ -27,8 +31,6 @@ export async function GET(request: NextRequest) {
     tenantId:    session.user.id,
     redirectUri: REDIRECT_URI,
   });
-
-  console.log('Redirecting to OAuth URL:', url);
 
   return Response.redirect(url);
 }

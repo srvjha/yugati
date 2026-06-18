@@ -1,14 +1,28 @@
 import { auth } from '@/lib/auth';
 import { streamChat } from '@/features/agent/agent';
-import type { ChatMessage } from '@/features/agent/types';
 import { initCorsair } from '@/server/corsair';
 import { headers } from 'next/headers';
 import { rateLimiters } from '@/lib/rate-limit';
 import { checkAndIncrement, getUserPlan } from '@/lib/usage';
 import { PLANS } from '@/lib/plans';
 import type { PlanId } from '@/lib/plans';
+import { z } from 'zod';
+import { db } from '@/server/db';
+import { user } from '@/server/db/schema';
+import { eq } from 'drizzle-orm';
 
 export const runtime = 'nodejs';
+
+const chatMessageSchema = z.object({
+  role:    z.enum(['user', 'assistant']),
+  content: z.string().max(20_000),
+});
+
+const bodySchema = z.object({
+  messages:       z.array(chatMessageSchema).min(1).max(100),
+  conversationId: z.string().uuid().optional(),
+  agentMode:      z.enum(['guided', 'auto']).optional(),
+});
 
 const enc = new TextEncoder();
 function sse(payload: Record<string, unknown>) {
@@ -21,11 +35,12 @@ export async function POST(request: Request) {
   const session = await auth.api.getSession({ headers: await headers() });
   if (!session) return Response.json({ error: 'Unauthorized' }, { status: 401 });
 
-  const { messages, conversationId, agentMode } = await request.json() as {
-    messages:        ChatMessage[];
-    conversationId?: string;
-    agentMode?:      'guided' | 'auto';
-  };
+  const parsed = bodySchema.safeParse(await request.json().catch(() => null));
+  if (!parsed.success) return Response.json({ error: 'Invalid request body' }, { status: 400 });
+  const { messages, conversationId, agentMode } = parsed.data;
+
+  const u = await db.query.user.findFirst({ where: eq(user.id, session.user.id), columns: { banned: true } });
+  if (u?.banned) return Response.json({ error: 'Account suspended' }, { status: 403 });
 
   // Per-plan character limit
   const userPlan  = await getUserPlan(session.user.id);

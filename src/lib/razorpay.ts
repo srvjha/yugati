@@ -20,12 +20,14 @@ export function getRazorpay(): Razorpay {
 
 // Verifies the payment signature returned from Razorpay checkout.
 export function verifyPaymentSignature(orderId: string, paymentId: string, signature: string) {
-  const body    = `${orderId}|${paymentId}`;
+  const body     = `${orderId}|${paymentId}`;
   const expected = crypto
     .createHmac('sha256', env.RAZORPAY_KEY_SECRET!)
     .update(body)
     .digest('hex');
-  return expected === signature;
+  try {
+    return crypto.timingSafeEqual(Buffer.from(expected, 'hex'), Buffer.from(signature, 'hex'));
+  } catch { return false; }
 }
 
 // Verifies the webhook signature from the X-Razorpay-Signature header.
@@ -35,5 +37,7 @@ export function verifyWebhookSignature(rawBody: string, signature: string) {
     .createHmac('sha256', env.RAZORPAY_WEBHOOK_SECRET)
     .update(rawBody)
     .digest('hex');
-  return expected === signature;
+  try {
+    return crypto.timingSafeEqual(Buffer.from(expected, 'hex'), Buffer.from(signature, 'hex'));
+  } catch { return false; }
 }

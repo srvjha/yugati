@@ -5,7 +5,7 @@ const schema = z.object({
   CORSAIR_KEK:              z.string().min(1),
   GOOGLE_CLIENT_ID:         z.string().min(1),
   GOOGLE_CLIENT_SECRET:     z.string().min(1),
-  BETTER_AUTH_SECRET:       z.string().min(1),
+  BETTER_AUTH_SECRET:       z.string().min(32, 'BETTER_AUTH_SECRET must be at least 32 characters'),
   NEXT_PUBLIC_APP_URL:      z.string().min(1).default("http://localhost:3000"),
   OPENAI_API_KEY:           z.string().min(1),
   UPSTASH_REDIS_REST_URL:   z.string().min(1).optional(),

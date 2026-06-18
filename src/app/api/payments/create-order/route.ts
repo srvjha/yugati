@@ -1,12 +1,14 @@
-import { auth }      from '@/lib/auth';
-import { headers }   from 'next/headers';
+import { auth }        from '@/lib/auth';
+import { headers }     from 'next/headers';
 import { getRazorpay } from '@/lib/razorpay';
-import { db }        from '@/server/db';
-import { orders }    from '@/server/db/schema';
-import { PLANS }     from '@/lib/plans';
-import { env }       from '@/env';
+import { db }          from '@/server/db';
+import { orders }      from '@/server/db/schema';
+import { randomUUID }  from 'crypto';
+import { PLANS }       from '@/lib/plans';
+import { env }         from '@/env';
 import type { PlanId } from '@/lib/plans';
-import { z }         from 'zod';
+import { z }           from 'zod';
+import { paymentLimiter } from '@/lib/rate-limit';
 
 export const runtime = 'nodejs';
 
@@ -15,6 +17,9 @@ const bodySchema = z.object({ plan: z.enum(['standard', 'premium']) });
 export async function POST(request: Request) {
   const session = await auth.api.getSession({ headers: await headers() });
   if (!session) return Response.json({ error: 'Unauthorized' }, { status: 401 });
+
+  const { success } = await paymentLimiter.limit(session.user.id);
+  if (!success) return Response.json({ error: 'Too many requests — slow down.' }, { status: 429 });
 
   const body = bodySchema.safeParse(await request.json());
   if (!body.success) return Response.json({ error: 'Invalid plan' }, { status: 400 });
@@ -31,7 +36,7 @@ export async function POST(request: Request) {
   });
 
   await db.insert(orders).values({
-    id:              Math.random().toString(36).slice(2) + Date.now().toString(36),
+    id:              randomUUID(),
     userId:          session.user.id,
     razorpayOrderId: rzpOrder.id,
     plan:            planId,

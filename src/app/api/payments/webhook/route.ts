@@ -2,10 +2,16 @@ import { verifyWebhookSignature } from '@/lib/razorpay';
 import { db }                     from '@/server/db';
 import { orders, userPlans }      from '@/server/db/schema';
 import { eq }                     from 'drizzle-orm';
+import { z }                      from 'zod';
+import { webhookLimiter }         from '@/lib/rate-limit';
 
 export const runtime = 'nodejs';
 
 export async function POST(request: Request) {
+  const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ?? 'unknown';
+  const { success } = await webhookLimiter.limit(ip);
+  if (!success) return Response.json({ error: 'Too many requests' }, { status: 429 });
+
   const rawBody  = await request.text();
   const signature = request.headers.get('x-razorpay-signature') ?? '';
 
@@ -13,13 +19,22 @@ export async function POST(request: Request) {
     return Response.json({ error: 'Invalid signature' }, { status: 400 });
   }
 
-  const event = JSON.parse(rawBody) as {
-    event: string;
-    payload: { payment: { entity: { order_id: string; id: string } } };
-  };
+  const webhookSchema = z.object({
+    event:   z.string(),
+    payload: z.object({
+      payment: z.object({
+        entity: z.object({ order_id: z.string(), id: z.string() }),
+      }),
+    }).optional(),
+  });
 
-  if (event.event === 'payment.captured') {
-    const { order_id: orderId, id: paymentId } = event.payload.payment.entity;
+  const event = webhookSchema.safeParse(JSON.parse(rawBody));
+  if (!event.success) return Response.json({ ok: true }); // silently ignore unknown shapes
+
+  if (event.data.event === 'payment.captured') {
+    const entity = event.data.payload?.payment?.entity;
+    if (!entity) return Response.json({ ok: true });
+    const { order_id: orderId, id: paymentId } = entity;
 
     const order = await db.query.orders.findFirst({ where: eq(orders.razorpayOrderId, orderId) });
     if (!order || order.status === 'paid') return Response.json({ ok: true });

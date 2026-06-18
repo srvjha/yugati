@@ -13,7 +13,7 @@ export const userRouter = createTRPCRouter({
   }),
 
   savePreferences: protectedProcedure
-    .input(z.object({ focuses: z.array(z.string()) }))
+    .input(z.object({ focuses: z.array(z.string().max(100)).max(20) }))
     .mutation(async ({ ctx, input }) => {
       await db
         .insert(userPreferences)

@@ -1,9 +1,8 @@
 import { db } from '@/server/db';
 import { adminPromptLogs } from '@/server/db/schema';
+import { randomUUID } from 'crypto';
 
-function uid() {
-  return Math.random().toString(36).slice(2) + Date.now().toString(36);
-}
+function uid() { return randomUUID(); }
 
 // Pricing per 1M tokens (USD). Approximate — update as OpenAI changes rates.
 const MODEL_PRICING: Record<string, { input: number; output: number }> = {

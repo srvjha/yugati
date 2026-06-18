@@ -143,6 +143,13 @@ export async function* streamChat(
       return;
     }
 
-    yield { type: 'error', message: err instanceof Error ? err.message : 'Internal server error', conversationId: id };
+    // Only surface safe, user-facing error messages — never raw API errors
+    const msg = err instanceof Error ? err.message : '';
+    const safeMessage = (
+      msg.startsWith('Agent timed out') ||
+      msg.startsWith('Rate limit reached') ||
+      msg.startsWith('That request pulled')
+    ) ? msg : 'Something went wrong — please try again.';
+    yield { type: 'error', message: safeMessage, conversationId: id };
   }
 }

@@ -1,8 +1,9 @@
 import { db }        from '@/server/db';
 import { userPlans }  from '@/server/db/schema';
-import { eq }         from 'drizzle-orm';
+import { eq, sql, and, lte } from 'drizzle-orm';
 import { PLANS }      from '@/lib/plans';
 import type { PlanId } from '@/lib/plans';
+import { randomUUID } from 'crypto';
 
 function nextResetDate() {
   const d = new Date();
@@ -10,9 +11,7 @@ function nextResetDate() {
   return d;
 }
 
-function uid() {
-  return Math.random().toString(36).slice(2) + Date.now().toString(36);
-}
+function uid() { return randomUUID(); }
 
 // Returns the user's plan row, creating a free-plan row if it doesn't exist yet.
 export async function getUserPlan(userId: string) {
@@ -59,15 +58,17 @@ export async function checkAndIncrement(userId: string, field: UsageField) {
                           : field === 'voiceUsed'    ? 'voice'
                           : 'compose'] as number;
 
-  const used = row[field];
+  // Atomic conditional increment: only increments when used < limit.
+  // Prevents TOCTOU races where concurrent requests all pass the read check.
+  const col = userPlans[field];
+  const updated = await db.update(userPlans)
+    .set({ [field]: sql`${col} + 1`, updatedAt: new Date() })
+    .where(and(eq(userPlans.userId, userId), lte(col, sql`${limit} - 1`)))
+    .returning({ used: col });
 
-  if (used >= limit) {
-    return { allowed: false, used, limit, plan };
+  if (!updated.length) {
+    return { allowed: false, used: row[field], limit, plan };
   }
 
-  await db.update(userPlans)
-    .set({ [field]: used + 1, updatedAt: new Date() })
-    .where(eq(userPlans.userId, userId));
-
-  return { allowed: true, used: used + 1, limit, plan };
+  return { allowed: true, used: updated[0]!.used, limit, plan };
 }

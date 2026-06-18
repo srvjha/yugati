@@ -1,6 +1,9 @@
 import { initTRPC, TRPCError } from '@trpc/server';
 import { AuthMissingError } from 'corsair';
 import { auth } from '@/lib/auth';
+import { db } from '@/server/db';
+import { user } from '@/server/db/schema';
+import { eq } from 'drizzle-orm';
 import type { TRPCContext, TRPCProtectedContext } from './types';
 
 // Catches both AuthMissingError and plain "Account not found" errors thrown when
@@ -40,6 +43,8 @@ function createTRPC() {
     if (!ctx.tenantId) {
       throw new TRPCError({ code: 'UNAUTHORIZED', message: 'Not authenticated' });
     }
+    const u = await db.query.user.findFirst({ where: eq(user.id, ctx.tenantId), columns: { banned: true } });
+    if (u?.banned) throw new TRPCError({ code: 'FORBIDDEN', message: 'Account suspended' });
     // In tRPC v11, next() returns { ok, error } — it does NOT throw on downstream errors.
     const result = await next({ ctx: ctx as TRPCProtectedContext });
     if (!result.ok) {

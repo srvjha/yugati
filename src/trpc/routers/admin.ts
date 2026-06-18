@@ -1,8 +1,9 @@
 import { initTRPC, TRPCError } from '@trpc/server';
+import { randomUUID } from 'crypto';
 import { z } from 'zod';
 import { db } from '@/server/db';
 import { user, session, userPlans, userPreferences, orders, adminPromptLogs, adminAuditLog, corsairAccounts, corsairIntegrations } from '@/server/db/schema';
-import { eq, desc, and, like, or, count, sum, sql, gte, lte, ne } from 'drizzle-orm';
+import { eq, desc, and, like, or, count, sum, sql, gte, lte, ne, inArray } from 'drizzle-orm';
 import { auth } from '@/lib/auth';
 import { PLANS } from '@/lib/plans';
 import type { TRPCContext } from '../types';
@@ -21,7 +22,7 @@ const adminProcedure = t.procedure.use(async ({ ctx, next }) => {
   return next({ ctx: { ...ctx, adminId: ctx.tenantId } });
 });
 
-function uid() { return Math.random().toString(36).slice(2) + Date.now().toString(36); }
+function uid() { return randomUUID(); }
 
 // ─── Router ───────────────────────────────────────────────────────────────────
 
@@ -102,16 +103,17 @@ export const adminRouter = t.router({
 
   listUsers: adminProcedure
     .input(z.object({
-      page:   z.number().default(1),
-      limit:  z.number().default(25),
-      search: z.string().optional(),
+      page:   z.number().int().min(1).default(1),
+      limit:  z.number().int().min(1).max(100).default(25),
+      search: z.string().max(200).optional(),
       plan:   z.string().optional(),
     }))
     .query(async ({ input }) => {
       const offset = (input.page - 1) * input.limit;
 
-      const where = input.search
-        ? or(like(user.name, `%${input.search}%`), like(user.email, `%${input.search}%`))
+      const escaped = input.search?.replace(/[%_\\]/g, '\\$&');
+      const where = escaped
+        ? or(like(user.name, `%${escaped}%`), like(user.email, `%${escaped}%`))
         : undefined;
 
       const [users, total] = await Promise.all([
@@ -120,17 +122,19 @@ export const adminRouter = t.router({
       ]);
 
       const userIds = users.map(u => u.id);
-      const [plans, prefs, promptCounts, corsairRows] = await Promise.all([
-        db.select().from(userPlans).where(sql`${userPlans.userId} = ANY(${sql.raw(`ARRAY[${userIds.map(id => `'${id}'`).join(',')}]`)})`),
-        db.select().from(userPreferences).where(sql`${userPreferences.userId} = ANY(${sql.raw(`ARRAY[${userIds.map(id => `'${id}'`).join(',')}]`)})`),
-        db.select({ userId: adminPromptLogs.userId, c: count() }).from(adminPromptLogs)
-          .where(sql`${adminPromptLogs.userId} = ANY(${sql.raw(`ARRAY[${userIds.map(id => `'${id}'`).join(',')}]`)})`)
-          .groupBy(adminPromptLogs.userId),
-        db.select({ tenantId: corsairAccounts.tenantId, name: corsairIntegrations.name })
-          .from(corsairAccounts)
-          .innerJoin(corsairIntegrations, eq(corsairAccounts.integrationId, corsairIntegrations.id))
-          .where(sql`${corsairAccounts.tenantId} = ANY(${sql.raw(`ARRAY[${userIds.map(id => `'${id}'`).join(',')}]`)})`),
-      ]);
+      const [plans, prefs, promptCounts, corsairRows] = userIds.length
+        ? await Promise.all([
+            db.select().from(userPlans).where(inArray(userPlans.userId, userIds)),
+            db.select().from(userPreferences).where(inArray(userPreferences.userId, userIds)),
+            db.select({ userId: adminPromptLogs.userId, c: count() }).from(adminPromptLogs)
+              .where(inArray(adminPromptLogs.userId, userIds))
+              .groupBy(adminPromptLogs.userId),
+            db.select({ tenantId: corsairAccounts.tenantId, name: corsairIntegrations.name })
+              .from(corsairAccounts)
+              .innerJoin(corsairIntegrations, eq(corsairAccounts.integrationId, corsairIntegrations.id))
+              .where(inArray(corsairAccounts.tenantId, userIds)),
+          ])
+        : [[], [], [], []];
 
       const planMap    = Object.fromEntries(plans.map(p => [p.userId, p]));
       const prefMap    = Object.fromEntries(prefs.map(p => [p.userId, p]));
@@ -216,12 +220,12 @@ export const adminRouter = t.router({
 
   listPromptLogs: adminProcedure
     .input(z.object({
-      page:      z.number().default(1),
-      limit:     z.number().default(30),
+      page:      z.number().int().min(1).default(1),
+      limit:     z.number().int().min(1).max(100).default(30),
       userId:    z.string().optional(),
       status:    z.enum(['ok', 'blocked_input', 'blocked_output', 'error', 'all']).default('all'),
       injection: z.boolean().optional(),
-      search:    z.string().optional(),
+      search:    z.string().max(200).optional(),
     }))
     .query(async ({ input }) => {
       const offset = (input.page - 1) * input.limit;
@@ -230,7 +234,10 @@ export const adminRouter = t.router({
       if (input.userId)              conditions.push(eq(adminPromptLogs.userId, input.userId));
       if (input.status !== 'all')    conditions.push(eq(adminPromptLogs.status, input.status));
       if (input.injection != null)   conditions.push(eq(adminPromptLogs.injectionFlag, input.injection));
-      if (input.search)              conditions.push(like(adminPromptLogs.rawPrompt, `%${input.search}%`));
+      if (input.search) {
+        const escapedSearch = input.search.replace(/[%_\\]/g, '\\$&');
+        conditions.push(like(adminPromptLogs.rawPrompt, `%${escapedSearch}%`));
+      }
 
       const where = conditions.length ? and(...conditions) : undefined;
 
@@ -244,9 +251,9 @@ export const adminRouter = t.router({
       const [users, plans] = userIds.length
         ? await Promise.all([
             db.select({ id: user.id, name: user.name, email: user.email, image: user.image }).from(user)
-              .where(sql`${user.id} = ANY(${sql.raw(`ARRAY[${userIds.map(id => `'${id}'`).join(',')}]`)})`),
+              .where(inArray(user.id, userIds)),
             db.select({ userId: userPlans.userId, plan: userPlans.plan }).from(userPlans)
-              .where(sql`${userPlans.userId} = ANY(${sql.raw(`ARRAY[${userIds.map(id => `'${id}'`).join(',')}]`)})`),
+              .where(inArray(userPlans.userId, userIds)),
           ])
         : [[], []];
       const userMap = Object.fromEntries(users.map(u => [u.id, u]));
@@ -271,7 +278,7 @@ export const adminRouter = t.router({
   // ── Sessions ────────────────────────────────────────────────────────────────
 
   listSessions: adminProcedure
-    .input(z.object({ page: z.number().default(1), limit: z.number().default(30) }))
+    .input(z.object({ page: z.number().int().min(1).default(1), limit: z.number().int().min(1).max(100).default(30) }))
     .query(async ({ input }) => {
       const offset = (input.page - 1) * input.limit;
       const now = new Date();
@@ -286,7 +293,7 @@ export const adminRouter = t.router({
       const userIds = [...new Set(sessions.map(s => s.userId))];
       const users = userIds.length
         ? await db.select({ id: user.id, name: user.name, email: user.email, image: user.image }).from(user)
-            .where(sql`${user.id} = ANY(${sql.raw(`ARRAY[${userIds.map(id => `'${id}'`).join(',')}]`)})`)
+            .where(inArray(user.id, userIds))
         : [];
       const userMap = Object.fromEntries(users.map(u => [u.id, u]));
 
@@ -301,8 +308,8 @@ export const adminRouter = t.router({
 
   listOrders: adminProcedure
     .input(z.object({
-      page:   z.number().default(1),
-      limit:  z.number().default(30),
+      page:   z.number().int().min(1).default(1),
+      limit:  z.number().int().min(1).max(100).default(30),
       status: z.enum(['all', 'paid', 'created', 'failed']).default('all'),
     }))
     .query(async ({ input }) => {
@@ -317,7 +324,7 @@ export const adminRouter = t.router({
       const userIds = [...new Set(rows.map(r => r.userId))];
       const users = userIds.length
         ? await db.select({ id: user.id, name: user.name, email: user.email }).from(user)
-            .where(sql`${user.id} = ANY(${sql.raw(`ARRAY[${userIds.map(id => `'${id}'`).join(',')}]`)})`)
+            .where(inArray(user.id, userIds))
         : [];
       const userMap = Object.fromEntries(users.map(u => [u.id, u]));
 
@@ -331,7 +338,7 @@ export const adminRouter = t.router({
   // ── Security flags ──────────────────────────────────────────────────────────
 
   listInjections: adminProcedure
-    .input(z.object({ page: z.number().default(1), limit: z.number().default(20) }))
+    .input(z.object({ page: z.number().int().min(1).default(1), limit: z.number().int().min(1).max(100).default(20) }))
     .query(async ({ input }) => {
       const offset = (input.page - 1) * input.limit;
 
@@ -346,7 +353,7 @@ export const adminRouter = t.router({
       const userIds = [...new Set(logs.map(l => l.userId))];
       const users = userIds.length
         ? await db.select({ id: user.id, name: user.name, email: user.email, image: user.image }).from(user)
-            .where(sql`${user.id} = ANY(${sql.raw(`ARRAY[${userIds.map(id => `'${id}'`).join(',')}]`)})`)
+            .where(inArray(user.id, userIds))
         : [];
       const userMap = Object.fromEntries(users.map(u => [u.id, u]));
 
@@ -389,7 +396,7 @@ Return JSON: { "insights": [{ "title": "...", "body": "...", "severity": "info|w
 
     const client = new OpenAI();
     const res = await client.chat.completions.create({
-      model: 'gpt-4o-mini',
+      model: 'gpt-4.1-nano',
       messages: [{ role: 'user', content: prompt }],
       response_format: { type: 'json_object' },
       temperature: 0.4,
@@ -408,7 +415,7 @@ Return JSON: { "insights": [{ "title": "...", "body": "...", "severity": "info|w
   // ── Audit log ───────────────────────────────────────────────────────────────
 
   listAuditLog: adminProcedure
-    .input(z.object({ page: z.number().default(1), limit: z.number().default(30) }))
+    .input(z.object({ page: z.number().int().min(1).default(1), limit: z.number().int().min(1).max(100).default(30) }))
     .query(async ({ input }) => {
       const offset = (input.page - 1) * input.limit;
       const logs = await db.select().from(adminAuditLog).orderBy(desc(adminAuditLog.createdAt)).limit(input.limit).offset(offset);
@@ -417,7 +424,7 @@ Return JSON: { "insights": [{ "title": "...", "body": "...", "severity": "info|w
       const adminIds = [...new Set(logs.map(l => l.adminId))];
       const admins = adminIds.length
         ? await db.select({ id: user.id, name: user.name }).from(user)
-            .where(sql`${user.id} = ANY(${sql.raw(`ARRAY[${adminIds.map(id => `'${id}'`).join(',')}]`)})`)
+            .where(inArray(user.id, adminIds))
         : [];
       const adminMap = Object.fromEntries(admins.map(u => [u.id, u]));
 
