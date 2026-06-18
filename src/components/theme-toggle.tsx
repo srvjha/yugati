@@ -50,9 +50,8 @@ export function ThemeToggle({ className = '' }: { className?: string }) {
       onClick={toggle}
       aria-label={isDark ? 'Switch to light mode' : 'Switch to dark mode'}
       title={isDark ? 'Light mode' : 'Dark mode'}
-      className={`inline-flex items-center justify-center w-8 h-8 rounded-lg border border-zinc-700
-        ${isDark ? 'text-zinc-300 bg-zinc-900' : 'text-zinc-600 bg-zinc-100'}
-        hover:border-zinc-500 transition-colors ${className}`}
+      className={`inline-flex items-center justify-center w-7 h-7 rounded-md transition-colors
+        ${isDark ? 'text-zinc-400 hover:text-zinc-200' : 'text-zinc-500 hover:text-zinc-800'} ${className}`}
     >
       {isDark ? <Sun size={15} /> : <Moon size={15} />}
     </button>

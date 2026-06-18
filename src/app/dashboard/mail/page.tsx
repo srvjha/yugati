@@ -243,9 +243,6 @@ export default function MailPage() {
     ? "Inbox"
     : (SIDEBAR_FOLDERS.find((f) => f.id === activeFolder)?.label ?? "Mail");
 
-  const connectedParam = searchParams.get("connected") === "1";
-  const errorParam = searchParams.get("error") === "connect_failed";
-
   const [confirmDialog, setConfirmDialog] = useState<{
     title: string;
     description: string;
@@ -253,14 +250,6 @@ export default function MailPage() {
   } | null>(null);
 
   useEffect(() => {
-    if (connectedParam) {
-      toast.success("Gmail connected!");
-      router.replace("/dashboard/mail");
-    }
-    if (errorParam) {
-      toast.error("Failed to connect Gmail account.");
-      router.replace("/dashboard/mail");
-    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 

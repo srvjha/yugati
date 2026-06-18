@@ -7,7 +7,9 @@ import {
   Blocks, SlidersHorizontal, X, Zap, Mail, Clock, BellOff,
   Plus, Sparkles, Tag,
 } from 'lucide-react';
-import { useState, useRef, KeyboardEvent } from 'react';
+import { useState, useRef, KeyboardEvent, useEffect } from 'react';
+import { useSearchParams, useRouter } from 'next/navigation';
+import { toast } from 'sonner';
 
 function GmailIcon({ size = 20 }: { size?: number }) {
   return (
@@ -493,6 +495,21 @@ export function IntegrationsView({
   });
 
   const [showPrefs, setShowPrefs] = useState(false);
+  const searchParams = useSearchParams();
+  const router = useRouter();
+
+  useEffect(() => {
+    if (searchParams.get('connected') === '1') {
+      toast.success('Integration connected!');
+      router.replace('/dashboard/integrations');
+      void refetch();
+    }
+    if (searchParams.get('error') === 'connect_failed') {
+      toast.error('Failed to connect integration.');
+      router.replace('/dashboard/integrations');
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   function handleOAuth(url: string) {
     openOAuthPopup(url, () => void refetch());

@@ -17,9 +17,9 @@ export async function GET(request: NextRequest) {
   try {
     await initCorsair();
     await processOAuthCallback(corsair, { code, state, redirectUri: REDIRECT_URI });
-    return Response.redirect(new URL('/dashboard?connected=1', request.url));
+    return Response.redirect(new URL('/dashboard/integrations?connected=1', request.url));
   } catch (err) {
     console.error('[Corsair OAuth callback]', err);
-    return Response.redirect(new URL('/dashboard?error=connect_failed', request.url));
+    return Response.redirect(new URL('/dashboard/integrations?error=connect_failed', request.url));
   }
 }
