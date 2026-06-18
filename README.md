@@ -1,5 +1,9 @@
 # Yugati
 
+**🔗 Live:** https://www.yugati.in · **📖 Docs:** https://www.yugati.in/docs · **🎬 Demo:** https://youtu.be/0iPLn7NM6K4
+
+---
+
 Yugati is a production-grade AI productivity platform that connects to your Gmail and Google Calendar and lets you manage them through natural language. It ships two distinct interaction modes: an agentic chat interface powered by the OpenAI Agents SDK and a traditional manual interface for direct inbox and calendar management. Both modes are served from a single Next.js 16 application deployed on Vercel. An internal admin panel gives operators full visibility into users, AI usage, costs, security events, sessions, and revenue.
 
 ---
