@@ -13,6 +13,7 @@ import {
   ChevronDown,
   SlidersHorizontal,
 } from "lucide-react";
+import Image from "next/image";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { LABEL_FILTERS } from "../constants";
 import type { Sender } from "../types";
@@ -43,10 +44,9 @@ function DropdownMenu({
       <button
         onClick={() => setOpen((o) => !o)}
         className={`flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium transition-colors whitespace-nowrap
-          ${
-            open
-              ? "text-white bg-zinc-800 rounded-lg"
-              : "text-zinc-300 hover:text-white hover:bg-zinc-800/60 rounded-lg"
+          ${open
+            ? "text-white bg-zinc-800 rounded-lg"
+            : "text-zinc-300 hover:text-white hover:bg-zinc-800/60 rounded-lg"
           }`}
       >
         {trigger}
@@ -62,7 +62,7 @@ function DropdownMenu({
 
 export function MailTopBar({
   chatMode,
-  folderTitle,
+  onModeChange,
   searchQuery,
   onSearch,
   isFetching,
@@ -76,7 +76,7 @@ export function MailTopBar({
   senders,
 }: {
   chatMode: boolean;
-  folderTitle: string;
+  onModeChange: (v: boolean) => void;
   searchQuery: string;
   onSearch: (q: string) => void;
   isFetching: boolean;
@@ -91,12 +91,26 @@ export function MailTopBar({
 }) {
   return (
     <header className="h-14 shrink-0 border-b border-zinc-800/70 px-4 flex items-center gap-3">
-      {/* Folder title */}
-      <div className="flex items-center gap-2 shrink-0">
-        {!chatMode && <Mail size={14} className="text-zinc-600 shrink-0" />}
-        <span className="text-sm font-semibold text-zinc-200 whitespace-nowrap">
-          {chatMode ? "Yugati" : folderTitle}
-        </span>
+
+      {/* Mode toggle */}
+      <div className="flex items-center gap-0.5 bg-zinc-900 border border-zinc-800 rounded-lg p-0.5 shrink-0">
+        <button
+          onClick={() => onModeChange(false)}
+          className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-md transition-all
+            ${!chatMode ? "bg-zinc-700 text-white shadow-sm" : "text-zinc-500 hover:text-zinc-300"}`}
+        >
+          <Mail size={11} />
+          Manual
+        </button>
+        <button
+          onClick={() => onModeChange(true)}
+          className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-md transition-all
+            ${chatMode ? "bg-zinc-700 text-white shadow-sm" : "text-zinc-500 hover:text-zinc-300"}`}
+        >
+          <Image src="/openai.png" alt="AI" width={12} height={12} className="rounded-sm" />
+          Agentic
+          {chatMode && <span className="w-1.5 h-1.5 rounded-full bg-green-400 shadow-[0_0_4px_1px_rgba(74,222,128,0.5)]" />}
+        </button>
       </div>
 
       {/* Right side: search + action buttons */}
@@ -110,10 +124,7 @@ export function MailTopBar({
               disabled={isFetching}
               className="p-1.5 text-zinc-300 hover:text-white hover:bg-zinc-800 rounded-md transition-colors disabled:opacity-30"
             >
-              <RefreshCw
-                size={13}
-                className={isFetching ? "animate-spin" : ""}
-              />
+              <RefreshCw size={13} className={isFetching ? "animate-spin" : ""} />
             </button>
           </TooltipWrap>
         )}
@@ -132,10 +143,7 @@ export function MailTopBar({
           <>
             {/* Search */}
             <div className="relative w-36 sm:w-44 md:w-56">
-              <Search
-                size={13}
-                className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500 pointer-events-none"
-              />
+              <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500 pointer-events-none" />
               <input
                 value={searchQuery}
                 onChange={(e) => onSearch(e.target.value)}
@@ -144,76 +152,42 @@ export function MailTopBar({
                   focus:outline-none focus:bg-white/[0.07] focus:border-white/12 transition-all duration-200"
               />
               {searchQuery ? (
-                <button
-                  onClick={() => onSearch("")}
-                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-zinc-600 hover:text-zinc-300"
-                >
+                <button onClick={() => onSearch("")} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-zinc-600 hover:text-zinc-300">
                   <X size={12} />
                 </button>
               ) : (
-                <button
-                  onClick={onOpenPalette}
-                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-zinc-700 hover:text-zinc-400 transition-colors"
-                >
+                <button onClick={onOpenPalette} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-zinc-700 hover:text-zinc-400 transition-colors">
                   <Command size={11} />
                 </button>
               )}
             </div>
 
-            {/* Senders dropdown — hidden on small screens */}
+            {/* Senders dropdown */}
             <div className="hidden lg:block">
-              <DropdownMenu
-                trigger={
-                  <span className="flex items-center gap-1.5">
-                    <Users size={11} />
-                    Senders
-                  </span>
-                }
-              >
+              <DropdownMenu trigger={<span className="flex items-center gap-1.5"><Users size={11} />Senders</span>}>
                 {(close) => (
                   <div className="py-1 min-w-55">
-                    <p className="px-3 py-1.5 text-[10px] font-semibold text-zinc-600 uppercase tracking-wider">
-                      Filter by sender
-                    </p>
+                    <p className="px-3 py-1.5 text-[10px] font-semibold text-zinc-600 uppercase tracking-wider">Filter by sender</p>
                     {senders.length === 0 && (
-                      <p className="px-3 py-3 text-xs text-zinc-600 text-center">
-                        No emails loaded yet
-                      </p>
+                      <p className="px-3 py-3 text-xs text-zinc-600 text-center">No emails loaded yet</p>
                     )}
                     {senders.map((s) => (
-                      <button
-                        key={s.email}
-                        onClick={() => {
-                          onSearch(`from:${s.email}`);
-                          close();
-                        }}
-                        className="w-full flex items-center gap-2.5 px-3 py-2 hover:bg-zinc-800 transition-colors text-left"
-                      >
+                      <button key={s.email} onClick={() => { onSearch(`from:${s.email}`); close(); }}
+                        className="w-full flex items-center gap-2.5 px-3 py-2 hover:bg-zinc-800 transition-colors text-left">
                         <div className="w-6 h-6 bg-zinc-800 border border-zinc-700 flex items-center justify-center text-[10px] font-bold text-zinc-400 shrink-0 uppercase">
                           {s.name[0] ?? "?"}
                         </div>
                         <div className="flex-1 min-w-0">
-                          <p className="text-xs text-zinc-300 truncate font-medium">
-                            {s.name}
-                          </p>
-                          <p className="text-[10px] text-zinc-600 truncate">
-                            {s.email}
-                          </p>
+                          <p className="text-xs text-zinc-300 truncate font-medium">{s.name}</p>
+                          <p className="text-[10px] text-zinc-600 truncate">{s.email}</p>
                         </div>
-                        <span className="text-[10px] text-zinc-700 shrink-0">
-                          {s.count}
-                        </span>
+                        <span className="text-[10px] text-zinc-700 shrink-0">{s.count}</span>
                       </button>
                     ))}
                     {searchQuery.startsWith("from:") && (
                       <div className="border-t border-zinc-800 mt-1 pt-1">
-                        <button
-                          onClick={() => {
-                            onSearch("");
-                            close();
-                          }}
-                          className="w-full flex items-center gap-2 px-3 py-1.5 text-xs text-zinc-500 hover:text-zinc-300 hover:bg-zinc-800 transition-colors"
-                        >
+                        <button onClick={() => { onSearch(""); close(); }}
+                          className="w-full flex items-center gap-2 px-3 py-1.5 text-xs text-zinc-500 hover:text-zinc-300 hover:bg-zinc-800 transition-colors">
                           <X size={11} /> Clear filter
                         </button>
                       </div>
@@ -223,46 +197,22 @@ export function MailTopBar({
               </DropdownMenu>
             </div>
 
-            {/* Labels + Quick Filters — hidden on small screens */}
+            {/* Labels + Quick Filters */}
             <div className="hidden xl:flex items-center gap-2">
-              {/* Labels dropdown */}
-              <DropdownMenu
-                trigger={
-                  <span className="flex items-center gap-1.5">
-                    <Tag size={11} />
-                    Labels
-                    <ChevronDown size={10} />
-                  </span>
-                }
-              >
+              <DropdownMenu trigger={<span className="flex items-center gap-1.5"><Tag size={11} />Labels<ChevronDown size={10} /></span>}>
                 {(close) => (
                   <div className="py-1 min-w-47.5">
-                    <p className="px-3 py-1.5 text-[10px] font-semibold text-zinc-600 uppercase tracking-wider">
-                      Filter by label
-                    </p>
+                    <p className="px-3 py-1.5 text-[10px] font-semibold text-zinc-600 uppercase tracking-wider">Filter by label</p>
                     {LABEL_FILTERS.map((f) => {
                       const Icon = f.icon;
                       const active = searchQuery === f.q;
                       return (
-                        <button
-                          key={f.q}
-                          onClick={() => {
-                            onSearch(active ? "" : f.q);
-                            close();
-                          }}
+                        <button key={f.q} onClick={() => { onSearch(active ? "" : f.q); close(); }}
                           className={`w-full flex items-center gap-2.5 px-3 py-2 transition-colors text-left
-                          ${active ? "bg-blue-500/10 text-blue-400" : "hover:bg-zinc-800 text-zinc-300"}`}
-                        >
-                          <Icon
-                            size={12}
-                            className={
-                              active ? "text-blue-400" : "text-zinc-600"
-                            }
-                          />
+                            ${active ? "bg-blue-500/10 text-blue-400" : "hover:bg-zinc-800 text-zinc-300"}`}>
+                          <Icon size={12} className={active ? "text-blue-400" : "text-zinc-600"} />
                           <span className="text-xs">{f.label}</span>
-                          {active && (
-                            <span className="ml-auto w-1.5 h-1.5 rounded-full bg-blue-400" />
-                          )}
+                          {active && <span className="ml-auto w-1.5 h-1.5 rounded-full bg-blue-400" />}
                         </button>
                       );
                     })}
@@ -270,97 +220,35 @@ export function MailTopBar({
                 )}
               </DropdownMenu>
 
-              {/* Quick Filters dropdown */}
-              <DropdownMenu
-                trigger={
-                  <span
-                    className={`flex items-center gap-1.5 ${unreadOnly ? "text-blue-400" : ""}`}
-                  >
-                    <SlidersHorizontal size={11} />
-                    Quick Filters
-                    <ChevronDown size={10} />
-                  </span>
-                }
-              >
+              <DropdownMenu trigger={
+                <span className={`flex items-center gap-1.5 ${unreadOnly ? "text-blue-400" : ""}`}>
+                  <SlidersHorizontal size={11} />Quick Filters<ChevronDown size={10} />
+                </span>
+              }>
                 {(close) => {
                   const QUICK = [
-                    {
-                      label: "Unread only",
-                      action: () => {
-                        onToggleUnread();
-                        close();
-                      },
-                      active: unreadOnly,
-                    },
-                    {
-                      label: "Read only",
-                      action: () => {
-                        onSearch("is:read");
-                        close();
-                      },
-                      active: searchQuery === "is:read",
-                    },
-                    {
-                      label: "Starred",
-                      action: () => {
-                        onSearch("is:starred");
-                        close();
-                      },
-                      active: searchQuery === "is:starred",
-                    },
-                    {
-                      label: "Has attachment",
-                      action: () => {
-                        onSearch("has:attachment");
-                        close();
-                      },
-                      active: searchQuery === "has:attachment",
-                    },
-                    {
-                      label: "Last 7 days",
-                      action: () => {
-                        onSearch("newer_than:7d");
-                        close();
-                      },
-                      active: searchQuery === "newer_than:7d",
-                    },
-                    {
-                      label: "Needs reply",
-                      action: () => {
-                        onSearch("is:unread is:important");
-                        close();
-                      },
-                      active: searchQuery === "is:unread is:important",
-                    },
+                    { label: "Unread only",   action: () => { onToggleUnread(); close(); },                    active: unreadOnly },
+                    { label: "Read only",      action: () => { onSearch("is:read"); close(); },                active: searchQuery === "is:read" },
+                    { label: "Starred",        action: () => { onSearch("is:starred"); close(); },             active: searchQuery === "is:starred" },
+                    { label: "Has attachment", action: () => { onSearch("has:attachment"); close(); },         active: searchQuery === "has:attachment" },
+                    { label: "Last 7 days",    action: () => { onSearch("newer_than:7d"); close(); },          active: searchQuery === "newer_than:7d" },
+                    { label: "Needs reply",    action: () => { onSearch("is:unread is:important"); close(); }, active: searchQuery === "is:unread is:important" },
                   ];
                   return (
                     <div className="py-1 min-w-45">
-                      <p className="px-3 py-1.5 text-[10px] font-semibold text-zinc-600 uppercase tracking-wider">
-                        Quick filters
-                      </p>
+                      <p className="px-3 py-1.5 text-[10px] font-semibold text-zinc-600 uppercase tracking-wider">Quick filters</p>
                       {QUICK.map((q) => (
-                        <button
-                          key={q.label}
-                          onClick={q.action}
+                        <button key={q.label} onClick={q.action}
                           className={`w-full flex items-center justify-between px-3 py-2 text-xs transition-colors text-left
-                          ${q.active ? "bg-blue-500/10 text-blue-400" : "hover:bg-zinc-800 text-zinc-300"}`}
-                        >
+                            ${q.active ? "bg-blue-500/10 text-blue-400" : "hover:bg-zinc-800 text-zinc-300"}`}>
                           {q.label}
-                          {q.active && (
-                            <span className="w-1.5 h-1.5 rounded-full bg-blue-400" />
-                          )}
+                          {q.active && <span className="w-1.5 h-1.5 rounded-full bg-blue-400" />}
                         </button>
                       ))}
                       {(unreadOnly || searchQuery) && (
                         <div className="border-t border-zinc-800 mt-1 pt-1">
-                          <button
-                            onClick={() => {
-                              if (unreadOnly) onToggleUnread();
-                              onSearch("");
-                              close();
-                            }}
-                            className="w-full flex items-center gap-2 px-3 py-1.5 text-xs text-zinc-500 hover:text-zinc-300 hover:bg-zinc-800 transition-colors"
-                          >
+                          <button onClick={() => { if (unreadOnly) onToggleUnread(); onSearch(""); close(); }}
+                            className="w-full flex items-center gap-2 px-3 py-1.5 text-xs text-zinc-500 hover:text-zinc-300 hover:bg-zinc-800 transition-colors">
                             <X size={11} /> Clear all filters
                           </button>
                         </div>

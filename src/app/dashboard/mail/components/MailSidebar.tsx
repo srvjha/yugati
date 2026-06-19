@@ -7,7 +7,6 @@ import { signOut } from "@/lib/auth-client";
 import { UsagePill } from "../../components/usage-pill";
 import {
   Pencil,
-  Mail,
   MailMinus,
   Calendar,
   Blocks,
@@ -19,51 +18,12 @@ import {
   Zap,
   LogOut,
   Activity,
+  BookOpen,
+  Bot,
 } from "lucide-react";
 import { SIDEBAR_FOLDERS, type SidebarFolder } from "../constants";
 import { TooltipWrap } from "./TooltipWrap";
 
-function ModeBtn({
-  active,
-  onClick,
-  icon,
-  label,
-  color,
-  collapsed,
-}: {
-  active: boolean;
-  onClick: () => void;
-  icon: React.ReactNode;
-  label: string;
-  color: "blue" | "green";
-  collapsed: boolean;
-}) {
-  const dotColor = color === "green" ? "bg-green-400" : "bg-blue-400";
-  const iconColor = color === "green" ? "text-green-400" : "text-blue-400";
-  return (
-    <button
-      onClick={onClick}
-      className={`flex items-center gap-1 py-1.5 text-xs font-medium rounded-lg transition-all duration-200 overflow-visible
-        ${collapsed ? "flex-none w-9 justify-center px-0" : "flex-1 justify-center px-1.5"}
-        ${active ? "bg-zinc-700/80 text-white shadow-sm" : "text-zinc-500 hover:text-zinc-300 hover:bg-zinc-800/50"}`}
-    >
-      <span className={`shrink-0 ${active ? iconColor : "opacity-50"}`}>
-        {icon}
-      </span>
-      <span
-        className={`whitespace-nowrap transition-[max-width,opacity] duration-300 ease-in-out
-        ${collapsed ? "max-w-0 opacity-0 overflow-hidden" : "max-w-full opacity-100"}`}
-      >
-        {label}
-      </span>
-      {active && !collapsed && (
-        <span
-          className={`w-1.5 h-1.5 rounded-full shrink-0 ${dotColor} ${color === "green" ? "shadow-[0_0_4px_1px_rgba(74,222,128,0.5)]" : ""}`}
-        />
-      )}
-    </button>
-  );
-}
 
 function NavItem({
   icon: Icon,
@@ -135,8 +95,6 @@ function NavItem({
 export function MailSidebar({
   collapsed,
   onCollapse,
-  chatMode,
-  onModeChange,
   activeFolder,
   onFolderChange,
   user,
@@ -149,8 +107,6 @@ export function MailSidebar({
 }: {
   collapsed: boolean;
   onCollapse: (v: boolean) => void;
-  chatMode: boolean;
-  onModeChange: (v: boolean) => void;
   activeFolder: SidebarFolder;
   onFolderChange: (id: SidebarFolder) => void;
   user: { name: string; email: string; image?: string | null; role?: string | null } | null;
@@ -215,36 +171,6 @@ export function MailSidebar({
         </TooltipWrap>
       </div>
 
-      {/* Mode toggle */}
-      <div className="px-2 pb-3 pt-2 shrink-0">
-        <div className="flex items-center gap-0.5">
-          <ModeBtn
-            active={!chatMode}
-            onClick={() => onModeChange(false)}
-            icon={<Mail size={12} />}
-            label="Manual"
-            color="blue"
-            collapsed={collapsed}
-          />
-          <ModeBtn
-            active={chatMode}
-            onClick={() => onModeChange(true)}
-            icon={
-              <Image
-                src="/openai.png"
-                alt="OpenAI"
-                width={16}
-                height={16}
-                className="rounded-sm"
-              />
-            }
-            label="Agentic"
-            color="green"
-            collapsed={collapsed}
-          />
-        </div>
-      </div>
-
       <div className="mx-3 border-t border-zinc-800/60 shrink-0" />
 
       {/* Nav */}
@@ -255,7 +181,7 @@ export function MailSidebar({
               key={f.id}
               icon={f.icon}
               label={f.label}
-              active={activeFolder === f.id && !chatMode && !showSubscriptions}
+              active={activeFolder === f.id && !showSubscriptions}
               collapsed={collapsed}
               badge={f.id === "inbox" ? unreadCount : undefined}
               onClick={() => onFolderChange(f.id)}
@@ -291,10 +217,23 @@ export function MailSidebar({
             href="/dashboard/integrations"
           />
           <NavItem
+            icon={Bot}
+            label="Agentic"
+            collapsed={collapsed}
+            href="/dashboard/chat"
+            isNew
+          />
+          <NavItem
             icon={CreditCard}
             label="Billing"
             collapsed={collapsed}
             href="/dashboard/billing"
+          />
+          <NavItem
+            icon={BookOpen}
+            label="Docs"
+            collapsed={collapsed}
+            href="/docs"
           />
           <NavItem
             icon={Settings}

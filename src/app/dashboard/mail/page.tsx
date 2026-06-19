@@ -83,7 +83,6 @@ export default function MailPage() {
   const user = authData?.user as SessionUser | undefined;
 
   const [collapsed, setCollapsed] = useState(false);
-
   const [chatMode, setChatMode] = useState(false);
   const [activeFolder, setActiveFolder] = useState<SidebarFolder>("inbox");
   const [activeTab, setActiveTab] = useState<InboxTab>("all");
@@ -239,10 +238,6 @@ export default function MailPage() {
     return [...map.values()].sort((a, b) => b.count - a.count).slice(0, 10);
   }, [data]);
 
-  const activeLabel = isInbox
-    ? "Inbox"
-    : (SIDEBAR_FOLDERS.find((f) => f.id === activeFolder)?.label ?? "Mail");
-
   const [confirmDialog, setConfirmDialog] = useState<{
     title: string;
     description: string;
@@ -368,8 +363,6 @@ export default function MailPage() {
         <MailSidebar
           collapsed={collapsed}
           onCollapse={setCollapsed}
-          chatMode={chatMode}
-          onModeChange={setChatMode}
           activeFolder={activeFolder}
           onFolderChange={(id) => {
             setActiveFolder(id);
@@ -397,7 +390,7 @@ export default function MailPage() {
         <div className="flex-1 min-w-0 flex flex-col overflow-hidden">
           <MailTopBar
             chatMode={chatMode}
-            folderTitle={activeLabel}
+            onModeChange={setChatMode}
             searchQuery={searchQuery}
             onSearch={setSearchQuery}
             isFetching={isFetching}
@@ -453,7 +446,7 @@ export default function MailPage() {
                   {!isInbox && (
                     <div className="px-5 py-2.5 border-b border-zinc-800/40 flex items-center gap-2 shrink-0">
                       <span className="text-sm font-semibold text-zinc-200">
-                        {activeLabel}
+                        {SIDEBAR_FOLDERS.find((f) => f.id === activeFolder)?.label ?? "Mail"}
                       </span>
                     </div>
                   )}

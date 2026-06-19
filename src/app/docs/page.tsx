@@ -452,9 +452,14 @@ export default function DocsPage() {
                   same-site policy and per-session tokens.
                 </li>
                 <li>
-                  <strong className="text-zinc-200">Guardrails</strong> — The agent has input and
-                  output guardrails to block prompt injection, PII leakage, and off-topic content.
-                  Blocked requests are never forwarded to the model.
+                  <strong className="text-zinc-200">Guardrails</strong> — Every message passes
+                  through a two-layer safety system before the main AI model runs. The first layer
+                  (input guardrail) classifies the message — if it is off-topic or a prompt
+                  injection attempt, the request is blocked immediately and the main model is never
+                  called. Because no tokens are consumed by the main model on blocked requests, the
+                  token count and cost for those requests is always $0.00. The second layer (output
+                  guardrail) scans every response for sensitive data such as OAuth tokens or
+                  credentials before it reaches you.
                 </li>
                 <li>
                   <strong className="text-zinc-200">Google OAuth scopes</strong> — Yugati requests
