@@ -730,7 +730,7 @@ function MonthGrid({
     <div className="flex-1 overflow-y-auto">
       <div className="grid grid-cols-7 border-b border-zinc-800 sticky top-0 bg-zinc-950 z-10">
         {DAYS.map((d) => (
-          <div key={d} className="py-2 text-center text-xs font-medium text-zinc-500">{d}</div>
+          <div key={d} className="py-2 text-center text-xs font-medium text-zinc-400">{d}</div>
         ))}
       </div>
 
@@ -769,7 +769,7 @@ function MonthGrid({
                     <>
                       <div className="flex justify-end mb-1">
                         <span className={`text-xs w-6 h-6 flex items-center justify-center rounded-full font-medium
-                          ${isToday_ ? 'bg-blue-500 text-white' : isOtherM ? 'text-zinc-700' : 'text-zinc-300'}`}>
+                          ${isToday_ ? 'bg-blue-500 text-white' : isOtherM ? 'text-zinc-600' : 'text-zinc-200'}`}>
                           {d.getDate()}
                         </span>
                       </div>

@@ -193,7 +193,7 @@ function Toggle({ on, onToggle }: { on: boolean; onToggle: () => void }) {
   );
 }
 
-function PreferencesModal({ onClose }: { onClose: () => void }) {
+export function PreferencesModal({ onClose }: { onClose: () => void }) {
   const trpc = useTRPC();
   const qc   = useQueryClient();
 
