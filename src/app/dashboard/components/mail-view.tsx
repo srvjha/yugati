@@ -184,8 +184,6 @@ export function MailView({ message }: { message: GmailMessage }) {
 
     const darkStyles = isDark ? `
         html, body { background: #141414 !important; color: #e2e8f0 !important; }
-        img { filter: invert(1) hue-rotate(180deg) !important; }
-        a { color: #60a5fa !important; }
         * { border-color: rgba(255,255,255,0.08) !important; }
     ` : '';
 
@@ -230,6 +228,18 @@ export function MailView({ message }: { message: GmailMessage }) {
             el.style.setProperty('color', '#e2e8f0', 'important');
         });
         idoc.querySelectorAll<HTMLElement>('a').forEach((a) => {
+          // Walk the ancestor tree — if any node has a colored (non-white, non-transparent)
+          // background, this is a button-style link; leave its text colour alone.
+          let node: HTMLElement | null = a;
+          while (node && node.tagName !== 'BODY') {
+            const nbg = win.getComputedStyle(node).backgroundColor;
+            const nm = nbg.match(/[\d.]+/g);
+            if (nm && nm.length >= 3) {
+              const [nr, ng, nb, na = 1] = nm.map(Number) as [number, number, number, number];
+              if (na > 0.1 && (0.299*nr + 0.587*ng + 0.114*nb)/255 < 0.92) return;
+            }
+            node = node.parentElement;
+          }
           a.style.setProperty('color', '#60a5fa', 'important');
         });
       } else {

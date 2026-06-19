@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useMemo, useEffect, startTransition } from "react";
+import { Panel, PanelGroup, PanelResizeHandle } from "react-resizable-panels";
 import { useRouter } from "next/navigation";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
@@ -26,7 +27,7 @@ import { MailSidebar } from "./components/MailSidebar";
 import { MailTopBar } from "./components/MailTopBar";
 import { CategoryTabs } from "./components/CategoryTabs";
 import { EmailRow } from "./components/EmailRow";
-import { MailInsightPanel } from "./components/MailInsightPanel";
+import { EmailDetailPanel } from "./components/EmailDetailPanel";
 import { CommandPalette } from "./components/CommandPalette";
 import { SubscriptionsPanel } from "./components/SubscriptionsPanel";
 import { ComposeModal } from "./components/ComposeModal";
@@ -94,6 +95,7 @@ export default function MailPage() {
   const [summarizePrompt, setSummarizePrompt] = useState<string | undefined>(undefined);
   const [showSubscriptions, setShowSubscriptions] = useState(false);
   const [fetchedCount, setFetchedCount] = useState(20);
+  const [selectedEmailId, setSelectedEmailId] = useState<string | null>(null);
 
   // Restore mode + reply context from localStorage after hydration (avoids SSR mismatch).
   // startTransition defers the state updates so they don't cascade synchronously in the effect.
@@ -432,76 +434,130 @@ export default function MailPage() {
                     : undefined
                 }
               />
-            ) : (
-              <>
-                <div className="flex-1 min-w-0 flex flex-col overflow-hidden border-r border-zinc-800/50">
-                  {isInbox && !searchQuery && (
-                    <CategoryTabs
-                      activeTab={activeTab}
-                      onTabChange={setActiveTab}
-                      counts={tabCounts}
-                    />
-                  )}
-
-                  {!isInbox && (
-                    <div className="px-5 py-2.5 border-b border-zinc-800/40 flex items-center gap-2 shrink-0">
-                      <span className="text-sm font-semibold text-zinc-200">
-                        {SIDEBAR_FOLDERS.find((f) => f.id === activeFolder)?.label ?? "Mail"}
-                      </span>
-                    </div>
-                  )}
-
-                  {isLoading && <SkeletonList />}
-                  {error && isAuthError && <AuthError />}
-                  {error && !isAuthError && (
-                    <div className="flex-1 flex items-center justify-center text-sm text-zinc-500">
-                      Failed to load messages
-                    </div>
-                  )}
-                  {!isLoading && !error && data?.messages?.length === 0 && (
-                    <div className="flex-1 flex flex-col items-center justify-center gap-2 text-zinc-700">
-                      <Mail size={22} />
-                      <span className="text-sm">No messages</span>
-                    </div>
-                  )}
-                  <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden">
-                    {groupedEmails.map(({ label, msgs }) => (
-                      <div key={label}>
-                        <div className="px-5 py-1.5 text-[11px] font-semibold text-zinc-500 bg-zinc-950/60 border-b border-zinc-800/30 sticky top-0 z-10">
-                          {label}
-                        </div>
-                        {msgs.map((msg) => (
-                          <EmailRow
-                            key={msg.id}
-                            msg={msg}
-                            selected={selectedIds.has(msg.id ?? "")}
-                            onSelect={() => toggleSelect(msg.id ?? "")}
-                            onDelete={() => void deleteOne(msg.id ?? "")}
-                          />
-                        ))}
-                      </div>
-                    ))}
-
-                    {/* Load more */}
-                    {!isLoading && !error && (data?.messages?.length ?? 0) >= fetchedCount && (
-                      <div className="flex justify-center py-6">
-                        <button
-                          onClick={() => setFetchedCount((n) => n + 10)}
-                          disabled={isFetching}
-                          className="flex items-center gap-2 px-5 py-2.5 text-sm font-medium text-zinc-100 border border-zinc-600 rounded-full bg-zinc-900 hover:bg-zinc-800 hover:border-zinc-400 hover:text-white transition-colors disabled:opacity-40"
-                        >
-                          {isFetching
-                            ? <Loader2 size={14} className="animate-spin" />
-                            : <ChevronDown size={14} />}
-                          Load more
-                        </button>
+            ) : selectedEmailId ? (
+              /* ── Split view (email selected) ── */
+              <PanelGroup direction="horizontal" className="flex-1 min-w-0">
+                {/* Email list panel */}
+                <Panel defaultSize={50} minSize={25} maxSize={70}>
+                  <div className="flex flex-col h-full overflow-hidden border-r border-zinc-800/50">
+                    {isInbox && !searchQuery && (
+                      <CategoryTabs activeTab={activeTab} onTabChange={setActiveTab} counts={tabCounts} />
+                    )}
+                    {!isInbox && (
+                      <div className="px-5 py-2.5 border-b border-zinc-800/40 flex items-center gap-2 shrink-0">
+                        <span className="text-sm font-semibold text-zinc-200">
+                          {SIDEBAR_FOLDERS.find((f) => f.id === activeFolder)?.label ?? "Mail"}
+                        </span>
                       </div>
                     )}
+                    {isLoading && <SkeletonList />}
+                    {error && isAuthError && <AuthError />}
+                    {error && !isAuthError && (
+                      <div className="flex-1 flex items-center justify-center text-sm text-zinc-500">Failed to load messages</div>
+                    )}
+                    {!isLoading && !error && data?.messages?.length === 0 && (
+                      <div className="flex-1 flex flex-col items-center justify-center gap-2 text-zinc-700">
+                        <Mail size={22} /><span className="text-sm">No messages</span>
+                      </div>
+                    )}
+                    <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden">
+                      {groupedEmails.map(({ label, msgs }) => (
+                        <div key={label}>
+                          <div className="px-5 py-1.5 text-[11px] font-semibold text-zinc-500 bg-zinc-950/60 border-b border-zinc-800/30 sticky top-0 z-10">{label}</div>
+                          {msgs.map((msg) => (
+                            <EmailRow
+                              key={msg.id}
+                              msg={msg}
+                              selected={selectedIds.has(msg.id ?? "")}
+                              active={selectedEmailId === msg.id}
+                              onSelect={() => toggleSelect(msg.id ?? "")}
+                              onOpen={() => setSelectedEmailId(msg.id ?? null)}
+                              onDelete={() => void deleteOne(msg.id ?? "")}
+                            />
+                          ))}
+                        </div>
+                      ))}
+                      {!isLoading && !error && (data?.messages?.length ?? 0) >= fetchedCount && (
+                        <div className="flex justify-center py-6">
+                          <button onClick={() => setFetchedCount((n) => n + 10)} disabled={isFetching}
+                            className="flex items-center gap-2 px-5 py-2.5 text-sm font-medium text-zinc-100 border border-zinc-600 rounded-full bg-zinc-900 hover:bg-zinc-800 hover:border-zinc-400 hover:text-white transition-colors disabled:opacity-40">
+                            {isFetching ? <Loader2 size={14} className="animate-spin" /> : <ChevronDown size={14} />}
+                            Load more
+                          </button>
+                        </div>
+                      )}
+                    </div>
                   </div>
-                </div>
+                </Panel>
 
-                <MailInsightPanel />
-              </>
+                {/* Drag handle */}
+                <PanelResizeHandle className="w-1 bg-zinc-800/50 hover:bg-blue-500/50 active:bg-blue-500/70 transition-colors cursor-col-resize" />
+
+                {/* Email detail panel */}
+                <Panel defaultSize={50} minSize={28}>
+                  <EmailDetailPanel
+                    emailId={selectedEmailId}
+                    onClose={() => setSelectedEmailId(null)}
+                    onDeleted={() => setSelectedEmailId(null)}
+                    onRequestAI={(prompt) => {
+                      setSelectedEmailId(null);
+                      setChatMode(true);
+                      setSummarizePrompt(prompt);
+                    }}
+                  />
+                </Panel>
+              </PanelGroup>
+            ) : (
+              /* ── Full-width list (nothing selected) ── */
+              <div className="flex-1 flex flex-col overflow-hidden">
+                {isInbox && !searchQuery && (
+                  <CategoryTabs activeTab={activeTab} onTabChange={setActiveTab} counts={tabCounts} />
+                )}
+                {!isInbox && (
+                  <div className="px-5 py-2.5 border-b border-zinc-800/40 flex items-center gap-2 shrink-0">
+                    <span className="text-sm font-semibold text-zinc-200">
+                      {SIDEBAR_FOLDERS.find((f) => f.id === activeFolder)?.label ?? "Mail"}
+                    </span>
+                  </div>
+                )}
+                {isLoading && <SkeletonList />}
+                {error && isAuthError && <AuthError />}
+                {error && !isAuthError && (
+                  <div className="flex-1 flex items-center justify-center text-sm text-zinc-500">Failed to load messages</div>
+                )}
+                {!isLoading && !error && data?.messages?.length === 0 && (
+                  <div className="flex-1 flex flex-col items-center justify-center gap-2 text-zinc-700">
+                    <Mail size={22} /><span className="text-sm">No messages</span>
+                  </div>
+                )}
+                <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden">
+                  {groupedEmails.map(({ label, msgs }) => (
+                    <div key={label}>
+                      <div className="px-5 py-1.5 text-[11px] font-semibold text-zinc-500 bg-zinc-950/60 border-b border-zinc-800/30 sticky top-0 z-10">{label}</div>
+                      {msgs.map((msg) => (
+                        <EmailRow
+                          key={msg.id}
+                          msg={msg}
+                          selected={selectedIds.has(msg.id ?? "")}
+                          active={false}
+                          onSelect={() => toggleSelect(msg.id ?? "")}
+                          onOpen={() => setSelectedEmailId(msg.id ?? null)}
+                          onDelete={() => void deleteOne(msg.id ?? "")}
+                        />
+                      ))}
+                    </div>
+                  ))}
+                  {!isLoading && !error && (data?.messages?.length ?? 0) >= fetchedCount && (
+                    <div className="flex justify-center py-6">
+                      <button onClick={() => setFetchedCount((n) => n + 10)} disabled={isFetching}
+                        className="flex items-center gap-2 px-5 py-2.5 text-sm font-medium text-zinc-100 border border-zinc-600 rounded-full bg-zinc-900 hover:bg-zinc-800 hover:border-zinc-400 hover:text-white transition-colors disabled:opacity-40">
+                        {isFetching ? <Loader2 size={14} className="animate-spin" /> : <ChevronDown size={14} />}
+                        Load more
+                      </button>
+                    </div>
+                  )}
+                </div>
+              </div>
             )}
           </div>
         </div>
