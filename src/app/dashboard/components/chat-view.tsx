@@ -7,9 +7,10 @@ import {
   ArrowUp, Loader2, Mail, Calendar, Zap,
   Copy, RefreshCw, Pencil, Check, Plus, MessageSquare,
   Maximize2, Minimize2, Trash2, Mic, MicOff, Square, PanelLeftClose,
-  Send, X, Bold, Italic, Underline, Link2, List, ListOrdered,
+  Send, X, Bold, Italic, Underline, Link2, List, ListOrdered, AlertTriangle,
 } from 'lucide-react';
 import { useQuery, useMutation } from '@tanstack/react-query';
+import { motion } from 'framer-motion';
 import { useTRPC }  from '@/trpc/client';
 import { toast }    from 'sonner';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
@@ -151,6 +152,36 @@ function useFillerText(active: boolean, lastQuery: string) {
                 : FILLER_GENERIC;
 
   return active ? phrases[tick % phrases.length]! : phrases[0]!;
+}
+
+// ─── Profanity filter ─────────────────────────────────────────────────────────
+
+const PROFANITY_PATTERNS = [
+  // English
+  /\bf+u+c+k+(?:ing|er|ed|s)?\b/i,
+  /\bs+h+i+t+(?:ty|ter|s)?\b/i,
+  /\bass(?:hole|holes)?\b/i,
+  /\bbitch(?:es)?\b/i,
+  /\bcunt(?:s)?\b/i,
+  /\bdick(?:s|head)?\b/i,
+  /\bcock(?:s|sucker)?\b/i,
+  /\btwat(?:s)?\b/i,
+  /\bmotherfucker\b/i,
+  /\bbastard(?:s)?\b/i,
+  /\bwanker(?:s)?\b/i,
+  // Hindi/Hinglish — stem-based to catch all inflections
+  /\bchuti(?:y[ae]|ya|ye|yon|yo|)\b/i,   // chutiya, chutiye, chutiyaon, etc.
+  /\bmadar(?:chod|chod)?\b/i,
+  /\bbhen(?:chod|chod)?\b/i,
+  /\bbsdk\b/i,
+  /\bharami\b/i,
+  /\brandi\b/i,
+  /\bgandu\b/i,
+  /\bdalle?\b/i,
+  /\bbhag\s+bsdk\b/i,
+];
+function containsProfanity(text: string): boolean {
+  return PROFANITY_PATTERNS.some((re) => re.test(text));
 }
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -454,14 +485,23 @@ function DraftFormatBtn({ onClick, title, children }: { onClick: () => void; tit
 
 function EmailDraftCard({ draft }: { draft: EmailDraft }) {
   const trpc   = useTRPC();
-  const [editing, setEditing] = useState(false);
-  const [fields, setFields]   = useState({ to: draft.to, cc: draft.cc ?? '', bcc: draft.bcc ?? '', subject: draft.subject });
-  const [sent,   setSent]     = useState(false);
+  const [editing,          setEditing]         = useState(false);
+  const [fields,           setFields]          = useState({ to: draft.to, cc: draft.cc ?? '', bcc: draft.bcc ?? '', subject: draft.subject });
+  const [sent,             setSent]            = useState(false);
+  const [reviewing,        setReviewing]       = useState(false);
+  const [reviewBodyText,   setReviewBodyText]  = useState('');
+  const [profanityWarning, setProfanityWarning] = useState(false);
+  const [sentDetails,      setSentDetails]     = useState<{ to: string; subject: string; body: string } | null>(null);
   const editorRef = useRef<HTMLDivElement>(null);
 
   const sendMutation = useMutation(
     trpc.gmail.sendMessage.mutationOptions({
-      onSuccess: () => { setSent(true); toast.success('Email sent'); },
+      onSuccess: () => {
+        setSentDetails({ to: fields.to, subject: fields.subject, body: reviewBodyText });
+        setSent(true);
+        setReviewing(false);
+        toast.success('Email sent');
+      },
       onError:   () => toast.error('Failed to send email'),
     }),
   );
@@ -494,8 +534,19 @@ function EmailDraftCard({ draft }: { draft: EmailDraft }) {
     };
   }
 
-  function handleSend()      { sendMutation.mutate(currentPayload()); }
-  function handleSaveDraft() { draftMutation.mutate({ to: [fields.to], subject: fields.subject, body: editorRef.current?.innerText ?? draft.body }); }
+  function handleSend() {
+    setReviewBodyText(editorRef.current?.innerText ?? draft.body);
+    setReviewing(true);
+  }
+  function handleConfirmSend() {
+    if (containsProfanity(`${fields.subject} ${reviewBodyText}`)) {
+      setProfanityWarning(true);
+      return;
+    }
+    setProfanityWarning(false);
+    sendMutation.mutate(currentPayload());
+  }
+  function handleSaveDraft()   { draftMutation.mutate({ to: [fields.to], subject: fields.subject, body: editorRef.current?.innerText ?? draft.body }); }
 
   useEffect(() => {
     if (editing && editorRef.current && editorRef.current.innerHTML === '') {
@@ -505,8 +556,74 @@ function EmailDraftCard({ draft }: { draft: EmailDraft }) {
 
   if (sent) {
     return (
-      <div className="flex items-center gap-2 text-sm text-green-400 py-1">
-        <Check size={14} /> Email sent
+      <div className="flex flex-col items-center justify-center py-8 gap-3">
+        {/* Ripple + checkmark animation */}
+        <div className="relative flex items-center justify-center w-24 h-24">
+          {/* Outer ripple 1 */}
+          <motion.div
+            className="absolute rounded-full bg-green-500/15"
+            initial={{ width: 48, height: 48, opacity: 0.8 }}
+            animate={{ width: 96, height: 96, opacity: 0 }}
+            transition={{ duration: 1.1, ease: 'easeOut', repeat: Infinity, repeatDelay: 0.4 }}
+          />
+          {/* Outer ripple 2 — delayed */}
+          <motion.div
+            className="absolute rounded-full bg-green-500/10"
+            initial={{ width: 48, height: 48, opacity: 0.6 }}
+            animate={{ width: 96, height: 96, opacity: 0 }}
+            transition={{ duration: 1.1, ease: 'easeOut', repeat: Infinity, repeatDelay: 0.4, delay: 0.35 }}
+          />
+          {/* Green circle */}
+          <motion.div
+            className="relative z-10 w-14 h-14 rounded-full bg-green-500 flex items-center justify-center shadow-[0_0_24px_rgba(34,197,94,0.4)]"
+            initial={{ scale: 0, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            transition={{ type: 'spring', stiffness: 300, damping: 18, delay: 0.05 }}
+          >
+            {/* Checkmark path */}
+            <motion.svg width="28" height="28" viewBox="0 0 28 28" fill="none">
+              <motion.path
+                d="M7 14.5l5 5 9-9"
+                stroke="white"
+                strokeWidth="2.5"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                initial={{ pathLength: 0 }}
+                animate={{ pathLength: 1 }}
+                transition={{ duration: 0.4, delay: 0.3, ease: 'easeOut' }}
+              />
+            </motion.svg>
+          </motion.div>
+        </div>
+        <motion.p
+          className="text-sm font-semibold text-zinc-200"
+          initial={{ opacity: 0, y: 6 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.5 }}
+        >
+          Email sent successfully
+        </motion.p>
+        {sentDetails && (
+          <motion.div
+            className="w-full mt-2 rounded-xl border border-zinc-800/60 bg-zinc-800/30 text-xs divide-y divide-zinc-800/50"
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.65 }}
+          >
+            <div className="flex gap-3 px-4 py-2.5">
+              <span className="w-14 shrink-0 text-zinc-500 font-medium uppercase tracking-wider">To</span>
+              <span className="text-zinc-300 break-all">{sentDetails.to}</span>
+            </div>
+            <div className="flex gap-3 px-4 py-2.5">
+              <span className="w-14 shrink-0 text-zinc-500 font-medium uppercase tracking-wider">Subject</span>
+              <span className="text-zinc-300 font-medium">{sentDetails.subject}</span>
+            </div>
+            <div className="flex gap-3 px-4 py-2.5">
+              <span className="w-14 shrink-0 text-zinc-500 font-medium uppercase tracking-wider">Body</span>
+              <span className="text-zinc-400 whitespace-pre-wrap line-clamp-4">{sentDetails.body}</span>
+            </div>
+          </motion.div>
+        )}
       </div>
     );
   }
@@ -619,13 +736,89 @@ function EmailDraftCard({ draft }: { draft: EmailDraft }) {
         </button>
         <button
           onClick={handleSend}
-          disabled={sendMutation.isPending || draftMutation.isPending || !fields.to || !fields.subject}
+          disabled={draftMutation.isPending || !fields.to || !fields.subject}
           className="flex items-center gap-1.5 px-4 py-1.5 text-xs font-semibold bg-white text-black rounded-lg hover:bg-zinc-100 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
         >
-          {sendMutation.isPending ? <Loader2 size={11} className="animate-spin" /> : <Send size={11} />}
-          Send Email
+          <Send size={11} /> Review &amp; Send
         </button>
       </div>
+
+      {/* Pre-send review modal */}
+      {reviewing && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
+          <div className="w-full max-w-lg mx-4 rounded-2xl bg-zinc-900 border border-zinc-700/60 shadow-2xl overflow-hidden">
+            {/* Modal header */}
+            <div className="flex items-center justify-between px-5 py-4 border-b border-zinc-800">
+              <div className="flex items-center gap-2.5">
+                <div className="w-6 h-6 rounded-md bg-amber-500/15 border border-amber-500/30 flex items-center justify-center">
+                  <AlertTriangle size={13} className="text-amber-400" />
+                </div>
+                <span className="text-sm font-semibold text-zinc-100">Review before sending</span>
+              </div>
+              <button onClick={() => setReviewing(false)} className="text-zinc-500 hover:text-zinc-200 transition-colors">
+                <X size={16} />
+              </button>
+            </div>
+
+            {/* Email summary */}
+            <div className="px-5 py-4 space-y-3 text-xs">
+              <div className="flex gap-3">
+                <span className="w-14 shrink-0 text-zinc-500 font-medium uppercase tracking-wider pt-0.5">To</span>
+                <span className="text-zinc-100 break-all">{fields.to}</span>
+              </div>
+              {fields.cc && (
+                <div className="flex gap-3">
+                  <span className="w-14 shrink-0 text-zinc-500 font-medium uppercase tracking-wider pt-0.5">CC</span>
+                  <span className="text-zinc-100 break-all">{fields.cc}</span>
+                </div>
+              )}
+              <div className="flex gap-3">
+                <span className="w-14 shrink-0 text-zinc-500 font-medium uppercase tracking-wider pt-0.5">Subject</span>
+                <span className="text-zinc-100 font-medium">{fields.subject}</span>
+              </div>
+              <div className="flex gap-3">
+                <span className="w-14 shrink-0 text-zinc-500 font-medium uppercase tracking-wider pt-0.5">Body</span>
+                <div className="flex-1 text-zinc-200 leading-relaxed whitespace-pre-wrap max-h-48 overflow-y-auto bg-zinc-800/40 rounded-lg px-3 py-2.5 border border-zinc-700/40">
+                  {reviewBodyText}
+                </div>
+              </div>
+            </div>
+
+            <div className="px-5 py-3 bg-zinc-800/30 border-t border-zinc-800 text-[11px] text-zinc-500">
+              Make sure the content above looks correct before sending.
+            </div>
+
+            {/* Profanity warning */}
+            {profanityWarning && (
+              <div className="mx-5 mb-1 mt-3 flex items-start gap-2.5 px-4 py-3 bg-red-500/10 border border-red-500/30 rounded-xl">
+                <AlertTriangle size={13} className="text-red-400 shrink-0 mt-0.5" />
+                <div>
+                  <p className="text-xs font-semibold text-red-300">Inappropriate content detected</p>
+                  <p className="text-[11px] text-red-400/80 mt-0.5">This email contains offensive language. Please edit the content before sending.</p>
+                </div>
+              </div>
+            )}
+
+            {/* Actions */}
+            <div className="flex items-center justify-end gap-2 px-5 py-4 border-t border-zinc-800">
+              <button
+                onClick={() => { setReviewing(false); setProfanityWarning(false); }}
+                className="px-4 py-1.5 text-xs font-medium text-zinc-400 hover:text-zinc-200 border border-zinc-700/60 hover:border-zinc-600 rounded-lg transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleConfirmSend}
+                disabled={sendMutation.isPending || profanityWarning}
+                className="flex items-center gap-1.5 px-4 py-1.5 text-xs font-semibold bg-blue-600 hover:bg-blue-500 text-white rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {sendMutation.isPending ? <Loader2 size={11} className="animate-spin" /> : <Send size={11} />}
+                Confirm &amp; Send
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

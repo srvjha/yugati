@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { signIn, useSession } from '@/lib/auth-client';
 import { ArrowRight, Calendar, Bot, Zap, Shield, Check, Sparkles, Loader2 } from 'lucide-react';
-import { ThemeToggle, useTheme } from '@/components/theme-toggle';
+import { ThemeToggle } from '@/components/theme-toggle';
 
 // Shared edge-highlight style used on every "card" element
 const edgeShadow =
@@ -144,10 +144,22 @@ function ExtIcon({ src, size, style }: { src: string; size: number; style?: Reac
   );
 }
 
-// OpenAI mark — uses the dark logo on the light theme so it stays visible.
+// OpenAI mark — both variants always in HTML; CSS toggles visibility to avoid hydration mismatch.
 function OpenAIIcon({ size, style }: { size: number; style?: React.CSSProperties }) {
-  const { theme } = useTheme();
-  return <ExtIcon src={theme === 'light' ? '/openai-dark.png' : '/openai.png'} size={size} style={style} />;
+  return (
+    <>
+      {/* White logo — shown in dark mode (default) */}
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img src="/openai.png" alt="" width={size} height={size}
+        className="block [html[data-theme='light']_&]:hidden"
+        style={{ ...style }} />
+      {/* Dark logo — shown in light mode */}
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img src="/openai-dark.png" alt="" width={size} height={size}
+        className="hidden [html[data-theme='light']_&]:block"
+        style={{ ...style }} />
+    </>
+  );
 }
 
 function NextjsFloatIcon({ size }: { size: number }) {
