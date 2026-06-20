@@ -11,11 +11,11 @@ import type { ChatMessage } from './types';
 
 const MODEL = 'gpt-4.1';
 
-// Cache agents per (tenantId, mode) — tool schemas don't change between requests
+// Cache agents per (tenantId, mode, skipGuardrail)
 const agentCache = new Map<string, Agent>();
 
-function getAgent(tenantId: string, userName: string, mode: 'guided' | 'auto'): Agent {
-  const key = `${tenantId}:${mode}`;
+function getAgent(tenantId: string, userName: string, mode: 'guided' | 'auto', skipGuardrail = false): Agent {
+  const key = `${tenantId}:${mode}:${skipGuardrail}`;
   const cached = agentCache.get(key);
   if (cached) return cached;
 
@@ -28,7 +28,7 @@ function getAgent(tenantId: string, userName: string, mode: 'guided' | 'auto'): 
     model:            MODEL,
     instructions:     buildAgentInstructions(userName, mode),
     tools:            [...corsairTools, ...gmailTools],
-    inputGuardrails:  [safetyGuardrail],
+    inputGuardrails:  skipGuardrail ? [] : [safetyGuardrail],
     outputGuardrails: [sensitiveDataGuardrail],
   });
 
@@ -54,6 +54,7 @@ export async function* streamChat(
   userName?:       string,
   mode:            'guided' | 'auto' = 'guided',
   meta:            ChatMeta = {},
+  skipGuardrail:   boolean = false,
 ): AsyncGenerator<ChatStreamChunk> {
   const t0                  = Date.now();
   const { session, id }     = await loadSession(tenantId, conversationId);
@@ -66,7 +67,7 @@ export async function* streamChat(
     let yieldedTokens = false;
 
     try {
-      const streamedResult = await run(getAgent(tenantId, userName ?? 'User', mode), enhanced, {
+      const streamedResult = await run(getAgent(tenantId, userName ?? 'User', mode, skipGuardrail), enhanced, {
         session,
         stream: true,
       });

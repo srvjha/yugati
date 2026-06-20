@@ -23,6 +23,7 @@ const bodySchema = z.object({
   messages:       z.array(chatMessageSchema).min(1).max(100),
   conversationId: z.string().uuid().optional(),
   agentMode:      z.enum(['guided', 'auto']).optional(),
+  skipGuardrail:  z.boolean().optional(),
 });
 
 const enc = new TextEncoder();
@@ -38,7 +39,7 @@ export async function POST(request: Request) {
 
   const parsed = bodySchema.safeParse(await request.json().catch(() => null));
   if (!parsed.success) return Response.json({ error: 'Invalid request body' }, { status: 400 });
-  const { messages, conversationId, agentMode } = parsed.data;
+  const { messages, conversationId, agentMode, skipGuardrail } = parsed.data;
 
   const u = await db.query.user.findFirst({ where: eq(user.id, session.user.id), columns: { banned: true } });
   if (u?.banned) return Response.json({ error: 'Account suspended' }, { status: 403 });
@@ -86,6 +87,7 @@ export async function POST(request: Request) {
         const gen = streamChat(
           session.user.id, messages, conversationId,
           session.user.name ?? undefined, agentMode ?? 'guided', meta,
+          skipGuardrail ?? false,
         );
 
         // 55s deadline — multi-step tasks (e.g. summarise 5 emails) need 6+ tool calls
