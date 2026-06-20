@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   X, Star, Reply, ReplyAll, Forward, Archive, Trash2,
-  Bot, Send, MoreHorizontal, CheckCheck, Loader2,
+  Bot, Send, MoreHorizontal, CheckCheck,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useTRPC } from '@/trpc/client';
@@ -95,6 +95,8 @@ export function EmailDetailPanel({
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const bodyRef   = useRef<HTMLTextAreaElement>(null);
 
+  // Syncing from server data — intentional setState in effect (same pattern as mail/page.tsx).
+  // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => {
     if (message) setStarred(message.labelIds?.includes('STARRED') ?? false);
   }, [message]);
