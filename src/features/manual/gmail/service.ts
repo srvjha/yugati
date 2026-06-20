@@ -1,12 +1,9 @@
 import { corsair }         from '@/server/corsair';
 import { db }              from '@/server/db';
-import { corsairAccounts, corsairIntegrations } from '@/server/db/schema';
-import { eq, and }         from 'drizzle-orm';
+import { corsairAccounts, corsairIntegrations, corsairEntities } from '@/server/db/schema';
+import { eq, and, desc, sql } from 'drizzle-orm';
 
-// Cache is considered warm after this window following first integration connect.
-// Corsair background sync typically completes well within this time.
-const CACHE_WARM_AFTER_MS = 10 * 60 * 1000; // 10 minutes
-const CACHE_TTL_MS        = 3 * 60 * 1000;  // 3 minutes
+const CACHE_TTL_MS = 3 * 60 * 1000; // 3 minutes
 
 export interface Subscription {
   messageId:   string;
@@ -28,22 +25,14 @@ export class GmailService {
     this.c = corsair.withTenant(tenantId);
   }
 
-  // Returns true when the Gmail integration is old enough that Corsair's
-  // background sync has had time to warm the local DB cache.
-  private async isCacheWarm(): Promise<boolean> {
-    const row = await db
-      .select({ createdAt: corsairAccounts.createdAt })
+  private async getGmailAccountId(): Promise<string | null> {
+    return db
+      .select({ id: corsairAccounts.id })
       .from(corsairAccounts)
       .innerJoin(corsairIntegrations, eq(corsairAccounts.integrationId, corsairIntegrations.id))
-      .where(and(
-        eq(corsairAccounts.tenantId, this.tenantId),
-        eq(corsairIntegrations.name, 'gmail'),
-      ))
+      .where(and(eq(corsairAccounts.tenantId, this.tenantId), eq(corsairIntegrations.name, 'gmail')))
       .limit(1)
-      .then((r) => r[0] ?? null);
-
-    if (!row) return false;
-    return Date.now() - new Date(row.createdAt).getTime() > CACHE_WARM_AFTER_MS;
+      .then((r) => r[0]?.id ?? null);
   }
 
   listMessages(opts: { q?: string; maxResults?: number; labelIds?: string[] } = {}) {
@@ -53,30 +42,70 @@ export class GmailService {
   async listInbox(opts: { maxResults?: number; q?: string } = {}) {
     const limit = opts.maxResults ?? 15;
 
-    // Search always hits the live API for accurate results.
-    if (opts.q) return this.fetchFromApi(limit, opts.q);
+    // Non-inbox queries (search, category tabs, starred, etc.) always hit live API.
+    const isNonCacheable = opts.q && opts.q.trim() !== 'in:inbox';
+    if (isNonCacheable) return this.fetchFromApi(limit, opts.q);
 
-    // New integration: cache hasn't been bootstrapped yet → go straight to API.
-    const warm = await this.isCacheWarm();
-    if (!warm) return this.fetchFromApi(limit);
+    // ── Tier 1: direct Drizzle query on corsairEntities (fast ~50ms) ──────────
+    // Fastest path — single SQL query, no Corsair abstraction overhead.
+    // Falls through to Tier 2 if Corsair ever changes internal schema/IDs.
+    try {
+      const accountId = await this.getGmailAccountId();
+      if (accountId) {
+        type RawMsg = { id?: string; internalDate?: string; labelIds?: string[]; snippet?: string; subject?: string; from?: string; payload?: { headers?: Array<{ name?: string; value?: string }> } };
+        const rows = await db
+          .select()
+          .from(corsairEntities)
+          .where(and(
+            eq(corsairEntities.accountId, accountId),
+            sql`${corsairEntities.data}->'labelIds' @> '["INBOX"]'::jsonb`,
+          ))
+          .orderBy(desc(sql`coalesce((${corsairEntities.data}->>'internalDate')::bigint, extract(epoch from ${corsairEntities.updatedAt})::bigint * 1000)`))
+          .limit(limit);
 
-    // Returning user: serve from DB cache (fast, no Gmail quota used).
-    const cached = await this.c.gmail.db.messages.list({ limit });
-    if (cached.length > 0) {
-      const sorted = [...cached]
-        .sort((a, b) => Number(b.data.internalDate ?? 0) - Number(a.data.internalDate ?? 0))
-        .map((e) => e.data);
+        if (rows.length > 0) {
+          const newest = Math.max(...rows.map((r) => new Date(r.updatedAt).getTime()));
+          if (Date.now() - newest >= CACHE_TTL_MS) void this.fetchFromApi(limit);
 
-      // Background revalidate when stale so next load is instant too.
-      const newest = Math.max(...cached.map((e) => new Date(e.updated_at).getTime()));
-      if (Date.now() - newest >= CACHE_TTL_MS) {
-        void this.fetchFromApi(limit);
+          const messages = rows.map((r) => {
+            const msg = r.data as RawMsg;
+            const headers = msg.payload?.headers ?? [];
+            const get = (name: string) => headers.find((h) => h.name?.toLowerCase() === name)?.value ?? '';
+            // Top-level fields (written by our fetchFromApi) take priority;
+            // fall back to headers for Corsair-native records.
+            return {
+              ...msg,
+              subject: msg.subject ?? get('subject'),
+              from:    msg.from    ?? get('from'),
+            };
+          });
+
+          return { messages, nextPageToken: null };
+        }
       }
-
-      return { messages: sorted, nextPageToken: null };
+    } catch (err) {
+      console.warn('[GmailService] direct cache query failed, falling back to Corsair:', err);
     }
 
-    // Cache warm but empty (edge case) — fall through to API.
+    // ── Tier 2: Corsair abstraction (reliable fallback) ───────────────────────
+    // Kicks in if Tier 1 returns empty (schema change) or throws.
+    try {
+      const cached = await this.c.gmail.db.messages.list({ limit });
+      if (cached.length > 0) {
+        const sorted = [...cached]
+          .sort((a, b) => Number(b.data.internalDate ?? 0) - Number(a.data.internalDate ?? 0))
+          .map((e) => e.data);
+
+        const newest = Math.max(...cached.map((e) => new Date(e.updated_at).getTime()));
+        if (Date.now() - newest >= CACHE_TTL_MS) void this.fetchFromApi(limit);
+
+        return { messages: sorted, nextPageToken: null };
+      }
+    } catch (err) {
+      console.warn('[GmailService] Corsair cache query failed, falling back to API:', err);
+    }
+
+    // ── Tier 3: live Gmail API ─────────────────────────────────────────────────
     return this.fetchFromApi(limit);
   }
 
@@ -99,8 +128,12 @@ export class GmailService {
     if (!q && messages.length > 0) {
       await Promise.all(
         messages.map((m) => {
-          const msg = m as { id: string } & Record<string, unknown>;
-          return this.c.gmail.db.messages.upsertByEntityId(msg.id, msg as Parameters<typeof this.c.gmail.db.messages.upsertByEntityId>[1]);
+          const msg = m as { id: string; payload?: { headers?: Array<{ name?: string; value?: string }> } } & Record<string, unknown>;
+          const get = (name: string) => msg.payload?.headers?.find((h) => h.name?.toLowerCase() === name)?.value ?? '';
+          // Store subject/from/date as top-level fields alongside the raw payload so
+          // the Tier 1 direct query can read them without parsing headers every time.
+          const enriched = { ...msg, subject: get('subject'), from: get('from'), date: get('date') };
+          return this.c.gmail.db.messages.upsertByEntityId(msg.id, enriched as Parameters<typeof this.c.gmail.db.messages.upsertByEntityId>[1]);
         })
       );
     }
