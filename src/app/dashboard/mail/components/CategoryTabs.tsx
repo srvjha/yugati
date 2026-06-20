@@ -3,11 +3,11 @@
 import { INBOX_TABS, type InboxTab } from "../constants";
 
 const TAB_BADGE: Record<string, string> = {
-  all:        "bg-zinc-800 text-white",
-  primary:    "bg-blue-800 text-white",
-  promotions: "bg-green-800 text-white font-bold",
-  social:     "bg-indigo-600 text-white",
-  updates:    "bg-amber-600 text-white",
+  all:        "bg-zinc-600",
+  primary:    "bg-blue-500",
+  promotions: "bg-emerald-500",
+  social:     "bg-violet-500",
+  updates:    "bg-orange-500",
 };
 
 export function CategoryTabs({
@@ -32,7 +32,7 @@ export function CategoryTabs({
           >
             {tab.label}
             {count > 0 && (
-              <span className={`tab-badge -translate-y-1 text-[10px] font-semibold px-2 py-0.5 rounded-full leading-none ${TAB_BADGE[tab.id] ?? "bg-zinc-500 text-white"}`}>
+              <span className={`tab-badge text-[11px] font-semibold px-1.5 py-1 rounded-full leading-none ${TAB_BADGE[tab.id] ?? "bg-zinc-500"}`} style={{ color: '#ffffff' }}>
                 {count > 99 ? "99+" : count} new
               </span>
             )}

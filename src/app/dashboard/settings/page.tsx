@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useSession } from '@/lib/auth-client';
 import { useQuery } from '@tanstack/react-query';
 import { useTRPC } from '@/trpc/client';
@@ -33,6 +33,12 @@ export default function SettingsPage() {
   const { data: authData } = useSession();
   const user = authData?.user;
   const [activeTab, setActiveTab] = useState<Tab>('profile');
+
+  useEffect(() => {
+    if (new URLSearchParams(window.location.search).get('disconnected')) {
+      setActiveTab('integrations');
+    }
+  }, []);
 
   return (
     <div className="h-screen flex bg-zinc-950 text-zinc-50 overflow-hidden">
