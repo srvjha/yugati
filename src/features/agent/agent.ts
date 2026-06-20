@@ -3,7 +3,7 @@ import { Agent, run, tool, InputGuardrailTripwireTriggered, OutputGuardrailTripw
 import { corsair } from '@/server/corsair';
 import { loadSession, saveSession } from './session';
 import { enhancePrompt } from './enhancer';
-import { safetyGuardrail, sensitiveDataGuardrail } from './guardrails';
+import { checkSafety, safetyGuardrail, sensitiveDataGuardrail } from './guardrails';
 import { buildAgentInstructions } from './prompts/agent';
 import { buildGmailTools } from './tools';
 import { logPrompt } from './logger';
@@ -56,10 +56,26 @@ export async function* streamChat(
   meta:            ChatMeta = {},
   skipGuardrail:   boolean = false,
 ): AsyncGenerator<ChatStreamChunk> {
-  const t0                  = Date.now();
-  const { session, id }     = await loadSession(tenantId, conversationId);
-  const raw                 = [...messages].reverse().find((m) => m.role === 'user')?.content ?? '';
-  const enhanced            = await enhancePrompt(raw, messages);
+  const t0              = Date.now();
+  const { session, id } = await loadSession(tenantId, conversationId);
+  const raw             = [...messages].reverse().find((m) => m.role === 'user')?.content ?? '';
+
+  // Safety check BEFORE the enhancer — prevents injected prompts from reaching any LLM pass.
+  if (!skipGuardrail) {
+    const safety = await checkSafety(raw);
+    if (!safety.safe) {
+      void logPrompt({
+        userId: tenantId, conversationId: id, rawPrompt: raw,
+        status: 'blocked_input', blockedReason: safety.reason, injectionFlag: true,
+        model: MODEL, promptTokens: 0, completionTokens: 0, totalTokens: 0,
+        ipAddress: meta.ipAddress, userAgent: meta.userAgent, durationMs: Date.now() - t0,
+      });
+      yield { type: 'blocked', reason: safety.reason, conversationId: id };
+      return;
+    }
+  }
+
+  const enhanced = await enhancePrompt(raw, messages);
 
   // Retry up to 3 times on OpenAI 429 with exponential backoff (2s → 5s → 10s)
   const RETRY_DELAYS = [2_000, 5_000, 10_000];
