@@ -38,23 +38,22 @@ export function useTheme() {
   return { theme, toggle };
 }
 
-/** Dark/light toggle button. Uses theme-aware utility classes so it
- *  reads correctly in both modes. */
+/** Dark/light toggle button. Renders both icons via CSS visibility to avoid
+ *  SSR/client hydration mismatches (server always defaults to dark). */
 export function ThemeToggle({ className = '' }: { className?: string }) {
-  const { theme, toggle } = useTheme();
-  const isDark = theme === 'dark';
+  const { toggle } = useTheme();
 
   return (
     <button
       type="button"
       onClick={toggle}
-      aria-label={isDark ? 'Switch to light mode' : 'Switch to dark mode'}
-      title={isDark ? 'Light mode' : 'Dark mode'}
-      suppressHydrationWarning
-      className={`inline-flex items-center justify-center w-7 h-7 rounded-md transition-colors
-        ${isDark ? 'text-zinc-400 hover:text-zinc-200' : 'text-zinc-500 hover:text-zinc-800'} ${className}`}
+      aria-label="Toggle theme"
+      className={`inline-flex items-center justify-center w-7 h-7 rounded-md transition-colors text-zinc-400 hover:text-zinc-200 ${className}`}
     >
-      {isDark ? <Sun size={15} /> : <Moon size={15} />}
+      {/* Sun shown in dark mode (default), hidden in light mode */}
+      <Sun size={15} className="block [html[data-theme='light']_&]:hidden" />
+      {/* Moon hidden in dark mode (default), shown in light mode */}
+      <Moon size={15} className="hidden [html[data-theme='light']_&]:block" />
     </button>
   );
 }

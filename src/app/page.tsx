@@ -125,11 +125,7 @@ function LandingNav({ onSignIn, signingIn }: { onSignIn: () => void; signingIn: 
                   active:translate-y-0 active:shadow-none disabled:opacity-70 disabled:hover:translate-y-0
                   transition-all duration-150 ${edgeShadow}`}
               >
-                {signingIn ? (
-                  <>Signing in<Loader2 size={13} className="animate-spin" /></>
-                ) : (
-                  <>Get started<ArrowRight size={13} className="transition-transform duration-150 group-hover:translate-x-0.5" /></>
-                )}
+                Get started<ArrowRight size={13} className="transition-transform duration-150 group-hover:translate-x-0.5" />
               </button>
             </>
           )}
@@ -372,16 +368,6 @@ function DashedPaths() {
         strokeDasharray="8 14"
         className="animate-dash-flow"
       />
-      {/* Second top arc, slightly offset */}
-      <path
-        d="M-100,115 C200,38 460,195 760,95 S1060,215 1340,105 S1570,150 1700,118"
-        fill="none"
-        stroke="rgba(59,130,246,0.24)"
-        strokeWidth="1"
-        strokeDasharray="8 14"
-        className="animate-dash-flow"
-        style={{ animationDelay: '-1.4s' }}
-      />
       {/* Bottom arc — flows right → left */}
       <path
         d="M-100,510 C220,590 560,400 860,520 S1160,380 1460,490 S1650,450 1700,475"
@@ -390,16 +376,6 @@ function DashedPaths() {
         strokeWidth="1.5"
         strokeDasharray="8 14"
         className="animate-dash-flow-slow"
-      />
-      {/* Second bottom arc */}
-      <path
-        d="M-100,535 C240,612 580,422 880,542 S1180,402 1480,512 S1660,474 1700,498"
-        fill="none"
-        stroke="rgba(59,130,246,0.20)"
-        strokeWidth="1"
-        strokeDasharray="8 14"
-        className="animate-dash-flow-slow"
-        style={{ animationDelay: '-2.2s' }}
       />
     </svg>
   );
