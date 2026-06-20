@@ -13,10 +13,6 @@ import { Mail, ChevronDown, Loader2, Trash2 } from "lucide-react";
 import {
   Dialog,
   DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-  DialogFooter,
 } from "@/components/ui/dialog";
 
 import { INBOX_TABS, SIDEBAR_FOLDERS, type InboxTab, type SidebarFolder } from "./constants";
@@ -122,6 +118,7 @@ export default function MailPage() {
   }, [chatMode]);
 
   const isInbox = activeFolder === "inbox";
+  const isTrash = activeFolder === "trash";
   const tabQ = INBOX_TABS.find((t) => t.id === activeTab)!.q;
   const folderQ = SIDEBAR_FOLDERS.find((f) => f.id === activeFolder)!.q;
   const baseQ = isInbox ? tabQ : folderQ;
@@ -159,6 +156,7 @@ export default function MailPage() {
       onSettled: () => void refetch(),
     }),
   );
+
 
   const {
     data: subsData,
@@ -282,25 +280,21 @@ export default function MailPage() {
   }
 
   function deleteOne(id: string) {
-    const subject = ((data?.messages ?? []) as EmailMsg[]).find(
-      (m) => m.id === id,
-    );
-    const subjectLine = subject
-      ? getHeader(subject, "subject") || "this email"
-      : "this email";
-    setConfirmDialog({
-      title: "Move to Trash?",
-      description: `"${subjectLine}" will be moved to Trash.`,
-      onConfirm: async () => {
-        setSelectedIds((prev) => {
-          const n = new Set(prev);
-          n.delete(id);
-          return n;
-        });
-        await trashMutation.mutateAsync({ id });
-        toast.success("Moved to Trash");
-      },
-    });
+    const subject = ((data?.messages ?? []) as EmailMsg[]).find((m) => m.id === id);
+    const subjectLine = subject ? getHeader(subject, "subject") || "this email" : "this email";
+    if (isTrash) {
+      toast.info("Permanent delete coming soon");
+    } else {
+      setConfirmDialog({
+        title: "Move to Trash?",
+        description: `"${subjectLine}" will be moved to Trash.`,
+        onConfirm: async () => {
+          setSelectedIds((prev) => { const n = new Set(prev); n.delete(id); return n; });
+          await trashMutation.mutateAsync({ id });
+          toast.success("Moved to Trash");
+        },
+      });
+    }
   }
 
   function deleteSelected() {
@@ -333,18 +327,28 @@ export default function MailPage() {
           open={!!confirmDialog}
           onOpenChange={(open) => { if (!open) setConfirmDialog(null); }}
         >
-          <DialogContent showCloseButton={false} className="max-w-xs">
-            <DialogHeader>
-              <DialogTitle className="flex items-center gap-2">
-                <Trash2 size={15} className="text-red-400 shrink-0" />
-                {confirmDialog?.title}
-              </DialogTitle>
-              <DialogDescription>{confirmDialog?.description}</DialogDescription>
-            </DialogHeader>
-            <DialogFooter className="flex-row justify-end gap-2 border-t-0 bg-transparent p-3 mt-1">
+          <DialogContent showCloseButton={false} className="max-w-sm p-0 overflow-hidden gap-0">
+            {/* Header */}
+            <div className="flex items-start gap-3 p-5 pb-4">
+              <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${isTrash ? 'bg-red-500/15' : 'bg-zinc-800'}`}>
+                <Trash2 size={16} className={isTrash ? 'text-red-400' : 'text-zinc-400'} />
+              </div>
+              <div className="min-w-0 pt-0.5">
+                <h3 className="text-sm font-semibold text-zinc-100 leading-snug">{confirmDialog?.title}</h3>
+                <p className="text-xs text-zinc-500 mt-1 leading-relaxed">{confirmDialog?.description}</p>
+                {isTrash && (
+                  <p className="text-[11px] text-red-400/80 mt-2 flex items-center gap-1">
+                    <span className="inline-block w-1 h-1 rounded-full bg-red-400/80" />
+                    This action cannot be undone
+                  </p>
+                )}
+              </div>
+            </div>
+            {/* Footer */}
+            <div className="flex items-center justify-end gap-2 px-5 py-3.5 border-t border-zinc-800/40">
               <button
                 onClick={() => setConfirmDialog(null)}
-                className="px-5 py-2.5 text-xs font-medium text-zinc-300 bg-white/6 hover:bg-white/10 border border-white/8 rounded-lg transition-colors"
+                className="px-4 py-2 text-xs font-medium text-zinc-400 hover:text-zinc-200 bg-zinc-800/50 hover:bg-zinc-800 border border-zinc-700/50 rounded-lg transition-colors"
               >
                 Cancel
               </button>
@@ -354,11 +358,15 @@ export default function MailPage() {
                   setConfirmDialog(null);
                   await fn();
                 }}
-                className="px-6 py-2.5 text-xs font-semibold text-white bg-red-800 hover:bg-red-500 rounded-lg transition-colors"
+                className={`px-4 py-2 text-xs font-semibold rounded-lg transition-colors text-white ${
+                  isTrash
+                    ? 'bg-red-600 hover:bg-red-500'
+                    : 'bg-red-700/80 hover:bg-red-600'
+                }`}
               >
-                Move to Trash
+                {isTrash ? 'Delete permanently' : 'Move to Trash'}
               </button>
-            </DialogFooter>
+            </div>
           </DialogContent>
         </Dialog>
 

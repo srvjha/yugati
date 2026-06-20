@@ -241,6 +241,12 @@ export class GmailService {
     return result;
   }
 
+  async deleteMessage(id: string) {
+    await this.c.gmail.api.messages.delete({ id });
+    await this.c.gmail.db.messages.deleteByEntityId(id);
+    return { success: true };
+  }
+
   async modifyMessage(id: string, opts: { addLabelIds?: string[]; removeLabelIds?: string[] }) {
     const result = await this.c.gmail.api.messages.modify({ id, ...opts });
     // Evict so the next listInbox re-fetches with updated labels

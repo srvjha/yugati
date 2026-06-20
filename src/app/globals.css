@@ -61,6 +61,8 @@ html {
    high-contrast ink and `black` becomes the base canvas. */
 :root[data-theme='light'] {
   --background: #f6f1e4;
+  --popover: #fbf7ec;
+  --popover-foreground: #211d16;
   --foreground: #211d16;
   --grid-line: rgba(60, 50, 30, 0.07);
   --muted: #8c8472;

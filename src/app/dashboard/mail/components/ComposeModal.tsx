@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
-import { useForm } from "react-hook-form";
+import { useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { useMutation } from "@tanstack/react-query";
@@ -272,7 +272,7 @@ export function ComposeModal({
     register,
     handleSubmit,
     setValue,
-    watch,
+    control,
     formState: { errors },
   } = useForm<ComposeFields>({
     resolver: zodResolver(composeSchema),
@@ -291,7 +291,7 @@ export function ComposeModal({
     setValue("cc", pills.join(", "), { shouldValidate: false });
   }
 
-  const subjectValue = watch("subject") ?? "";
+  const subjectValue = useWatch({ control, name: "subject" }) ?? "";
 
   const [showCc, setShowCc] = useState(false);
   const [minimized, setMinimized] = useState(false);
@@ -304,16 +304,15 @@ export function ComposeModal({
   const aiMenuRef = useRef<HTMLDivElement>(null);
   const intentRef = useRef<HTMLTextAreaElement>(null);
 
-  // Close AI menu on click outside; reset step when closed
   useEffect(() => {
-    if (!aiMenuOpen) {
-      setAiStep("menu");
-      return;
-    }
-    if (aiStep === "generate") setTimeout(() => intentRef.current?.focus(), 50);
+    if (aiMenuOpen && aiStep === "generate")
+      setTimeout(() => intentRef.current?.focus(), 50);
+    if (!aiMenuOpen) return;
     function handler(e: MouseEvent) {
-      if (aiMenuRef.current && !aiMenuRef.current.contains(e.target as Node))
+      if (aiMenuRef.current && !aiMenuRef.current.contains(e.target as Node)) {
         setAiMenuOpen(false);
+        setAiStep("menu");
+      }
     }
     document.addEventListener("mousedown", handler);
     return () => document.removeEventListener("mousedown", handler);
@@ -708,6 +707,7 @@ export function ComposeModal({
                         <button
                           onClick={() => {
                             setAiMenuOpen(false);
+                            setAiStep("menu");
                             onSwitchToAI();
                           }}
                           className="flex items-center gap-2 text-[11px] text-zinc-500 hover:text-blue-400 transition-colors w-full group"

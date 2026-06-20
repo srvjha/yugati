@@ -37,6 +37,10 @@ export const gmailRouter = createTRPCRouter({
     .input(TrashMessageSchema)
     .mutation(({ ctx, input }) => new GmailService(ctx.tenantId).trashMessage(input.id)),
 
+  deleteMessage: protectedProcedure
+    .input(z.object({ id: z.string() }))
+    .mutation(({ ctx, input }) => new GmailService(ctx.tenantId).deleteMessage(input.id)),
+
   modifyMessage: protectedProcedure
     .input(ModifyMessageSchema)
     .mutation(({ ctx, input }) => new GmailService(ctx.tenantId).modifyMessage(input.id, input)),

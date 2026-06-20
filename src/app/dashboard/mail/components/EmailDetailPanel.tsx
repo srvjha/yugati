@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   X, Star, Reply, ReplyAll, Forward, Archive, Trash2,
-  Bot, Send, MoreHorizontal, CheckCheck,
+  Bot, Send, MoreHorizontal, CheckCheck, Loader2,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useTRPC } from '@/trpc/client';
@@ -101,13 +101,18 @@ export function EmailDetailPanel({
   const trashMutation = useMutation(
     trpc.gmail.trashMessage.mutationOptions({
       onSuccess: () => {
-        toast.success('Moved to Trash');
         void qc.invalidateQueries({ queryKey: trpc.gmail.listInbox.queryKey() });
-        onDeleted();
       },
       onError: () => toast.error('Failed to move to Trash'),
     }),
   );
+
+  function handleTrash() {
+    if (!message?.id) return;
+    toast.success('Moved to Trash');
+    onDeleted();
+    trashMutation.mutate({ id: message.id });
+  }
   const archiveMutation = useMutation(
     trpc.gmail.modifyMessage.mutationOptions({
       onSuccess: () => {
@@ -372,7 +377,13 @@ export function EmailDetailPanel({
           <ActionBtn icon={<Forward size={13} />}  label="Forward"   onClick={() => startCompose('forward')} />
           <div className="w-px h-3.5 bg-zinc-800 mx-0.5" />
           <ActionBtn icon={<Archive size={13} />}  label="Archive"   onClick={() => message.id && archiveMutation.mutate({ id: message.id, removeLabelIds: ['INBOX'] })} loading={archiveMutation.isPending} disabled={isBusy} />
-          <ActionBtn icon={<Trash2 size={13} />}   label="Trash"     onClick={() => message.id && trashMutation.mutate({ id: message.id })} loading={trashMutation.isPending} disabled={isBusy} danger />
+          <ActionBtn
+            icon={trashMutation.isPending ? <Loader2 size={13} className="animate-spin" /> : <Trash2 size={13} />}
+            label="Trash"
+            onClick={handleTrash}
+            disabled={isBusy}
+            danger
+          />
           <div className="relative" data-more-panel>
             <button onClick={() => setMoreOpen((o) => !o)} className="p-2 rounded-lg text-zinc-500 hover:text-white hover:bg-zinc-800 transition-colors">
               <MoreHorizontal size={13} />
