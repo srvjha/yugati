@@ -12,14 +12,22 @@ export const ListMessagesSchema = z.object({
 export const GetMessageSchema   = z.object({ id: idSchema });
 export const TrashMessageSchema = z.object({ id: idSchema });
 
+const AttachmentSchema = z.object({
+  filename: z.string().min(1).max(255),
+  mimeType: z.string().min(1).max(100),
+  data:     z.string(),
+  size:     z.number().int().positive(),
+});
+
 export const SendMessageSchema = z.object({
-  to:       z.array(emailSchema).min(1, 'At least one recipient required'),
-  cc:       z.array(emailSchema).optional(),
-  bcc:      z.array(emailSchema).optional(),
-  subject:  z.string().max(998, 'Subject exceeds RFC 2822 limit').optional(),
-  body:     z.string().optional(),
-  htmlBody: z.string().optional(),
-  threadId: z.string().optional(),
+  to:          z.array(emailSchema).min(1, 'At least one recipient required'),
+  cc:          z.array(emailSchema).optional(),
+  bcc:         z.array(emailSchema).optional(),
+  subject:     z.string().max(998, 'Subject exceeds RFC 2822 limit').optional(),
+  body:        z.string().optional(),
+  htmlBody:    z.string().optional(),
+  threadId:    z.string().optional(),
+  attachments: z.array(AttachmentSchema).max(25).optional(),
 });
 
 export const ModifyMessageSchema = z

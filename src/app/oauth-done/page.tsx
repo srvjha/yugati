@@ -13,8 +13,11 @@ function OAuthDone() {
         { type: 'yugati_oauth', error: error ?? null },
         window.location.origin,
       );
+      window.close();
+    } else {
+      // Opened in same tab (fallback) — redirect back to settings
+      window.location.replace('/dashboard/settings?tab=integrations');
     }
-    window.close();
   }, [error]);
 
   return (

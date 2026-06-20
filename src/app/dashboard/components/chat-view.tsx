@@ -8,6 +8,7 @@ import {
   Copy, RefreshCw, Pencil, Check, Plus, MessageSquare,
   Maximize2, Minimize2, Trash2, Mic, MicOff, Square, PanelLeftClose,
   Send, X, Bold, Italic, Underline, Link2, List, ListOrdered, AlertTriangle,
+  Paperclip, Image as ImageIcon, Video, Music, FileText, Archive, File as FileIcon,
 } from 'lucide-react';
 import { useQuery, useMutation } from '@tanstack/react-query';
 import { motion } from 'framer-motion';
@@ -152,6 +153,43 @@ function useFillerText(active: boolean, lastQuery: string) {
                 : FILLER_GENERIC;
 
   return active ? phrases[tick % phrases.length]! : phrases[0]!;
+}
+
+// ─── Attachment helpers ───────────────────────────────────────────────────────
+
+const MAX_ATTACH_BYTES = 25 * 1024 * 1024;
+
+const BLOCKED_ATTACH_EXTS = new Set([
+  'ade','adp','apk','appx','appxbundle','bat','cab','chm','cmd','com','cpl',
+  'dll','dmg','ex','ex_','exe','hta','ins','isp','iso','jar','js','jse','lib',
+  'lnk','mde','msc','msi','msix','msixbundle','msp','mst','nsh','pif','ps1',
+  'scr','sct','shb','sys','vb','vbe','vbs','vxd','wsc','wsf','wsh','xll',
+]);
+
+function formatAttachBytes(bytes: number): string {
+  if (bytes < 1024)         return `${bytes} B`;
+  if (bytes < 1024 * 1024)  return `${(bytes / 1024).toFixed(1)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+function readFileAsBase64(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload  = () => resolve((reader.result as string).split(',')[1] ?? '');
+    reader.onerror = () => reject(reader.error);
+    reader.readAsDataURL(file);
+  });
+}
+
+type AttachEntry = { id: string; name: string; size: number; mime: string; data: string | null };
+
+function AttachMimeIcon({ mime, size = 11 }: { mime: string; size?: number }) {
+  if (mime.startsWith('image/'))  return <ImageIcon  size={size} className="text-blue-400 shrink-0" />;
+  if (mime.startsWith('video/'))  return <Video       size={size} className="text-purple-400 shrink-0" />;
+  if (mime.startsWith('audio/'))  return <Music       size={size} className="text-green-400 shrink-0" />;
+  if (mime === 'application/pdf') return <FileText    size={size} className="text-red-400 shrink-0" />;
+  if (/zip|rar|7z|tar|gz/.test(mime)) return <Archive size={size} className="text-orange-400 shrink-0" />;
+  return <FileIcon size={size} className="text-zinc-400 shrink-0" />;
 }
 
 // ─── Profanity filter ─────────────────────────────────────────────────────────
@@ -483,6 +521,95 @@ function DraftFormatBtn({ onClick, title, children }: { onClick: () => void; tit
   );
 }
 
+function DraftLinkPopover({ onInsert }: { onInsert: (url: string) => void }) {
+  const [open, setOpen]  = useState(false);
+  const [url,  setUrl]   = useState('');
+  const inputRef  = useRef<HTMLInputElement>(null);
+  const wrapRef   = useRef<HTMLDivElement>(null);
+  const savedRange = useRef<Range | null>(null);
+
+  useEffect(() => {
+    if (open) setTimeout(() => inputRef.current?.focus(), 30);
+  }, [open]);
+
+  useEffect(() => {
+    if (!open) return;
+    function handler(e: MouseEvent) {
+      if (wrapRef.current && !wrapRef.current.contains(e.target as Node)) {
+        setOpen(false); setUrl('');
+      }
+    }
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [open]);
+
+  function openPopover() {
+    const sel = window.getSelection();
+    if (sel && sel.rangeCount > 0) savedRange.current = sel.getRangeAt(0).cloneRange();
+    setOpen((o) => !o);
+  }
+
+  function insert() {
+    const val = url.trim();
+    if (!val) return;
+    const href = val.startsWith('http') ? val : `https://${val}`;
+    if (savedRange.current) {
+      const sel = window.getSelection();
+      sel?.removeAllRanges();
+      sel?.addRange(savedRange.current);
+    }
+    onInsert(href);
+    setUrl(''); setOpen(false);
+  }
+
+  return (
+    <div ref={wrapRef} className="relative">
+      <button
+        type="button"
+        onMouseDown={(e) => { e.preventDefault(); openPopover(); }}
+        title="Insert link"
+        className={`w-7 h-7 flex items-center justify-center rounded-lg transition-colors
+          ${open ? 'bg-blue-500/20 text-blue-400' : 'text-zinc-400 hover:text-zinc-100 hover:bg-zinc-700/60'}`}
+      >
+        <Link2 size={12} />
+      </button>
+      {open && (
+        <div className="absolute bottom-full left-0 mb-2 z-50 bg-zinc-900 border border-zinc-700/80 rounded-xl shadow-2xl p-3 w-60">
+          <p className="text-[10px] font-semibold text-zinc-500 uppercase tracking-wider mb-2">Insert link</p>
+          <input
+            ref={inputRef}
+            value={url}
+            onChange={(e) => setUrl(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter')  { e.preventDefault(); insert(); }
+              if (e.key === 'Escape') { setOpen(false); setUrl(''); }
+            }}
+            placeholder="https://..."
+            className="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-1.5 text-sm text-zinc-200 placeholder-zinc-600 focus:outline-none focus:border-zinc-500"
+          />
+          <div className="flex gap-2 mt-2">
+            <button
+              type="button"
+              onMouseDown={(e) => { e.preventDefault(); insert(); }}
+              disabled={!url.trim()}
+              className="flex-1 py-1.5 text-xs font-semibold bg-blue-600 hover:bg-blue-500 disabled:opacity-40 disabled:cursor-not-allowed text-white rounded-lg transition-colors"
+            >
+              Insert
+            </button>
+            <button
+              type="button"
+              onMouseDown={(e) => { e.preventDefault(); setOpen(false); setUrl(''); }}
+              className="px-3 py-1.5 text-xs text-zinc-400 hover:text-zinc-200 border border-zinc-700 rounded-lg transition-colors"
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function EmailDraftCard({ draft }: { draft: EmailDraft }) {
   const trpc   = useTRPC();
   const [editing,          setEditing]         = useState(false);
@@ -492,7 +619,9 @@ function EmailDraftCard({ draft }: { draft: EmailDraft }) {
   const [reviewBodyText,   setReviewBodyText]  = useState('');
   const [profanityWarning, setProfanityWarning] = useState(false);
   const [sentDetails,      setSentDetails]     = useState<{ to: string; subject: string; body: string } | null>(null);
-  const editorRef = useRef<HTMLDivElement>(null);
+  const [attachments,      setAttachments]     = useState<AttachEntry[]>([]);
+  const editorRef   = useRef<HTMLDivElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const sendMutation = useMutation(
     trpc.gmail.sendMessage.mutationOptions({
@@ -518,19 +647,47 @@ function EmailDraftCard({ draft }: { draft: EmailDraft }) {
     editorRef.current?.focus();
   }
 
-  function insertLink() {
-    const url = prompt('Enter URL:');
-    if (url) execFmt('createLink', url);
+
+  async function addFiles(files: File[]) {
+    const existingSize = attachments.reduce((s, a) => s + a.size, 0);
+    let running = existingSize;
+    const toAdd: Array<{ entry: AttachEntry; file: File }> = [];
+    for (const file of files) {
+      const ext = file.name.split('.').pop()?.toLowerCase() ?? '';
+      if (BLOCKED_ATTACH_EXTS.has(ext)) { toast.error(`"${file.name}" is blocked by Gmail`); continue; }
+      if (running + file.size > MAX_ATTACH_BYTES) { toast.error(`"${file.name}" would exceed the 25 MB limit`); continue; }
+      running += file.size;
+      toAdd.push({ entry: { id: uid(), name: file.name, size: file.size, mime: file.type || 'application/octet-stream', data: null }, file });
+    }
+    if (!toAdd.length) return;
+    setAttachments(prev => [...prev, ...toAdd.map(({ entry }) => entry)]);
+    await Promise.all(toAdd.map(async ({ entry, file }) => {
+      try {
+        const data = await readFileAsBase64(file);
+        setAttachments(prev => prev.map(a => a.id === entry.id ? { ...a, data } : a));
+      } catch {
+        toast.error(`Failed to read "${entry.name}"`);
+        setAttachments(prev => prev.filter(a => a.id !== entry.id));
+      }
+    }));
+  }
+
+  function removeAttachment(id: string) {
+    setAttachments(prev => prev.filter(a => a.id !== id));
+    if (fileInputRef.current) fileInputRef.current.value = '';
   }
 
   function currentPayload() {
     const htmlBody = editorRef.current?.innerHTML ?? plainToHtml(draft.body);
     return {
-      to:      fields.to.split(/[,;]\s*/).map((s) => s.trim()).filter(Boolean),
-      cc:      fields.cc  ? fields.cc.split(/[,;]\s*/).map((s) => s.trim()).filter(Boolean)  : undefined,
-      bcc:     fields.bcc ? fields.bcc.split(/[,;]\s*/).map((s) => s.trim()).filter(Boolean) : undefined,
-      subject: fields.subject,
+      to:          fields.to.split(/[,;]\s*/).map((s) => s.trim()).filter(Boolean),
+      cc:          fields.cc  ? fields.cc.split(/[,;]\s*/).map((s) => s.trim()).filter(Boolean)  : undefined,
+      bcc:         fields.bcc ? fields.bcc.split(/[,;]\s*/).map((s) => s.trim()).filter(Boolean) : undefined,
+      subject:     fields.subject,
       htmlBody,
+      attachments: attachments.length
+        ? attachments.filter(a => a.data !== null).map(a => ({ filename: a.name, mimeType: a.mime, data: a.data!, size: a.size }))
+        : undefined,
     };
   }
 
@@ -702,7 +859,16 @@ function EmailDraftCard({ draft }: { draft: EmailDraft }) {
             <DraftFormatBtn onClick={() => execFmt('insertUnorderedList')} title="Bullet list">   <List        size={12} /></DraftFormatBtn>
             <DraftFormatBtn onClick={() => execFmt('insertOrderedList')}   title="Numbered list"> <ListOrdered size={12} /></DraftFormatBtn>
             <div className="w-px h-4 bg-zinc-700 mx-1 shrink-0" />
-            <DraftFormatBtn onClick={insertLink} title="Insert link"> <Link2 size={12} /></DraftFormatBtn>
+            <DraftLinkPopover onInsert={(url) => execFmt('createLink', url)} />
+            <div className="w-px h-4 bg-zinc-700 mx-1 shrink-0" />
+            <button
+              type="button"
+              onMouseDown={(e) => { e.preventDefault(); fileInputRef.current?.click(); }}
+              title="Attach files"
+              className="w-7 h-7 flex items-center justify-center text-zinc-400 hover:text-zinc-100 hover:bg-zinc-700/60 rounded-lg transition-colors"
+            >
+              <Paperclip size={12} />
+            </button>
           </div>
           <div
             ref={editorRef}
@@ -724,6 +890,48 @@ function EmailDraftCard({ draft }: { draft: EmailDraft }) {
         />
       )}
 
+      {/* Attachment chips */}
+      {attachments.length > 0 && (
+        <div className="border-t border-zinc-800/50 bg-zinc-900/50 px-3 py-2">
+          <div className="flex flex-wrap gap-1.5 mb-1.5">
+            {attachments.map((att) => (
+              <div key={att.id} className="flex items-center gap-1.5 bg-zinc-800/80 border border-zinc-700/60 rounded-lg px-2 py-1 text-xs max-w-[180px]">
+                {att.data === null
+                  ? <Loader2 size={11} className="animate-spin text-zinc-400 shrink-0" />
+                  : <AttachMimeIcon mime={att.mime} />
+                }
+                <span className="text-zinc-200 truncate">{att.name}</span>
+                <span className="text-zinc-600 shrink-0">{formatAttachBytes(att.size)}</span>
+                <button type="button" onClick={() => removeAttachment(att.id)} className="text-zinc-600 hover:text-red-400 transition-colors shrink-0">
+                  <X size={10} />
+                </button>
+              </div>
+            ))}
+          </div>
+          {(() => {
+            const total = attachments.reduce((s, a) => s + a.size, 0);
+            const pct   = Math.min(100, (total / MAX_ATTACH_BYTES) * 100);
+            return (
+              <div className="flex items-center gap-2">
+                <div className="flex-1 h-0.5 bg-zinc-800 rounded-full overflow-hidden">
+                  <div className={`h-full rounded-full transition-all ${pct > 80 ? 'bg-orange-500' : 'bg-blue-500'}`} style={{ width: `${pct}%` }} />
+                </div>
+                <span className="text-[10px] text-zinc-600 shrink-0 tabular-nums">{formatAttachBytes(total)} / 25 MB</span>
+              </div>
+            );
+          })()}
+        </div>
+      )}
+
+      {/* Hidden file input */}
+      <input
+        ref={fileInputRef}
+        type="file"
+        multiple
+        className="hidden"
+        onChange={(e) => { if (e.target.files?.length) void addFiles(Array.from(e.target.files)); }}
+      />
+
       {/* Footer */}
       <div className="flex items-center justify-between gap-2 px-4 py-3 border-t border-zinc-800/50 bg-zinc-800/20">
         <button
@@ -736,7 +944,7 @@ function EmailDraftCard({ draft }: { draft: EmailDraft }) {
         </button>
         <button
           onClick={handleSend}
-          disabled={draftMutation.isPending || !fields.to || !fields.subject}
+          disabled={draftMutation.isPending || !fields.to || !fields.subject || attachments.some(a => a.data === null)}
           className="flex items-center gap-1.5 px-4 py-1.5 text-xs font-semibold bg-white text-black rounded-lg hover:bg-zinc-100 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
         >
           <Send size={11} /> Review &amp; Send

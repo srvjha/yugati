@@ -209,12 +209,24 @@ const INTEGRATIONS = [
   },
 ] as const;
 
+function openOAuthPopup(url: string, onClose: () => void) {
+  const w = 600, h = 660;
+  const left = window.screenX + Math.round((window.outerWidth - w) / 2);
+  const top  = window.screenY + Math.round((window.outerHeight - h) / 2);
+  const popup = window.open(url, 'yugati_oauth', `width=${w},height=${h},left=${left},top=${top},toolbar=0,menubar=0`);
+  if (!popup) { window.location.href = url; return; }
+  const timer = setInterval(() => {
+    if (popup.closed) { clearInterval(timer); onClose(); }
+  }, 500);
+}
+
 function IntegrationCard({
-  integration, connected, loading,
+  integration, connected, loading, onRefetch,
 }: {
   integration: typeof INTEGRATIONS[number];
   connected: boolean;
   loading: boolean;
+  onRefetch: () => void;
 }) {
   const Icon = integration.icon;
   return (
@@ -246,20 +258,22 @@ function IntegrationCard({
         <div className="flex items-center gap-2">
           {connected ? (
             <>
-              <a href={`/api/corsair/connect?plugin=${integration.plugin}`}
+              <button
+                onClick={() => openOAuthPopup(`/api/corsair/connect?plugin=${integration.plugin}`, onRefetch)}
                 className="flex items-center gap-1.5 text-xs text-zinc-400 hover:text-white border border-zinc-700 hover:border-zinc-500 px-3 py-1.5 rounded-lg transition-colors">
                 <RefreshCw size={11} /> Reconnect
-              </a>
+              </button>
               <a href={`/api/corsair/disconnect?plugin=${integration.plugin}`}
                 className="flex items-center gap-1.5 text-xs text-red-400 hover:text-red-300 border border-red-500/30 hover:border-red-400/50 bg-red-500/5 hover:bg-red-500/10 px-3 py-1.5 rounded-lg transition-colors">
                 <Unplug size={11} /> Disconnect
               </a>
             </>
           ) : (
-            <a href={`/api/corsair/connect?plugin=${integration.plugin}`}
+            <button
+              onClick={() => openOAuthPopup(`/api/corsair/connect?plugin=${integration.plugin}`, onRefetch)}
               className="flex items-center gap-1.5 text-xs font-semibold bg-white text-black px-3 py-1.5 rounded-lg hover:bg-zinc-100 transition-colors">
               <Plug size={11} /> Connect
-            </a>
+            </button>
           )}
         </div>
       </div>
@@ -310,6 +324,7 @@ function IntegrationsTab({
             integration={intg}
             connected={connData ? (intg.id === 'gmail' ? connData.gmail : connData.googlecalendar) : false}
             loading={connLoading}
+            onRefetch={onRefetch}
           />
         ))}
       </div>

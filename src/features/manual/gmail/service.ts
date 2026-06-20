@@ -120,6 +120,7 @@ export class GmailService {
     body?: string;
     htmlBody?: string;
     threadId?: string;
+    attachments?: Array<{ filename: string; mimeType: string; data: string; size: number }>;
   }) {
     return this.c.gmail.api.messages.send({
       raw: GmailService.buildRfc2822(opts),
@@ -266,6 +267,16 @@ export class GmailService {
     return this.c.gmail.api.threads.trash({ id });
   }
 
+  private static chunkBase64(b64: string, width = 76): string {
+    return b64.match(new RegExp(`.{1,${width}}`, 'g'))?.join('\r\n') ?? b64;
+  }
+
+  /** RFC 2047 §4: encode a header value as UTF-8 Base64 when it contains non-ASCII. */
+  private static encodeHeader(str: string): string {
+    if (/^[\x00-\x7F]*$/.test(str)) return str;
+    return `=?UTF-8?B?${Buffer.from(str, 'utf-8').toString('base64')}?=`;
+  }
+
   private static buildRfc2822(opts: {
     to: string | string[];
     cc?: string[];
@@ -273,16 +284,67 @@ export class GmailService {
     subject?: string;
     body?: string;
     htmlBody?: string;
+    attachments?: Array<{ filename: string; mimeType: string; data: string }>;
   }) {
     const toHeader = Array.isArray(opts.to) ? opts.to.join(', ') : opts.to;
     const baseHeaders = [
       `To: ${toHeader}`,
       ...(opts.cc?.length  ? [`Cc: ${opts.cc.join(', ')}`]   : []),
       ...(opts.bcc?.length ? [`Bcc: ${opts.bcc.join(', ')}`] : []),
-      `Subject: ${opts.subject ?? ''}`,
+      `Subject: ${GmailService.encodeHeader(opts.subject ?? '')}`,
       'MIME-Version: 1.0',
     ];
 
+    // ── With attachments: multipart/mixed wrapping body + each file ──────────
+    if (opts.attachments?.length) {
+      const mixBoundary = `----=_Mix_${Date.now()}`;
+      const altBoundary = `----=_Alt_${Date.now() + 1}`;
+      const plain = (opts.body ?? (opts.htmlBody?.replace(/<[^>]+>/g, '') ?? '')).replace(/\r?\n/g, '\r\n');
+
+      // Body part: multipart/alternative if html, else plain text
+      let bodySection: string;
+      if (opts.htmlBody) {
+        bodySection = [
+          `--${mixBoundary}`,
+          `Content-Type: multipart/alternative; boundary="${altBoundary}"`,
+          '',
+          `--${altBoundary}`,
+          'Content-Type: text/plain; charset=utf-8',
+          'Content-Transfer-Encoding: quoted-printable',
+          '',
+          plain,
+          `--${altBoundary}`,
+          'Content-Type: text/html; charset=utf-8',
+          'Content-Transfer-Encoding: quoted-printable',
+          '',
+          opts.htmlBody,
+          `--${altBoundary}--`,
+        ].join('\r\n');
+      } else {
+        bodySection = [
+          `--${mixBoundary}`,
+          'Content-Type: text/plain; charset=utf-8',
+          'Content-Transfer-Encoding: quoted-printable',
+          '',
+          plain,
+        ].join('\r\n');
+      }
+
+      const attachSections = opts.attachments.map((att) => [
+        `--${mixBoundary}`,
+        `Content-Type: ${att.mimeType}; name="${att.filename}"`,
+        `Content-Disposition: attachment; filename="${att.filename}"`,
+        'Content-Transfer-Encoding: base64',
+        '',
+        GmailService.chunkBase64(att.data),
+      ].join('\r\n')).join('\r\n');
+
+      const msgBody = [bodySection, attachSections, `--${mixBoundary}--`].join('\r\n');
+      const headers = [...baseHeaders, `Content-Type: multipart/mixed; boundary="${mixBoundary}"`];
+      return Buffer.from([...headers, '', msgBody].join('\r\n')).toString('base64url');
+    }
+
+    // ── No attachments: existing behaviour ───────────────────────────────────
     if (opts.htmlBody) {
       const boundary = `----=_Part_${Date.now()}`;
       const plain = (opts.body ?? opts.htmlBody.replace(/<[^>]+>/g, '')).replace(/\r?\n/g, '\r\n');
