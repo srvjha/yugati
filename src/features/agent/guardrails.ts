@@ -4,6 +4,25 @@ import { SAFETY_SYSTEM, SENSITIVE_PATTERNS } from './prompts/guardrails';
 
 const client = new OpenAI();
 
+const INJECTION_PATTERNS: RegExp[] = [
+  /ignore\s+(all\s+)?previous\s+instructions?/i,
+  /\bimportant\s+system\s+message\b/i,
+  /\bimportant\s+update\b[\s\S]*?instructions?/i,
+  /new\s+system\s+directive/i,
+  /you\s+are\s+no\s+longer\s+bound/i,
+  /developer\s+has\s+changed\s+your\s+system/i,
+  /<!--[\s\S]*?-->/,           // HTML comment injection (any content)
+  /\[system\s*:/i,             // [SYSTEM: ...] overrides
+  /^#\s*(system|instruction)/im,  // markdown heading overrides
+];
+
+export const INJECTION_BLOCKED_REASON = "I'm focused on your Gmail and Google Calendar — I can't help with that. Try asking me to manage your emails, search your inbox, schedule meetings, or anything related to Gmail or Google Calendar!";
+
+/** Fast regex injection pre-check — catches wrapped injections before any LLM call. */
+export function detectInjection(text: string): boolean {
+  return INJECTION_PATTERNS.some((re) => re.test(text));
+}
+
 async function callSafetyModel(text: string): Promise<{ safe: boolean; reason: string }> {
   const res = await client.chat.completions.create({
     model:           'gpt-4o-mini',
