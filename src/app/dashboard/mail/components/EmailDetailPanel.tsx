@@ -85,7 +85,7 @@ export function EmailDetailPanel({
     trpc.gmail.getMessage.queryOptions({ id: emailId }),
   );
 
-  const [starred,      setStarred]      = useState(false);
+  const [pendingStar,  setPendingStar]  = useState<boolean | null>(null);
   const [composeMode,  setComposeMode]  = useState<'reply' | 'replyAll' | 'forward' | null>(null);
   const [composeTo,    setComposeTo]    = useState('');
   const [composeCc,    setComposeCc]    = useState('');
@@ -95,11 +95,8 @@ export function EmailDetailPanel({
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const bodyRef   = useRef<HTMLTextAreaElement>(null);
 
-  // Syncing from server data — intentional setState in effect (same pattern as mail/page.tsx).
-  // eslint-disable-next-line react-hooks/set-state-in-effect
-  useEffect(() => {
-    if (message) setStarred(message.labelIds?.includes('STARRED') ?? false);
-  }, [message]);
+  // Derive starred from server data; pendingStar is the optimistic override
+  const starred = pendingStar ?? (message?.labelIds?.includes('STARRED') ?? false);
 
   const trashMutation = useMutation(
     trpc.gmail.trashMessage.mutationOptions({
@@ -123,7 +120,8 @@ export function EmailDetailPanel({
   );
   const starMutation = useMutation(
     trpc.gmail.modifyMessage.mutationOptions({
-      onError: () => setStarred((s) => !s),
+      onSuccess: () => setPendingStar(null),
+      onError:   () => setPendingStar(null),
     }),
   );
   const markReadMutation = useMutation(
@@ -302,7 +300,7 @@ export function EmailDetailPanel({
   function handleStar() {
     if (!message?.id) return;
     const next = !starred;
-    setStarred(next);
+    setPendingStar(next);
     starMutation.mutate(
       next ? { id: message.id, addLabelIds: ['STARRED'] }
            : { id: message.id, removeLabelIds: ['STARRED'] },

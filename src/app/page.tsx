@@ -653,12 +653,12 @@ function AgenticSection() {
             Your inbox<br /><span className="text-zinc-500">answers back.</span>
           </h2>
           <p className="text-zinc-500 text-base leading-relaxed mb-10 max-w-[340px]">
-            Ask anything in plain English. Yugati reads your Gmail, drafts replies, books meetings, and takes action — without leaving the page.
+            Ask anything in plain English. Yugati reads your Gmail, drafts replies, books meetings, and takes action. All without leaving the page.
           </p>
           <div className="space-y-5">
             {[
               ['Summarise threads', 'Get the gist of 40 emails in one sentence'],
-              ['Draft & send replies', 'AI writes in your voice — you approve with one click'],
+              ['Draft & send replies', 'AI writes in your voice, you approve with one click'],
               ['Book meetings instantly', 'Create calendar events from natural language'],
               ['Search across everything', 'Find that email from six months ago in seconds'],
             ].map(([label, desc]) => (
@@ -726,7 +726,7 @@ function AgenticSection() {
 const MAIL_FEATURES = [
   {
     title: 'Every folder, live',
-    desc:  'Primary, Promotions, Social, Updates, Sent, Drafts, Spam — every Gmail label synced in real time.',
+    desc:  'Primary, Promotions, Social, Updates, Sent, Drafts, Spam. Every Gmail label synced in real time.',
     icon: (
       <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
         <rect x="1.5" y="3.5" width="15" height="11" rx="1.5" stroke="currentColor" strokeWidth="1.2"/>
@@ -746,7 +746,7 @@ const MAIL_FEATURES = [
   },
   {
     title: 'Thread view',
-    desc:  'Full conversation history, timestamps, and quick reply — all inline without opening a new tab.',
+    desc:  'Full conversation history, timestamps, and quick reply. All inline without opening a new tab.',
     icon: (
       <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
         <path d="M3 5h12M3 9h9M3 13h6" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round"/>
@@ -755,7 +755,7 @@ const MAIL_FEATURES = [
   },
   {
     title: 'Auto-categorised',
-    desc:  'Emails land in the right place automatically — no rules, no filters to configure.',
+    desc:  'Emails land in the right place automatically. No rules, no filters to configure.',
     icon: (
       <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
         <path d="M9 1.5L2 5v8l7 3.5 7-3.5V5L9 1.5z" stroke="currentColor" strokeWidth="1.2" strokeLinejoin="round"/>
@@ -775,7 +775,7 @@ const MAIL_FEATURES = [
   },
   {
     title: 'One-click reply',
-    desc:  'Open a thread and reply inline. No popups, no new tabs — just fast.',
+    desc:  'Open a thread and reply inline. No popups, no new tabs. Just fast.',
     icon: (
       <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
         <path d="M3 9l4-4v2.5c5 0 8 2 8 7-1.5-3.5-4-4.5-8-4.5V12L3 9z" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round"/>
@@ -795,7 +795,7 @@ function ManualMailSection() {
           Full Gmail control.<br /><span className="text-zinc-500">Zero compromise.</span>
         </h2>
         <p className="text-zinc-500 text-base max-w-md mx-auto leading-relaxed">
-          Every folder, every thread, rich compose. Your entire inbox — reimagined in one clean panel.
+          Every folder, every thread, rich compose. Your entire inbox reimagined in one clean panel.
         </p>
       </div>
 
@@ -857,7 +857,7 @@ function DashboardSection() {
           Every metric<br /><span className="text-zinc-500">at a glance.</span>
         </h2>
         <p className="text-zinc-500 text-base max-w-md mx-auto leading-relaxed">
-          Yugati tracks email volume, response patterns, top senders, and calendar load — refreshed every minute.
+          Yugati tracks email volume, response patterns, top senders, and calendar load. Refreshed every minute.
         </p>
       </div>
 
@@ -877,7 +877,7 @@ function DashboardSection() {
         {/* Email volume bar chart */}
         <div className={`sm:col-span-2 bg-zinc-950 border border-white/[0.07] p-5 ${edgeShadow}`}>
           <div className="flex items-center justify-between mb-5">
-            <p className="text-xs font-semibold text-zinc-400">Email Volume — This Week</p>
+            <p className="text-xs font-semibold text-zinc-400">Email Volume This Week</p>
             <span className="text-[10px] text-zinc-700 bg-zinc-900 border border-white/[0.05] px-2 py-1">Mon – Sun</span>
           </div>
           <div className="flex items-end gap-2 h-20 mb-2">
@@ -1035,7 +1035,7 @@ function CalendarSection() {
 
           {/* Events list */}
           <div className="px-5 py-4">
-            <p className="text-[10px] text-zinc-700 uppercase tracking-wider font-semibold mb-3">Thu, Jun 19 — 3 events</p>
+            <p className="text-[10px] text-zinc-700 uppercase tracking-wider font-semibold mb-3">Thu, Jun 19 · 3 events</p>
             <div className="space-y-2">
               {CAL_EVENTS_MOCK.map((ev) => (
                 <div key={ev.title} className="flex items-center gap-3 px-3 py-2.5 bg-black/40 border border-white/[0.05]">
@@ -1066,7 +1066,7 @@ function CalendarSection() {
             Your schedule,<br /><span className="text-zinc-500">always in view.</span>
           </h2>
           <p className="text-zinc-500 text-base leading-relaxed mb-10 max-w-[340px]">
-            See your calendar right next to your inbox. Create events, invite attendees, and add Google Meet — without switching apps.
+            See your calendar right next to your inbox. Create events, invite attendees, and add Google Meet without switching apps.
           </p>
           <div className="space-y-5">
             {[
@@ -1100,12 +1100,12 @@ const FEATURES = [
   {
     icon:  Bot,
     label: 'AI chat built in',
-    desc:  'Ask anything about your inbox — summarise threads, draft replies, find that email from 6 months ago — in plain language.',
+    desc:  'Ask anything about your inbox. Summarise threads, draft replies, find that email from 6 months ago, all in plain language.',
   },
   {
     icon:  Zap,
     label: 'Instant triage',
-    desc:  'Primary, Promotions, Social, Updates — auto-sorted on arrival. Toggle between Manual and AI Chat with a single click.',
+    desc:  'Primary, Promotions, Social, Updates, auto-sorted on arrival. Toggle between Manual and AI Chat with a single click.',
   },
   {
     icon:  Calendar,
@@ -1338,7 +1338,7 @@ function CTASection({ onSignIn, signingIn }: { onSignIn: () => void; signingIn: 
 const FAQ_ITEMS = [
   {
     q: 'What is Yugati?',
-    a: 'Yugati is an AI-powered productivity suite that connects to your Gmail and Google Calendar. It handles email drafting, event scheduling, and complex tasks through a conversational agent — so you can focus on what matters.',
+    a: 'Yugati is an AI-powered productivity suite that connects to your Gmail and Google Calendar. It handles email drafting, event scheduling, and complex tasks through a conversational agent, so you can focus on what matters.',
   },
   {
     q: 'How do I connect Gmail and Google Calendar?',
@@ -1350,11 +1350,11 @@ const FAQ_ITEMS = [
   },
   {
     q: 'What can the AI agent actually do?',
-    a: 'The agent can draft and send emails on your behalf, summarise inboxes, find and create calendar events, handle multi-step tasks like scheduling meetings across time zones, and compose context-aware replies — all through natural conversation.',
+    a: 'The agent can draft and send emails on your behalf, summarise inboxes, find and create calendar events, handle multi-step tasks like scheduling meetings across time zones, and compose context-aware replies, all through natural conversation.',
   },
   {
     q: "What's the difference between Guided and Auto mode?",
-    a: "Guided mode (default) shows you what the agent plans to do and asks for confirmation before any action. Auto mode lets the agent complete tasks end-to-end without interruptions — ideal once you're comfortable with its judgment.",
+    a: "Guided mode (default) shows you what the agent plans to do and asks for confirmation before any action. Auto mode lets the agent complete tasks end-to-end without interruptions, ideal once you're comfortable with its judgment.",
   },
   {
     q: 'What AI models power Yugati?',
@@ -1366,7 +1366,7 @@ const FAQ_ITEMS = [
   },
   {
     q: 'Can I use Yugati on mobile?',
-    a: 'Yugati is a fully responsive web app — it works in any modern mobile browser. A dedicated mobile app is on the roadmap. For now, adding the site to your home screen gives you an app-like experience.',
+    a: 'Yugati is a fully responsive web app that works in any modern mobile browser. A dedicated mobile app is on the roadmap. For now, adding the site to your home screen gives you an app-like experience.',
   },
   {
     q: 'How do I cancel my subscription?',

@@ -82,7 +82,7 @@ export default function AdminOverviewPage() {
 
           {/* Daily prompts chart */}
           <div className="xl:col-span-2 bg-zinc-950 border border-dotted border-zinc-800/80 rounded-2xl p-5">
-            <p className="text-sm font-semibold text-zinc-200 mb-4">Daily Prompts — Last 30 Days</p>
+            <p className="text-sm font-semibold text-zinc-200 mb-4">Daily Prompts (Last 30 Days)</p>
             {isLoading ? <Skeleton className="h-48" /> : (
               <ResponsiveContainer width="100%" height={200}>
                 <AreaChart data={dailyPrompts} margin={{ top: 4, right: 4, bottom: 0, left: -20 }}>

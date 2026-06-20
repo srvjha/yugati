@@ -40,7 +40,7 @@ export default function AdminSecurityPage() {
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-xl font-bold text-white flex items-center gap-2">
-              <Shield size={18} className="text-red-400" /> Security — Injection Attempts
+              <Shield size={18} className="text-red-400" /> Security: Injection Attempts
             </h1>
             <p className="text-xs text-zinc-500 mt-1">Every prompt that triggered the input safety guardrail</p>
           </div>
