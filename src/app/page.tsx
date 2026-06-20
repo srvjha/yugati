@@ -240,8 +240,8 @@ function HeroSection({ onSignIn, signingIn }: { onSignIn: () => void; signingIn:
 
         {/* Sub */}
         <p className="animate-fade-in-up delay-200 text-zinc-500 text-lg sm:text-xl max-w-xl leading-relaxed">
-          Yugati is your AI command center for Gmail and Google Calendar —
-          triage, reply, schedule, and search, all in one place.
+          Yugati is your AI command center for Gmail and Google Calendar.
+          Triage, reply, schedule, and search, all in one place.
         </p>
 
         {/* CTAs */}
