@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useSession } from '@/lib/auth-client';
 import { useQuery } from '@tanstack/react-query';
 import { useTRPC } from '@/trpc/client';
@@ -33,12 +33,11 @@ export default function SettingsPage() {
   const { data: authData } = useSession();
   const user = authData?.user;
   const [activeTab, setActiveTab] = useState<Tab>('profile');
-
-  useEffect(() => {
-    if (new URLSearchParams(window.location.search).get('disconnected')) {
-      setActiveTab('integrations');
-    }
-  }, []);
+  const trpc = useTRPC();
+  const { data: connData, isLoading: connLoading, refetch: connRefetch, isFetching: connFetching } = useQuery({
+    ...trpc.stats.connectionStatus.queryOptions(),
+    staleTime: 0,
+  });
 
   return (
     <div className="h-screen flex bg-zinc-950 text-zinc-50 overflow-hidden">
@@ -85,7 +84,14 @@ export default function SettingsPage() {
         <div className="flex-1 overflow-y-auto">
           <div className="max-w-2xl mx-auto px-6 py-10">
             {activeTab === 'profile'      && <ProfileTab user={user ?? null} />}
-            {activeTab === 'integrations' && <IntegrationsTab />}
+            {activeTab === 'integrations' && (
+              <IntegrationsTab
+                connData={connData}
+                connLoading={connLoading}
+                connFetching={connFetching}
+                onRefetch={() => void connRefetch()}
+              />
+            )}
             {activeTab === 'ai'           && <AITab />}
             {activeTab === 'notifs'       && <NotifsTab />}
             {activeTab === 'shortcuts'    && <ShortcutsTab />}
@@ -263,12 +269,17 @@ function IntegrationCard({
   );
 }
 
-function IntegrationsTab() {
-  const trpc = useTRPC();
-  const { data, isLoading, refetch, isFetching } = useQuery({
-    ...trpc.stats.connectionStatus.queryOptions(),
-    staleTime: 0,
-  });
+function IntegrationsTab({
+  connData,
+  connLoading,
+  connFetching,
+  onRefetch,
+}: {
+  connData?: { gmail: boolean; googlecalendar: boolean };
+  connLoading: boolean;
+  connFetching: boolean;
+  onRefetch: () => void;
+}) {
   const [showPrefs, setShowPrefs] = useState(false);
 
   return (
@@ -278,9 +289,9 @@ function IntegrationsTab() {
           <h2 className="text-sm font-semibold text-zinc-100">Integrations</h2>
           <p className="text-xs text-zinc-500 mt-0.5">Manage connected apps and their permissions</p>
         </div>
-        <button onClick={() => void refetch()} disabled={isFetching}
+        <button onClick={onRefetch} disabled={connFetching}
           className="flex items-center gap-1.5 text-xs text-zinc-500 hover:text-zinc-300 border border-zinc-800 hover:border-zinc-600 px-2.5 py-1.5 rounded-lg transition-colors disabled:opacity-40">
-          <RefreshCw size={11} className={isFetching ? 'animate-spin' : ''} /> Check status
+          <RefreshCw size={11} className={connFetching ? 'animate-spin' : ''} /> Check status
         </button>
       </div>
 
@@ -289,8 +300,8 @@ function IntegrationsTab() {
           <IntegrationCard
             key={intg.id}
             integration={intg}
-            connected={data ? (intg.id === 'gmail' ? data.gmail : data.googlecalendar) : false}
-            loading={isLoading}
+            connected={connData ? (intg.id === 'gmail' ? connData.gmail : connData.googlecalendar) : false}
+            loading={connLoading}
           />
         ))}
       </div>
