@@ -139,16 +139,55 @@ export default function MailPage() {
     ? searchQuery + (unreadOnly ? " is:unread" : "")
     : baseQ + (unreadOnly ? " is:unread" : "");
 
+  // Category tabs (Primary / Promotions / Social / Updates) would normally fire a live
+  // Gmail API call (category:promotions etc.) which bypasses the three-tier cache and
+  // takes ~10s. Instead, derive their email list client-side from allInboxData by
+  // filtering on labelIds — instant, no extra network call.
+  const isCategoryTab = isInbox && activeTab !== "all" && !searchQuery;
+
   // Resetting pagination state when the query changes is a standard React
   // pattern. The React Compiler flags setState-in-effect as a cascade risk,
   // but here it's intentional: effectiveQ is stable between renders.
   // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => { setFetchedCount(20); }, [effectiveQ]);
 
-  const { data, isLoading, error, refetch, isFetching } = useQuery({
-    ...trpc.gmail.listInbox.queryOptions({ maxResults: fetchedCount, q: effectiveQ }),
+  // Always fetch the full inbox — used for tab badge counts AND as the source
+  // for client-side category filtering.
+  const { data: allInboxData } = useQuery({
+    ...trpc.gmail.listInbox.queryOptions({ maxResults: 50, q: 'in:inbox' }),
     enabled: gmailConnected,
+    staleTime: 3 * 60 * 1000,
   });
+
+  // Live query — disabled on category tabs (we derive those from allInboxData instead).
+  const { data: liveData, isLoading, error, refetch, isFetching } = useQuery({
+    ...trpc.gmail.listInbox.queryOptions({ maxResults: fetchedCount, q: effectiveQ }),
+    enabled: gmailConnected && !isCategoryTab,
+  });
+
+  // Client-side category filter — instant, uses cached allInboxData.
+  const categoryData = useMemo(() => {
+    if (!isCategoryTab) return null;
+    const LABEL: Record<string, string> = {
+      promotions: "CATEGORY_PROMOTIONS",
+      social:     "CATEGORY_SOCIAL",
+      updates:    "CATEGORY_UPDATES",
+    };
+    const all = (allInboxData?.messages ?? []) as EmailMsg[];
+    let msgs =
+      activeTab === "primary"
+        ? all.filter(
+            (m) =>
+              m.labelIds?.includes("CATEGORY_PERSONAL") ||
+              (!m.labelIds?.some((l) => l.startsWith("CATEGORY_")) &&
+                m.labelIds?.includes("INBOX")),
+          )
+        : all.filter((m) => m.labelIds?.includes(LABEL[activeTab] ?? ""));
+    if (unreadOnly) msgs = msgs.filter((m) => m.labelIds?.includes("UNREAD"));
+    return { messages: msgs, nextPageToken: null };
+  }, [isCategoryTab, activeTab, allInboxData, unreadOnly]);
+
+  const data = categoryData ?? liveData;
 
   const queryClient = useQueryClient();
   const inboxQueryKey = trpc.gmail.listInbox.queryOptions({ maxResults: fetchedCount, q: effectiveQ }).queryKey;
@@ -220,7 +259,7 @@ export default function MailPage() {
   );
 
   const tabCounts = useMemo(() => {
-    const msgs = (data?.messages ?? []) as EmailMsg[];
+    const msgs = (allInboxData?.messages ?? []) as EmailMsg[];
     const unread = msgs.filter((m) => m.labelIds?.includes("UNREAD"));
     const cat = (label: string) => unread.filter((m) => m.labelIds?.includes(label)).length;
     return {
@@ -234,7 +273,7 @@ export default function MailPage() {
       social: cat("CATEGORY_SOCIAL"),
       updates: cat("CATEGORY_UPDATES"),
     };
-  }, [data]);
+  }, [allInboxData]);
 
   const senders = useMemo<Sender[]>(() => {
     const msgs = (data?.messages ?? []) as EmailMsg[];
