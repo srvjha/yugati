@@ -75,8 +75,12 @@ export async function* streamChat(
       return;
     }
 
-    // 2. Topic-based LLM safety check (Gmail/Calendar relevance)
-    const safety = await checkSafety(raw);
+    // 2. Topic-based LLM safety check (Gmail/Calendar relevance).
+    // Skip for short messages (≤ 5 words) — they are almost always follow-up replies
+    // ("professional", "yes", "send it", "casual") that have no conversation context
+    // for the classifier to evaluate correctly. Regex gate above is sufficient.
+    const isShortReply = raw.trim().split(/\s+/).length <= 5;
+    const safety = isShortReply ? { safe: true, reason: '' } : await checkSafety(raw);
     if (!safety.safe) {
       void logPrompt({
         userId: tenantId, conversationId: id, rawPrompt: raw,
