@@ -272,18 +272,39 @@ export class GmailService {
     bcc?: string[];
     subject?: string;
     body?: string;
+    htmlBody?: string;
   }) {
     const toHeader = Array.isArray(opts.to) ? opts.to.join(', ') : opts.to;
-    const headers = [
+    const baseHeaders = [
       `To: ${toHeader}`,
       ...(opts.cc?.length  ? [`Cc: ${opts.cc.join(', ')}`]   : []),
       ...(opts.bcc?.length ? [`Bcc: ${opts.bcc.join(', ')}`] : []),
       `Subject: ${opts.subject ?? ''}`,
       'MIME-Version: 1.0',
-      'Content-Type: text/plain; charset=utf-8',
     ];
-    // RFC 2822 requires a blank line between headers and body — never filter it out
+
+    if (opts.htmlBody) {
+      const boundary = `----=_Part_${Date.now()}`;
+      const plain = (opts.body ?? opts.htmlBody.replace(/<[^>]+>/g, '')).replace(/\r?\n/g, '\r\n');
+      const msgBody = [
+        `--${boundary}`,
+        'Content-Type: text/plain; charset=utf-8',
+        'Content-Transfer-Encoding: quoted-printable',
+        '',
+        plain,
+        `--${boundary}`,
+        'Content-Type: text/html; charset=utf-8',
+        'Content-Transfer-Encoding: quoted-printable',
+        '',
+        opts.htmlBody,
+        `--${boundary}--`,
+      ].join('\r\n');
+      const headers = [...baseHeaders, `Content-Type: multipart/alternative; boundary="${boundary}"`];
+      return Buffer.from([...headers, '', msgBody].join('\r\n')).toString('base64url');
+    }
+
+    // RFC 2822 requires a blank line between headers and body
     const body = (opts.body ?? '').replace(/\r?\n/g, '\r\n');
-    return Buffer.from([...headers, '', body].join('\r\n')).toString('base64url');
+    return Buffer.from([...baseHeaders, 'Content-Type: text/plain; charset=utf-8', '', body].join('\r\n')).toString('base64url');
   }
 }

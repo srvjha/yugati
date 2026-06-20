@@ -7,8 +7,9 @@ import {
   ArrowUp, Loader2, Mail, Calendar, Zap,
   Copy, RefreshCw, Pencil, Check, Plus, MessageSquare,
   Maximize2, Minimize2, Trash2, Mic, MicOff, Square, PanelLeftClose,
+  Send, X, Bold, Italic, Underline, Link2, List, ListOrdered,
 } from 'lucide-react';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useMutation } from '@tanstack/react-query';
 import { useTRPC }  from '@/trpc/client';
 import { toast }    from 'sonner';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
@@ -322,6 +323,313 @@ function ConfirmDialog({
   );
 }
 
+// ─── Tone question detector ───────────────────────────────────────────────────
+
+function parseToneQuestion(content: string): { question: string; options: string[] } | null {
+  if (!/tone/i.test(content)) return null;
+  const lines = content.split('\n');
+  const options = lines
+    .map((l) => l.trim())
+    .filter((l) => /^[-*•·]\s+\S/.test(l))
+    .map((l) => l.replace(/^[-*•·]\s+/, '').trim())
+    .filter(Boolean);
+  if (options.length < 2) return null;
+  const question = lines
+    .filter((l) => l.trim() && !/^[-*•·]\s+\S/.test(l.trim()))
+    .join(' ')
+    .trim();
+  return { question, options };
+}
+
+function ToneSelector({ question, options, onSelect }: {
+  question: string;
+  options: string[];
+  onSelect: (tone: string) => void;
+}) {
+  const [selected, setSelected] = useState<string | null>(null);
+
+  return (
+    <div className="space-y-3">
+      <p className="text-sm text-zinc-100 leading-relaxed">{question}</p>
+      <div className="flex flex-col gap-2">
+        {options.map((opt) => (
+          <label
+            key={opt}
+            className={`flex items-center gap-3 px-3.5 py-2.5 rounded-xl border cursor-pointer transition-all select-none
+              ${selected === opt
+                ? 'border-white/30 bg-white/[0.08]'
+                : 'border-zinc-700/60 bg-white/[0.02] hover:border-zinc-600 hover:bg-white/[0.04]'}`}
+          >
+            <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center shrink-0 transition-colors
+              ${selected === opt ? 'border-white' : 'border-zinc-600'}`}>
+              {selected === opt && <div className="w-1.5 h-1.5 rounded-full bg-white" />}
+            </div>
+            <input
+              type="radio"
+              name="tone"
+              value={opt}
+              checked={selected === opt}
+              onChange={() => setSelected(opt)}
+              className="sr-only"
+            />
+            <span className="text-sm text-zinc-200">{opt}</span>
+          </label>
+        ))}
+      </div>
+      <button
+        disabled={!selected}
+        onClick={() => selected && onSelect(selected)}
+        className="mt-1 px-4 py-2 text-xs font-semibold bg-white text-black rounded-xl hover:bg-zinc-100 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+      >
+        Use this tone
+      </button>
+    </div>
+  );
+}
+
+// ─── Email draft card ─────────────────────────────────────────────────────────
+
+interface EmailDraft {
+  to: string;
+  cc?: string;
+  bcc?: string;
+  subject: string;
+  body: string;
+}
+
+function parseEmailDraft(content: string): EmailDraft | null {
+  if (!/^to:\s*\S/im.test(content) || !/^subject:\s*\S/im.test(content) || !/^body:\s*$/im.test(content)) return null;
+  const lines = content.split('\n');
+  let to = '', cc = '', bcc = '', subject = '';
+  const bodyLines: string[] = [];
+  let inBody = false;
+
+  for (const line of lines) {
+    const t = line.trim();
+    if (!inBody) {
+      if (/^to:\s*/i.test(t))      { to      = t.replace(/^to:\s*/i, '').trim();      continue; }
+      if (/^cc:\s*/i.test(t))      { cc      = t.replace(/^cc:\s*/i, '').trim();      continue; }
+      if (/^bcc:\s*/i.test(t))     { bcc     = t.replace(/^bcc:\s*/i, '').trim();     continue; }
+      if (/^subject:\s*/i.test(t)) { subject = t.replace(/^subject:\s*/i, '').trim(); continue; }
+      if (/^body:\s*$/i.test(t))   { inBody  = true;                                  continue; }
+    } else {
+      bodyLines.push(line);
+    }
+  }
+
+  const rawBody = bodyLines.join('\n').trim();
+  const outroIdx = rawBody.search(/\n\n?(send this|would you|do you|shall i|should i|let me know|is this|does this|ready to send|want me to send)/i);
+  const body = outroIdx !== -1 ? rawBody.slice(0, outroIdx).trim() : rawBody;
+
+  if (!to || !subject || !body) return null;
+  return { to, cc: cc || undefined, bcc: bcc || undefined, subject, body };
+}
+
+function plainToHtml(text: string): string {
+  return text
+    .split('\n')
+    .map((line) => `<div>${line === '' ? '<br>' : line.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')}</div>`)
+    .join('');
+}
+
+function linkifyHtml(html: string): string {
+  return html.replace(
+    /(https?:\/\/[^\s<>"']+)/g,
+    '<a href="$1" target="_blank" rel="noopener noreferrer" style="color:#60a5fa;text-decoration:underline">$1</a>',
+  );
+}
+
+function DraftFormatBtn({ onClick, title, children }: { onClick: () => void; title: string; children: React.ReactNode }) {
+  return (
+    <button
+      type="button"
+      onMouseDown={(e) => { e.preventDefault(); onClick(); }}
+      title={title}
+      className="w-7 h-7 flex items-center justify-center text-zinc-400 hover:text-zinc-100 hover:bg-zinc-700/60 rounded-lg transition-colors"
+    >
+      {children}
+    </button>
+  );
+}
+
+function EmailDraftCard({ draft }: { draft: EmailDraft }) {
+  const trpc   = useTRPC();
+  const [editing, setEditing] = useState(false);
+  const [fields, setFields]   = useState({ to: draft.to, cc: draft.cc ?? '', bcc: draft.bcc ?? '', subject: draft.subject });
+  const [sent,   setSent]     = useState(false);
+  const editorRef = useRef<HTMLDivElement>(null);
+
+  const sendMutation = useMutation(
+    trpc.gmail.sendMessage.mutationOptions({
+      onSuccess: () => { setSent(true); toast.success('Email sent'); },
+      onError:   () => toast.error('Failed to send email'),
+    }),
+  );
+
+  const draftMutation = useMutation(
+    trpc.gmail.createDraft.mutationOptions({
+      onSuccess: () => toast.success('Saved to Drafts'),
+      onError:   () => toast.error('Failed to save draft'),
+    }),
+  );
+
+  function execFmt(cmd: string, value?: string) {
+    document.execCommand(cmd, false, value);
+    editorRef.current?.focus();
+  }
+
+  function insertLink() {
+    const url = prompt('Enter URL:');
+    if (url) execFmt('createLink', url);
+  }
+
+  function currentPayload() {
+    const htmlBody = editorRef.current?.innerHTML ?? plainToHtml(draft.body);
+    return {
+      to:      fields.to.split(/[,;]\s*/).map((s) => s.trim()).filter(Boolean),
+      cc:      fields.cc  ? fields.cc.split(/[,;]\s*/).map((s) => s.trim()).filter(Boolean)  : undefined,
+      bcc:     fields.bcc ? fields.bcc.split(/[,;]\s*/).map((s) => s.trim()).filter(Boolean) : undefined,
+      subject: fields.subject,
+      htmlBody,
+    };
+  }
+
+  function handleSend()      { sendMutation.mutate(currentPayload()); }
+  function handleSaveDraft() { draftMutation.mutate({ to: [fields.to], subject: fields.subject, body: editorRef.current?.innerText ?? draft.body }); }
+
+  useEffect(() => {
+    if (editing && editorRef.current && editorRef.current.innerHTML === '') {
+      editorRef.current.innerHTML = plainToHtml(draft.body);
+    }
+  }, [editing, draft.body]);
+
+  if (sent) {
+    return (
+      <div className="flex items-center gap-2 text-sm text-green-400 py-1">
+        <Check size={14} /> Email sent
+      </div>
+    );
+  }
+
+  const rowCls   = 'flex items-center border-b border-zinc-800/50';
+  const labelCls = 'text-[10px] font-semibold text-zinc-500 uppercase tracking-wider w-20 shrink-0 pl-4 pr-2 py-2.5';
+  const inputCls = 'flex-1 min-w-0 bg-transparent text-sm text-zinc-100 outline-none py-2.5 pr-4 placeholder-zinc-600';
+
+  return (
+    <div className="rounded-2xl overflow-hidden border border-zinc-700/50 bg-zinc-900/70 text-sm">
+
+      {/* Card header */}
+      <div className="flex items-center gap-2 px-4 py-2.5 bg-zinc-800/50 border-b border-zinc-700/40">
+        <div className="w-5 h-5 rounded-md bg-zinc-700 flex items-center justify-center shrink-0">
+          <Mail size={11} className="text-zinc-300" />
+        </div>
+        <span className="text-xs font-semibold text-zinc-300 flex-1">Draft</span>
+        <button
+          onClick={() => setEditing((v) => !v)}
+          className="flex items-center gap-1 text-[11px] font-medium text-zinc-500 hover:text-zinc-200 transition-colors"
+        >
+          {editing ? <X size={11} /> : <Pencil size={11} />}
+          {editing ? 'Done' : 'Edit'}
+        </button>
+      </div>
+
+      {/* Address / subject fields */}
+      <div className="border-b border-zinc-800/50">
+        <div className={rowCls}>
+          <span className={labelCls}>From</span>
+          <span className="flex-1 py-2.5 pr-4 text-zinc-500 text-sm">Me</span>
+        </div>
+        <div className={rowCls}>
+          <span className={labelCls}>To</span>
+          {editing
+            ? <input value={fields.to} onChange={(e) => setFields((f) => ({ ...f, to: e.target.value }))} className={inputCls} />
+            : <span className="flex-1 py-2.5 pr-4 text-zinc-100 break-all">{fields.to}</span>
+          }
+        </div>
+        {(fields.cc || editing) && (
+          <div className={rowCls}>
+            <span className={labelCls}>CC</span>
+            {editing
+              ? <input value={fields.cc} onChange={(e) => setFields((f) => ({ ...f, cc: e.target.value }))} className={inputCls} placeholder="Add CC…" />
+              : <span className="flex-1 py-2.5 pr-4 text-zinc-100 break-all">{fields.cc}</span>
+            }
+          </div>
+        )}
+        {(fields.bcc || editing) && (
+          <div className={rowCls}>
+            <span className={labelCls}>BCC</span>
+            {editing
+              ? <input value={fields.bcc} onChange={(e) => setFields((f) => ({ ...f, bcc: e.target.value }))} className={inputCls} placeholder="Add BCC…" />
+              : <span className="flex-1 py-2.5 pr-4 text-zinc-100 break-all">{fields.bcc}</span>
+            }
+          </div>
+        )}
+        <div className={rowCls}>
+          <span className={labelCls}>Subject</span>
+          {editing
+            ? <input value={fields.subject} onChange={(e) => setFields((f) => ({ ...f, subject: e.target.value }))} className={`${inputCls} font-medium`} />
+            : <span className="flex-1 py-2.5 pr-4 text-zinc-100 font-medium">{fields.subject}</span>
+          }
+        </div>
+      </div>
+
+      {/* Body */}
+      {editing ? (
+        <>
+          {/* Rich-text toolbar */}
+          <div className="flex items-center gap-0.5 px-3 py-1.5 border-b border-zinc-800/50 bg-zinc-800/30">
+            <DraftFormatBtn onClick={() => execFmt('bold')}          title="Bold (⌘B)">      <Bold      size={12} /></DraftFormatBtn>
+            <DraftFormatBtn onClick={() => execFmt('italic')}        title="Italic (⌘I)">    <Italic    size={12} /></DraftFormatBtn>
+            <DraftFormatBtn onClick={() => execFmt('underline')}     title="Underline (⌘U)"> <Underline size={12} /></DraftFormatBtn>
+            <div className="w-px h-4 bg-zinc-700 mx-1 shrink-0" />
+            <DraftFormatBtn onClick={() => execFmt('insertUnorderedList')} title="Bullet list">   <List        size={12} /></DraftFormatBtn>
+            <DraftFormatBtn onClick={() => execFmt('insertOrderedList')}   title="Numbered list"> <ListOrdered size={12} /></DraftFormatBtn>
+            <div className="w-px h-4 bg-zinc-700 mx-1 shrink-0" />
+            <DraftFormatBtn onClick={insertLink} title="Insert link"> <Link2 size={12} /></DraftFormatBtn>
+          </div>
+          <div
+            ref={editorRef}
+            contentEditable
+            suppressContentEditableWarning
+            onKeyDown={(e) => {
+              if ((e.metaKey || e.ctrlKey) && e.key === 'b') { e.preventDefault(); execFmt('bold'); }
+              if ((e.metaKey || e.ctrlKey) && e.key === 'i') { e.preventDefault(); execFmt('italic'); }
+              if ((e.metaKey || e.ctrlKey) && e.key === 'u') { e.preventDefault(); execFmt('underline'); }
+            }}
+            className="px-4 py-3.5 text-sm text-zinc-200 leading-relaxed outline-none min-h-[120px] max-h-80 overflow-y-auto"
+            style={{ wordBreak: 'break-word' }}
+          />
+        </>
+      ) : (
+        <div
+          className="px-4 py-3.5 text-sm text-zinc-200 leading-relaxed"
+          dangerouslySetInnerHTML={{ __html: linkifyHtml(plainToHtml(draft.body)) }}
+        />
+      )}
+
+      {/* Footer */}
+      <div className="flex items-center justify-between gap-2 px-4 py-3 border-t border-zinc-800/50 bg-zinc-800/20">
+        <button
+          onClick={handleSaveDraft}
+          disabled={draftMutation.isPending || sendMutation.isPending || !fields.subject}
+          className="flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-medium text-zinc-400 hover:text-zinc-200 border border-zinc-700/60 hover:border-zinc-600 rounded-lg transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+        >
+          {draftMutation.isPending ? <Loader2 size={11} className="animate-spin" /> : null}
+          Save Draft
+        </button>
+        <button
+          onClick={handleSend}
+          disabled={sendMutation.isPending || draftMutation.isPending || !fields.to || !fields.subject}
+          className="flex items-center gap-1.5 px-4 py-1.5 text-xs font-semibold bg-white text-black rounded-lg hover:bg-zinc-100 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+        >
+          {sendMutation.isPending ? <Loader2 size={11} className="animate-spin" /> : <Send size={11} />}
+          Send Email
+        </button>
+      </div>
+    </div>
+  );
+}
+
 // ─── Markdown renderer ────────────────────────────────────────────────────────
 
 function MdContent({ content, streaming }: { content: string; streaming?: boolean }) {
@@ -385,6 +693,146 @@ function MdContent({ content, streaming }: { content: string; streaming?: boolea
       {streaming && (
         <span className="inline-block w-1.5 h-4 bg-zinc-500 ml-0.5 animate-pulse align-middle rounded-full" />
       )}
+    </div>
+  );
+}
+
+// ─── Google Calendar event card ──────────────────────────────────────────────
+
+function GoogleCalendarIcon({ size = 20 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <rect x="3" y="5" width="18" height="16" rx="2" fill="white" />
+      <rect x="3" y="5" width="18" height="5.5" rx="2" fill="#4285F4" />
+      <rect x="3" y="8" width="18" height="2.5" fill="#4285F4" />
+      <rect x="7" y="2.5" width="2" height="5" rx="1" fill="#4285F4" />
+      <rect x="15" y="2.5" width="2" height="5" rx="1" fill="#4285F4" />
+      <text x="12" y="19" textAnchor="middle" fill="#4285F4" fontSize="7" fontWeight="700" fontFamily="Arial,sans-serif">21</text>
+    </svg>
+  );
+}
+
+interface CalendarEventDetails {
+  title?: string;
+  attendees: string[];
+  date?: string;
+  time?: string;
+  duration?: string;
+  hasMeet: boolean;
+  intro: string;
+  outro: string;
+}
+
+function parseCalendarConfirm(content: string): CalendarEventDetails | null {
+  if (!(/date:/i.test(content) && /time:/i.test(content))) return null;
+  if (!/(confirm|schedul|event details)/i.test(content)) return null;
+
+  const lines = content.split('\n');
+  let title: string | undefined, date: string | undefined, time: string | undefined, duration: string | undefined;
+  const attendees: string[] = [];
+  let hasMeet = false;
+  const introLines: string[] = [];
+  const outroLines: string[] = [];
+  let phase: 'intro' | 'fields' | 'outro' = 'intro';
+
+  for (const line of lines) {
+    const stripped = line.replace(/^[-*•]\s*/, '').trim();
+    if (!stripped) { if (phase === 'fields') phase = 'outro'; continue; }
+
+    const get = (rx: RegExp) => { const m = stripped.match(rx); return m ? stripped.slice(m[0].length).trim() : null; };
+    const t    = get(/^(?:meeting topic|event|title|summary):\s*/i);
+    const att  = get(/^attendees?:\s*/i);
+    const d    = get(/^date:\s*/i);
+    const ti   = get(/^time:\s*/i);
+    const dur  = get(/^duration:\s*/i);
+    const isField = t ?? att ?? d ?? ti ?? dur;
+
+    if (isField !== null) phase = 'fields';
+
+    if (t)   title = t;
+    if (att) attendees.push(...att.split(/[,;]/).map((s) => s.trim()).filter(Boolean));
+    if (d)   date = d;
+    if (ti)  time = ti;
+    if (dur) duration = dur;
+    if (/meet/i.test(stripped) && /includ/i.test(stripped)) hasMeet = true;
+
+    if (phase === 'intro' && !isField)  introLines.push(stripped);
+    if (phase === 'outro' && !isField)  outroLines.push(stripped);
+  }
+
+  if (!date || !time) return null;
+  return { title, attendees, date, time, duration, hasMeet, intro: introLines.join(' '), outro: outroLines.join(' ') };
+}
+
+function CalendarEventCard({ event, onConfirm }: { event: CalendarEventDetails; onConfirm: (msg: string) => void }) {
+  const [confirming, setConfirming] = useState(false);
+
+  function confirm() {
+    setConfirming(true);
+    onConfirm('Yes, schedule it.');
+  }
+
+  const rowCls = 'flex items-start gap-3 py-2';
+  const dotCls = 'w-1.5 h-1.5 rounded-full bg-[#4285F4] shrink-0 mt-1.5';
+
+  return (
+    <div className="rounded-2xl overflow-hidden border border-zinc-700/50 bg-zinc-900/70 text-sm">
+      {/* Header */}
+      <div className="flex items-center gap-2.5 px-4 py-3 bg-zinc-800/50 border-b border-zinc-700/40">
+        <GoogleCalendarIcon size={18} />
+        <span className="text-xs font-semibold text-zinc-200">Google Calendar</span>
+        <span className="ml-auto text-[10px] font-medium px-2 py-0.5 rounded-full bg-[#4285F4]/15 text-[#4285F4]">New Event</span>
+      </div>
+
+      {/* Event title */}
+      {event.title && (
+        <div className="px-4 pt-3.5 pb-1">
+          <p className="text-base font-semibold text-zinc-100">{event.title}</p>
+        </div>
+      )}
+
+      {/* Details */}
+      <div className="px-4 py-2.5 space-y-0.5">
+        <div className={rowCls}>
+          <div className={dotCls} />
+          <span className="text-zinc-300">
+            <span className="font-medium text-zinc-100">{event.date}</span>
+            <span className="text-zinc-500 mx-1">·</span>
+            {event.time}
+            {event.duration && <><span className="text-zinc-500 mx-1">·</span>{event.duration}</>}
+          </span>
+        </div>
+        {event.attendees.length > 0 && (
+          <div className={rowCls}>
+            <div className={dotCls} />
+            <span className="text-zinc-300 break-all">{event.attendees.join(', ')}</span>
+          </div>
+        )}
+        {event.hasMeet && (
+          <div className={rowCls}>
+            <div className={dotCls} />
+            <span className="text-zinc-300 flex items-center gap-1.5">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
+                <path d="M17 10.5V7a1 1 0 0 0-1-1H4a1 1 0 0 0-1 1v10a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-3.5l4 4v-11l-4 4Z" fill="#00897B"/>
+              </svg>
+              Google Meet link included
+            </span>
+          </div>
+        )}
+      </div>
+
+      {/* Outro / Footer */}
+      <div className="flex items-center justify-between gap-2 px-4 py-3 border-t border-zinc-800/50 bg-zinc-800/20 mt-1">
+        <p className="text-xs text-zinc-500 leading-snug max-w-[55%]">{event.outro || 'Is this correct?'}</p>
+        <button
+          onClick={confirm}
+          disabled={confirming}
+          className="flex items-center gap-1.5 px-4 py-1.5 text-xs font-semibold rounded-lg bg-[#4285F4] hover:bg-[#3574e0] transition-colors disabled:opacity-50 disabled:cursor-not-allowed shrink-0" style={{ color: '#ffffff' }}
+        >
+          {confirming ? <Loader2 size={11} className="animate-spin" /> : <Check size={11} />}
+          Schedule Event
+        </button>
+      </div>
     </div>
   );
 }
@@ -946,7 +1394,22 @@ export function ChatView({
                             <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/[0.18] to-transparent pointer-events-none" />
                             {/* Soft violet glow */}
                             <div className="absolute -top-6 -right-6 w-24 h-24 rounded-full bg-violet-400/[0.06] blur-2xl pointer-events-none" />
-                            <MdContent content={msg.content} streaming={msg.streaming} />
+                            {(() => {
+                              const isLastMsg = i === messages.length - 1;
+                              if (!msg.streaming && !msg.blocked) {
+                                const emailDraft = parseEmailDraft(msg.content);
+                                if (emailDraft) return <EmailDraftCard draft={emailDraft} />;
+
+                                if (isLastMsg) {
+                                  const calEvent = parseCalendarConfirm(msg.content);
+                                  if (calEvent) return <CalendarEventCard event={calEvent} onConfirm={(m) => void submit(m)} />;
+
+                                  const toneQ = parseToneQuestion(msg.content);
+                                  if (toneQ) return <ToneSelector question={toneQ.question} options={toneQ.options} onSelect={(t) => void submit(t)} />;
+                                }
+                              }
+                              return <MdContent content={msg.content} streaming={msg.streaming} />;
+                            })()}
                           </div>
                         ) : (
                           <div className="flex items-center gap-2.5 h-10 px-1">
