@@ -22,6 +22,8 @@ const SECTIONS = [
   { id: 'privacy',        label: 'Privacy & Security'  },
   { id: 'troubleshoot',   label: 'Troubleshooting'     },
   { id: 'shortcuts',      label: 'Keyboard Shortcuts'  },
+  { id: 'email-arch',     label: 'Email Architecture'  },
+  { id: 'agent-arch',     label: 'Agent Architecture'  },
 ];
 
 // ─── Page ──────────────────────────────────────────────────────────────────────
@@ -563,6 +565,196 @@ export default function DocsPage() {
                   ))}
                 </tbody>
               </table>
+            </Section>
+
+            {/* ── Email Architecture ── */}
+            <Section id="email-arch" title="Email Architecture">
+              <p>
+                For the curious: here&apos;s exactly how Yugati loads your inbox so fast, and why
+                refreshing the page doesn&apos;t trigger a slow fetch every time.
+              </p>
+
+              <SubHeading>Query routing — what gets cached vs. fetched live</SubHeading>
+              <p>
+                Before touching any cache, Yugati decides whether the request is cacheable at all.
+                Only your default inbox view (<code className="font-mono text-xs bg-zinc-900 border border-zinc-800 rounded px-1.5 py-0.5 text-zinc-300">in:inbox</code>) is served from cache.
+                Category tabs (Primary, Social, Promotions), search results, and label filters always
+                go straight to Gmail so you always see real-time data where it counts.
+              </p>
+
+              <SubHeading>Tier 1 — Direct database query (~50 ms)</SubHeading>
+              <p>
+                Yugati stores a local copy of your inbox metadata in its database every time you
+                load or send email. On subsequent loads, a single indexed SQL query returns your
+                inbox in about 50 ms — no Gmail API call needed. If that copy is older than
+                3 minutes, a background refresh fires silently; you get the cached result instantly
+                and the next load will already have fresh data.
+              </p>
+
+              <SubHeading>Tier 2 — Integration layer (~200 ms)</SubHeading>
+              <p>
+                If the direct query comes back empty (e.g., right after clearing the DB or a schema
+                migration), Yugati falls back to the Corsair integration layer — a higher-level
+                abstraction over the same data. Slower than the direct query, but always correct
+                regardless of internal schema changes. The same stale-and-refresh logic applies.
+              </p>
+
+              <SubHeading>Tier 3 — Live Gmail API (~10–15 s)</SubHeading>
+              <p>
+                Only reached on a brand-new account or if both cache layers are completely empty.
+                Yugati fetches your 15 most recent inbox messages from Gmail, enriches each one
+                with pre-parsed subject/from/date fields, and writes them to the local cache so
+                every subsequent load hits Tier 1.
+              </p>
+
+              <SubHeading>Client-side memory cache</SubHeading>
+              <p>
+                On the browser side, React Query holds the inbox result in memory for 3 minutes.
+                Navigating away and back within that window returns the in-memory result instantly —
+                no network round-trip at all. After 3 minutes it silently revalidates in the
+                background.
+              </p>
+
+              <SubHeading>Full flow at a glance</SubHeading>
+              <CodeBlock>{`You open the inbox
+  │
+  ▼
+Browser memory (React Query)?  ──yes──▶  instant (< 1 ms)
+  │ no
+  ▼
+Server receives tRPC request
+  │
+  ├──▶  Tier 1: local DB query              ~50 ms   ◀── normal path
+  │       └── stale? background refresh fires
+  │
+  ├──▶  Tier 2: integration abstraction     ~200 ms  ◀── fallback
+  │       └── stale? background refresh fires
+  │
+  └──▶  Tier 3: live Gmail API             ~10–15 s  ◀── first-ever load only
+              └── writes enriched data to local cache`}</CodeBlock>
+
+              <CalloutBox>
+                Search and category tabs (Primary, Social, etc.) always bypass the cache and query
+                Gmail directly — you&apos;re always seeing real results there, not a snapshot.
+              </CalloutBox>
+            </Section>
+
+            {/* ── Agent Architecture ── */}
+            <Section id="agent-arch" title="Agent Architecture">
+              <p>
+                Every message you send to the agentic chat passes through a three-stage security
+                pipeline before any AI model touches it. Here&apos;s why each stage exists and what
+                it catches.
+              </p>
+
+              <SubHeading>Stage 1 — Regex injection detection (zero latency, zero cost)</SubHeading>
+              <p>
+                The very first check is pure pattern matching — no AI model, no network call. It
+                scans your message for known prompt injection signatures: HTML comment overrides
+                (<code className="font-mono text-xs bg-zinc-900 border border-zinc-800 rounded px-1.5 py-0.5 text-zinc-300">{`<!-- ... -->`}</code>),
+                phrases like &ldquo;ignore all previous instructions&rdquo; or &ldquo;IMPORTANT SYSTEM
+                MESSAGE&rdquo;, markdown heading overrides, and similar patterns. If any match,
+                the message is blocked immediately — the main model is never called and no tokens
+                are spent.
+              </p>
+
+              <SubHeading>Stage 2 — Topic safety check (~200 ms)</SubHeading>
+              <p>
+                A lightweight AI classifier (GPT-4o-mini) checks whether the message is actually
+                about Gmail or Google Calendar. Requests for code help, math, general knowledge, or
+                anything outside Yugati&apos;s scope are refused here — before the main model runs.
+                This stage also catches sophisticated injections that the regex in Stage 1 might
+                miss.
+              </p>
+
+              <SubHeading>Stage 3 — Prompt enhancer (~300 ms)</SubHeading>
+              <p>
+                Only messages that pass both safety gates reach the enhancer. It uses a small
+                fast model (GPT-4.1-nano) to clarify vague phrasing — turning &ldquo;follow up
+                with them&rdquo; into a precise instruction the main model can execute reliably.
+                Short or already-clear messages skip this step entirely.
+              </p>
+
+              <SubHeading>Agent run — GPT-4.1 with dual guardrails</SubHeading>
+              <p>
+                The enhanced message is handed to GPT-4.1 with two additional guardrails running
+                in parallel:
+              </p>
+              <ul className="space-y-2">
+                <li>
+                  <strong className="text-zinc-200">Input guardrail</strong> — A second safety
+                  check on the enhanced prompt (defense-in-depth: catches anything the enhancer
+                  might have altered).
+                </li>
+                <li>
+                  <strong className="text-zinc-200">Output guardrail</strong> — Scans every chunk
+                  of the response before it reaches you. Blocks OAuth tokens, private keys, PEM
+                  headers, or any other credentials from appearing in the output, even if the model
+                  would otherwise include them.
+                </li>
+              </ul>
+
+              <SubHeading>Why this order matters</SubHeading>
+              <p>
+                The enhancer is itself an LLM. If an injected prompt were passed to it, the
+                enhancer would process and execute the injection before any guardrail ran — turning
+                attacker-controlled text into real model output. Stages 1 and 2 run{' '}
+                <em>before</em> the enhancer so that injected prompts never touch any AI model,
+                not even the small one.
+              </p>
+
+              <SubHeading>Full pipeline</SubHeading>
+              <CodeBlock>{`Your message
+  │
+  ▼
+Stage 1: Regex injection scan         zero latency, zero cost
+  │ blocked → "I'm focused on Gmail and Calendar…"
+  │ passes
+  ▼
+Stage 2: Topic safety classifier      ~200 ms  (GPT-4o-mini)
+  │ blocked → polite refusal, injectionFlag logged
+  │ passes
+  ▼
+Stage 3: Prompt enhancer              ~300 ms  (GPT-4.1-nano)
+  │ (skipped for short / clear messages)
+  ▼
+Agent run                             streaming  (GPT-4.1)
+  ├── input guardrail (defense-in-depth)
+  └── output guardrail (no credentials in response)`}</CodeBlock>
+
+              <SubHeading>Logging</SubHeading>
+              <p>
+                Every message — allowed or blocked — is logged with its outcome. Blocked messages
+                are flagged so patterns can be detected over time. Injection attempts are tagged
+                separately from off-topic blocks so they can be reviewed independently.
+              </p>
+              <table className="w-full text-sm border-collapse mt-2">
+                <thead>
+                  <tr className="border-b border-zinc-800">
+                    <th className="text-left py-2 pr-4 text-zinc-400 font-medium">Status</th>
+                    <th className="text-left py-2 text-zinc-400 font-medium">Meaning</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-zinc-800/60">
+                  <tr>
+                    <td className="py-2.5 pr-4 font-mono text-xs text-zinc-300 align-top">ok</td>
+                    <td className="py-2.5 text-zinc-500">Message processed normally</td>
+                  </tr>
+                  <tr>
+                    <td className="py-2.5 pr-4 font-mono text-xs text-zinc-300 align-top">blocked_input</td>
+                    <td className="py-2.5 text-zinc-500">Stage 1 (injection pattern) or Stage 2 (off-topic)</td>
+                  </tr>
+                  <tr>
+                    <td className="py-2.5 pr-4 font-mono text-xs text-zinc-300 align-top">blocked_output</td>
+                    <td className="py-2.5 text-zinc-500">Output guardrail caught credentials in response</td>
+                  </tr>
+                </tbody>
+              </table>
+
+              <CalloutBox>
+                Blocked requests consume no GPT-4.1 tokens. The cost of a rejected injection
+                attempt is effectively $0.00 — only the lightweight classifier in Stage 2 is called.
+              </CalloutBox>
             </Section>
 
           </div>
