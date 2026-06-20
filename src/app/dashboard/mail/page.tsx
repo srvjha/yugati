@@ -88,7 +88,13 @@ export default function MailPage() {
   const [collapsed, setCollapsed] = useState(false);
   const [chatMode, setChatMode] = useState(false);
   const [activeFolder, setActiveFolder] = useState<SidebarFolder>("inbox");
-  const [activeTab, setActiveTab] = useState<InboxTab>("all");
+  const [activeTab, setActiveTab] = useState<InboxTab>(() => {
+    if (typeof window !== 'undefined') {
+      const tab = new URLSearchParams(window.location.search).get('tab') as InboxTab | null;
+      if (tab && INBOX_TABS.some((t) => t.id === tab)) return tab;
+    }
+    return 'all';
+  });
   const [searchQuery, setSearchQuery] = useState("");
   const [composing, setComposing] = useState(false);
   const [paletteOpen, setPaletteOpen] = useState(false);
@@ -99,7 +105,7 @@ export default function MailPage() {
   const [fetchedCount, setFetchedCount] = useState(20);
   const [selectedEmailId, setSelectedEmailId] = useState<string | null>(null);
 
-  // Restore mode + reply context from localStorage after hydration (avoids SSR mismatch).
+  // Restore mode, active tab, and reply context from localStorage after hydration (avoids SSR mismatch).
   // startTransition defers the state updates so they don't cascade synchronously in the effect.
   useEffect(() => {
     const replyPrompt = popReplyContext();
@@ -122,6 +128,7 @@ export default function MailPage() {
       localStorage.setItem("yugati_mail_mode", chatMode ? "chat" : "manual");
     } catch {}
   }, [chatMode]);
+
 
   const isInbox = activeFolder === "inbox";
   const isTrash = activeFolder === "trash";
@@ -456,7 +463,12 @@ export default function MailPage() {
                 <Panel defaultSize={50} minSize={25} maxSize={70}>
                   <div className="flex flex-col h-full overflow-hidden border-r border-zinc-800/50">
                     {isInbox && !searchQuery && (
-                      <CategoryTabs activeTab={activeTab} onTabChange={setActiveTab} counts={tabCounts} />
+                      <CategoryTabs activeTab={activeTab} onTabChange={(tab) => {
+                        setActiveTab(tab);
+                        const p = new URLSearchParams(window.location.search);
+                        p.set('tab', tab);
+                        router.replace(`?${p.toString()}`, { scroll: false });
+                      }} counts={tabCounts} />
                     )}
                     {!isInbox && (
                       <div className="px-5 py-2.5 border-b border-zinc-800/40 flex items-center gap-2 shrink-0">
@@ -526,7 +538,12 @@ export default function MailPage() {
               /* ── Full-width list (nothing selected) ── */
               <div className="flex-1 flex flex-col overflow-hidden">
                 {isInbox && !searchQuery && (
-                  <CategoryTabs activeTab={activeTab} onTabChange={setActiveTab} counts={tabCounts} />
+                  <CategoryTabs activeTab={activeTab} onTabChange={(tab) => {
+                        setActiveTab(tab);
+                        const p = new URLSearchParams(window.location.search);
+                        p.set('tab', tab);
+                        router.replace(`?${p.toString()}`, { scroll: false });
+                      }} counts={tabCounts} />
                 )}
                 {!isInbox && (
                   <div className="px-5 py-2.5 border-b border-zinc-800/40 flex items-center gap-2 shrink-0">
