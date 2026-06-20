@@ -79,6 +79,12 @@ export default function MailPage() {
   const { data: authData } = useSession();
   const user = authData?.user as SessionUser | undefined;
 
+  const { data: connData } = useQuery({
+    ...trpc.stats.connectionStatus.queryOptions(),
+    staleTime: 0,
+  });
+  const gmailConnected = connData?.gmail ?? true; // default true until we know
+
   const [collapsed, setCollapsed] = useState(false);
   const [chatMode, setChatMode] = useState(false);
   const [activeFolder, setActiveFolder] = useState<SidebarFolder>("inbox");
@@ -132,9 +138,10 @@ export default function MailPage() {
   // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => { setFetchedCount(20); }, [effectiveQ]);
 
-  const { data, isLoading, error, refetch, isFetching } = useQuery(
-    trpc.gmail.listInbox.queryOptions({ maxResults: fetchedCount, q: effectiveQ }),
-  );
+  const { data, isLoading, error, refetch, isFetching } = useQuery({
+    ...trpc.gmail.listInbox.queryOptions({ maxResults: fetchedCount, q: effectiveQ }),
+    enabled: gmailConnected,
+  });
 
   const queryClient = useQueryClient();
   const inboxQueryKey = trpc.gmail.listInbox.queryOptions({ maxResults: fetchedCount, q: effectiveQ }).queryKey;
@@ -179,8 +186,8 @@ export default function MailPage() {
   );
 
   const isAuthError =
-    (error as { data?: { code?: string } } | null)?.data?.code ===
-    "UNAUTHORIZED";
+    !gmailConnected ||
+    (error as { data?: { code?: string } } | null)?.data?.code === "UNAUTHORIZED";
 
   const groupedEmails = useMemo(() => {
     const msgs = (data?.messages ?? []) as EmailMsg[];
@@ -459,8 +466,8 @@ export default function MailPage() {
                       </div>
                     )}
                     {isLoading && <SkeletonList />}
-                    {error && isAuthError && <AuthError />}
-                    {error && !isAuthError && (
+                    {isAuthError && <AuthError />}
+                    {!isAuthError && error && (
                       <div className="flex-1 flex items-center justify-center text-sm text-zinc-500">Failed to load messages</div>
                     )}
                     {!isLoading && !error && data?.messages?.length === 0 && (

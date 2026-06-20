@@ -32,7 +32,15 @@ type Tab = (typeof TABS)[number]['id'];
 export default function SettingsPage() {
   const { data: authData } = useSession();
   const user = authData?.user;
-  const [activeTab, setActiveTab] = useState<Tab>('profile');
+  const [activeTab, setActiveTab] = useState<Tab>(() => {
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search);
+      const tab = params.get('tab') as Tab | null;
+      if (tab && TABS.some((t) => t.id === tab)) return tab;
+      if (params.has('disconnected')) return 'integrations';
+    }
+    return 'profile';
+  });
   const trpc = useTRPC();
   const { data: connData, isLoading: connLoading, refetch: connRefetch, isFetching: connFetching } = useQuery({
     ...trpc.stats.connectionStatus.queryOptions(),
