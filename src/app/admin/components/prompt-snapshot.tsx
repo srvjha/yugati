@@ -1,6 +1,6 @@
 'use client';
 
-import { Shield, AlertTriangle, Clock, Cpu, User, Globe } from 'lucide-react';
+import { AlertTriangle, Shield, Clock, Cpu, User, Globe, Trash2 } from 'lucide-react';
 
 type SnapshotLog = {
   id: string;
@@ -17,7 +17,18 @@ type SnapshotLog = {
   user?: { name: string; email: string; image?: string | null } | null;
 };
 
-// Highlight patterns that look like injection attempts
+function fmtDuration(ms: number): string {
+  if (ms < 1000) return `${ms}ms`;
+  const s = ms / 1000;
+  if (s < 60) return `${s.toFixed(1)}s`;
+  const m = Math.floor(s / 60);
+  const rem = Math.round(s % 60);
+  if (m < 60) return rem > 0 ? `${m}m ${rem}s` : `${m}m`;
+  const h = Math.floor(m / 60);
+  const remM = m % 60;
+  return remM > 0 ? `${h}h ${remM}m` : `${h}h`;
+}
+
 function HighlightedPrompt({ text }: { text: string }) {
   const injectionPatterns = [
     /ignore (all |previous |above |prior )?instructions?/gi,
@@ -33,22 +44,24 @@ function HighlightedPrompt({ text }: { text: string }) {
     /<\|im_start\|>|<\|im_end\|>/g,
   ];
 
-  const highlighted = text;
   const matches: { start: number; end: number }[] = [];
-
   injectionPatterns.forEach((pattern) => {
     let m;
     const re = new RegExp(pattern.source, pattern.flags);
-    while ((m = re.exec(highlighted)) !== null) {
+    while ((m = re.exec(text)) !== null) {
       matches.push({ start: m.index, end: m.index + m[0].length });
     }
   });
 
+  // Code block is always dark — hardcode text colors, not zinc tokens
   if (!matches.length) {
-    return <span className="text-zinc-300 font-mono text-xs leading-relaxed whitespace-pre-wrap break-all">{text}</span>;
+    return (
+      <span className="font-mono text-[13px] leading-relaxed whitespace-pre-wrap break-all" style={{ color: '#d1d5db' }}>
+        {text}
+      </span>
+    );
   }
 
-  // Build segments
   matches.sort((a, b) => a.start - b.start);
   const parts: { text: string; danger: boolean }[] = [];
   let cursor = 0;
@@ -60,91 +73,118 @@ function HighlightedPrompt({ text }: { text: string }) {
   if (cursor < text.length) parts.push({ text: text.slice(cursor), danger: false });
 
   return (
-    <span className="font-mono text-xs leading-relaxed whitespace-pre-wrap break-all">
+    <span className="font-mono text-[13px] leading-relaxed whitespace-pre-wrap break-all">
       {parts.map((p, i) =>
         p.danger
-          ? <mark key={i} className="bg-red-500/25 text-red-300 rounded px-0.5 not-italic">{p.text}</mark>
-          : <span key={i} className="text-zinc-300">{p.text}</span>
+          ? <mark key={i} className="rounded px-0.5 not-italic" style={{ background: 'rgba(239,68,68,0.25)', color: '#fca5a5' }}>{p.text}</mark>
+          : <span key={i} style={{ color: '#d1d5db' }}>{p.text}</span>
       )}
     </span>
   );
 }
 
-export function PromptSnapshot({ log }: { log: SnapshotLog }) {
+export function PromptSnapshot({ log, onDelete }: { log: SnapshotLog; onDelete?: () => void }) {
   const isInjection = log.status === 'blocked_input';
-  const ts = new Date(log.createdAt).toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'medium' });
+  const ts = new Date(log.createdAt).toLocaleString('en-IN', {
+    day: 'numeric', month: 'short', year: 'numeric',
+    hour: '2-digit', minute: '2-digit', hour12: true,
+    timeZone: 'Asia/Kolkata',
+  });
+
+  // Left accent bar color — red/amber stays fixed in both themes
+  const accentClass = isInjection ? 'border-l-red-500' : 'border-l-amber-500';
+  const badgeClass  = isInjection
+    ? 'bg-red-500/10 border border-red-500/20 text-red-500'
+    : 'bg-amber-500/10 border border-amber-500/20 text-amber-500';
+  const reasonTextClass = isInjection ? 'text-red-500' : 'text-amber-500';
+  const reasonBgClass   = isInjection
+    ? 'bg-red-500/8 border border-red-500/15'
+    : 'bg-amber-500/8 border border-amber-500/15';
 
   return (
-    <div className={`rounded-2xl border-2 ${isInjection ? 'border-red-500/50 bg-red-950/20' : 'border-amber-500/40 bg-amber-950/10'} overflow-hidden`}>
-      {/* Header */}
-      <div className={`px-5 py-3 flex items-center justify-between border-b ${isInjection ? 'border-red-500/30 bg-red-950/30' : 'border-amber-500/20 bg-amber-950/20'}`}>
-        <div className="flex items-center gap-2.5">
-          {isInjection
-            ? <AlertTriangle size={14} className="text-red-400 shrink-0" />
-            : <Shield size={14} className="text-amber-400 shrink-0" />
-          }
-          <span className={`text-xs font-bold uppercase tracking-wider ${isInjection ? 'text-red-400' : 'text-amber-400'}`}>
+    <div className={`rounded-xl border-l-4 border border-zinc-800 bg-zinc-900 overflow-hidden ${accentClass}`}>
+
+      {/* ── Header ── */}
+      <div className="px-5 py-3 flex items-center justify-between gap-3 border-b border-zinc-800/80 bg-zinc-800/20">
+        <div className="flex items-center gap-2.5 min-w-0">
+          <span className={`inline-flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wider px-2 py-1 rounded-md shrink-0 ${badgeClass}`}>
+            {isInjection ? <AlertTriangle size={11} /> : <Shield size={11} />}
             {isInjection ? 'Injection Attempt' : 'Blocked Output'}
           </span>
-          <span className="text-[10px] text-zinc-600 font-mono">{log.id}</span>
+          <span className="text-[10px] text-zinc-600 font-mono truncate hidden sm:block">{log.id}</span>
         </div>
-        <div className="flex items-center gap-3 text-[11px] text-zinc-500">
-          <span className="flex items-center gap-1"><Clock size={10} />{ts}</span>
-          <span className="flex items-center gap-1"><Cpu size={10} />{log.model}</span>
-        </div>
-      </div>
 
-      {/* User row */}
-      {log.user && (
-        <div className="px-5 py-2.5 flex items-center gap-3 border-b border-zinc-800/60 bg-zinc-900/40">
-          <div className="w-6 h-6 rounded-full bg-zinc-800 border border-zinc-700 flex items-center justify-center text-[10px] font-bold text-zinc-300 shrink-0">
-            {log.user.name[0]?.toUpperCase()}
+        <div className="flex items-center gap-3 shrink-0">
+          <div className="flex items-center gap-3 text-[11px] text-zinc-500">
+            <span className="flex items-center gap-1.5"><Clock size={10} />{ts} IST</span>
+            <span className="flex items-center gap-1.5 hidden sm:flex"><Cpu size={10} />{log.model}</span>
           </div>
-          <div className="flex items-center gap-1.5 text-xs">
-            <User size={10} className="text-zinc-600" />
-            <span className="text-zinc-200 font-medium">{log.user.name}</span>
-            <span className="text-zinc-600">·</span>
-            <span className="text-zinc-500">{log.user.email}</span>
-          </div>
-          {log.ipAddress && (
-            <div className="flex items-center gap-1 text-xs text-zinc-600 ml-auto">
-              <Globe size={10} />
-              <span className="font-mono">{log.ipAddress}</span>
-            </div>
+          {onDelete && (
+            <button
+              onClick={onDelete}
+              title="Delete"
+              className="p-1.5 rounded-lg text-zinc-600 hover:text-red-500 hover:bg-red-500/10 transition-colors"
+            >
+              <Trash2 size={13} />
+            </button>
           )}
         </div>
-      )}
-
-      {/* Raw prompt */}
-      <div className="px-5 py-4">
-        <p className="text-[10px] font-semibold text-zinc-600 uppercase tracking-wider mb-2">Raw Prompt</p>
-        <div className="bg-black/60 border border-zinc-800/60 rounded-xl p-4">
-          <HighlightedPrompt text={log.rawPrompt} />
-        </div>
       </div>
 
-      {/* Enhanced prompt if different */}
-      {log.enhancedPrompt && log.enhancedPrompt !== log.rawPrompt && (
-        <div className="px-5 pb-4">
-          <p className="text-[10px] font-semibold text-zinc-600 uppercase tracking-wider mb-2">Enhanced (before block)</p>
-          <div className="bg-zinc-900/60 border border-zinc-800/40 rounded-xl p-4">
-            <span className="font-mono text-xs text-zinc-400 leading-relaxed whitespace-pre-wrap break-all">{log.enhancedPrompt}</span>
+      <div className="p-5 space-y-4">
+        {/* ── User row ── */}
+        {log.user && (
+          <div className="flex items-center gap-3">
+            <div className="w-7 h-7 rounded-full bg-zinc-800 border border-zinc-700 flex items-center justify-center text-[11px] font-bold text-zinc-300 shrink-0">
+              {log.user.name[0]?.toUpperCase()}
+            </div>
+            <div className="flex items-center gap-2 min-w-0">
+              <User size={11} className="text-zinc-600 shrink-0" />
+              <span className="text-sm font-semibold text-zinc-200 truncate">{log.user.name}</span>
+              <span className="text-zinc-700">·</span>
+              <span className="text-xs text-zinc-500 truncate">{log.user.email}</span>
+            </div>
+            {log.ipAddress && (
+              <div className="ml-auto flex items-center gap-1 text-xs text-zinc-600 font-mono shrink-0">
+                <Globe size={10} />{log.ipAddress}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* ── Raw prompt — always-dark code block ── */}
+        <div>
+          <p className="text-[10px] font-semibold text-zinc-500 uppercase tracking-wider mb-2">Raw Prompt</p>
+          <div className="rounded-lg px-4 py-3.5 border" style={{ background: '#111113', borderColor: '#27272a' }}>
+            <HighlightedPrompt text={log.rawPrompt} />
           </div>
         </div>
-      )}
 
-      {/* Reason */}
-      {log.blockedReason && (
-        <div className={`mx-5 mb-4 px-4 py-3 rounded-xl border ${isInjection ? 'bg-red-950/30 border-red-500/20' : 'bg-amber-950/20 border-amber-500/20'}`}>
-          <p className="text-[10px] font-semibold text-zinc-500 uppercase tracking-wider mb-1">Guardrail Reason</p>
-          <p className={`text-xs ${isInjection ? 'text-red-300' : 'text-amber-300'}`}>{log.blockedReason}</p>
-        </div>
-      )}
+        {/* ── Enhanced prompt ── */}
+        {log.enhancedPrompt && log.enhancedPrompt !== log.rawPrompt && (
+          <div>
+            <p className="text-[10px] font-semibold text-zinc-500 uppercase tracking-wider mb-2">Enhanced (before block)</p>
+            <div className="bg-zinc-800/40 border border-zinc-700/40 rounded-lg p-4">
+              <span className="font-mono text-xs text-zinc-400 leading-relaxed whitespace-pre-wrap break-all">
+                {log.enhancedPrompt}
+              </span>
+            </div>
+          </div>
+        )}
 
-      {/* Footer stats */}
-      <div className="px-5 py-3 border-t border-zinc-800/60 flex items-center gap-6 text-[11px] text-zinc-600">
+        {/* ── Guardrail reason ── */}
+        {log.blockedReason && (
+          <div className={`px-4 py-3 rounded-lg ${reasonBgClass}`}>
+            <p className="text-[10px] font-semibold text-zinc-500 uppercase tracking-wider mb-1.5">Guardrail Reason</p>
+            <p className={`text-xs leading-relaxed ${reasonTextClass}`}>{log.blockedReason}</p>
+          </div>
+        )}
+      </div>
+
+      {/* ── Footer ── */}
+      <div className="px-5 py-2.5 border-t border-zinc-800/60 flex items-center gap-5 text-[11px] text-zinc-600">
         <span>{log.totalTokens.toLocaleString()} tokens</span>
-        <span>{log.durationMs}ms</span>
+        <span>{fmtDuration(log.durationMs)}</span>
         {log.userAgent && <span className="truncate max-w-xs">{log.userAgent}</span>}
       </div>
     </div>

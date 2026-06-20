@@ -1,16 +1,37 @@
 'use client';
 
 import { useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useTRPC }  from '@/trpc/client';
 import { Shield, ChevronLeft, ChevronRight, AlertTriangle } from 'lucide-react';
+import { toast } from 'sonner';
 import { PromptSnapshot } from '../components/prompt-snapshot';
 
 export default function AdminSecurityPage() {
   const trpc = useTRPC();
+  const qc   = useQueryClient();
   const [page, setPage] = useState(1);
 
-  const { data, isLoading } = useQuery(trpc.admin.listInjections.queryOptions({ page, limit: 10 }));
+  const queryOpts = trpc.admin.listInjections.queryOptions({ page, limit: 10 });
+  const { data, isLoading } = useQuery(queryOpts);
+
+  const deleteMutation = useMutation(
+    trpc.admin.deletePromptLog.mutationOptions({
+      onMutate: async ({ id }) => {
+        await qc.cancelQueries({ queryKey: queryOpts.queryKey });
+        const prev = qc.getQueryData(queryOpts.queryKey);
+        qc.setQueryData(queryOpts.queryKey, (old: typeof data) =>
+          old ? { ...old, logs: old.logs.filter(l => l.id !== id), total: old.total - 1 } : old
+        );
+        return { prev };
+      },
+      onError: (_e, _v, ctx) => {
+        if (ctx?.prev !== undefined) qc.setQueryData(queryOpts.queryKey, ctx.prev);
+        toast.error('Failed to delete');
+      },
+      onSuccess: () => toast.success('Log deleted'),
+    }),
+  );
 
   return (
     <div className="h-full overflow-y-auto bg-black">
@@ -49,7 +70,7 @@ export default function AdminSecurityPage() {
                 ipAddress:       log.ipAddress ?? undefined,
                 userAgent:       log.userAgent ?? undefined,
                 user:            log.user ? { ...log.user, image: log.user.image ?? undefined } : undefined,
-              }} />
+              }} onDelete={() => deleteMutation.mutate({ id: log.id })} />
             ))}
           </div>
         )}

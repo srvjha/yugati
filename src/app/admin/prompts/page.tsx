@@ -12,6 +12,18 @@ const PLAN_COLORS: Record<string, string> = {
   enterprise: 'text-amber-400 bg-amber-500/10 border-amber-500/20',
 };
 
+function fmtDuration(ms: number): string {
+  if (ms < 1000) return `${ms}ms`;
+  const s = ms / 1000;
+  if (s < 60) return `${s.toFixed(1)}s`;
+  const m = Math.floor(s / 60);
+  const rem = Math.round(s % 60);
+  if (m < 60) return rem > 0 ? `${m}m ${rem}s` : `${m}m`;
+  const h = Math.floor(m / 60);
+  const remM = m % 60;
+  return remM > 0 ? `${h}h ${remM}m` : `${h}h`;
+}
+
 const STATUS_COLORS: Record<string, string> = {
   ok:              'text-emerald-400 bg-emerald-500/10 border-emerald-500/20',
   blocked_input:   'text-red-400 bg-red-500/10 border-red-500/20',
@@ -108,10 +120,10 @@ export default function AdminPromptsPage() {
                         </td>
                         <td className="px-4 py-3 text-xs text-zinc-400 tabular-nums">{log.totalTokens.toLocaleString()}</td>
                         <td className="px-4 py-3 text-xs text-zinc-400 font-mono">${Number(log.estimatedCostUsd).toFixed(5)}</td>
-                        <td className="px-4 py-3 text-xs text-zinc-500 tabular-nums">{log.durationMs}ms</td>
+                        <td className="px-4 py-3 text-xs text-zinc-500 tabular-nums">{fmtDuration(log.durationMs)}</td>
                         <td className="px-4 py-3 text-xs text-zinc-600 whitespace-nowrap">
-                          <div>{new Date(log.createdAt).toLocaleDateString([], { month: 'short', day: 'numeric', timeZone: 'UTC' })}</div>
-                          <div className="text-zinc-700">{new Date(log.createdAt).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true, timeZone: 'UTC' })} UTC</div>
+                          <div>{new Date(log.createdAt).toLocaleDateString('en-IN', { month: 'short', day: 'numeric', timeZone: 'Asia/Kolkata' })}</div>
+                          <div className="text-zinc-700">{new Date(log.createdAt).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true, timeZone: 'Asia/Kolkata' })} IST</div>
                         </td>
                       </tr>
                       {expanded === log.id && (

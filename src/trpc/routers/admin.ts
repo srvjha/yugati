@@ -362,6 +362,12 @@ export const adminRouter = t.router({
       };
     }),
 
+  deletePromptLog: adminProcedure
+    .input(z.object({ id: z.string() }))
+    .mutation(async ({ input }) => {
+      await db.delete(adminPromptLogs).where(eq(adminPromptLogs.id, input.id));
+    }),
+
   // ── AI-generated platform insights ──────────────────────────────────────────
 
   getAiInsights: adminProcedure.query(async () => {
