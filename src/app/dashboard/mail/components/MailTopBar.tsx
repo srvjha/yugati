@@ -97,7 +97,7 @@ export function MailTopBar({
     <header className="h-14 shrink-0 border-b border-zinc-800/70 px-4 flex items-center gap-3">
 
       {/* Mode toggle */}
-      <div className="relative overflow-hidden rounded-lg p-px shrink-0">
+      <div data-tour="mode-toggle" className="relative overflow-hidden rounded-lg p-px shrink-0">
         <div className="absolute inset-0 rounded-lg">
           <MovingBorder duration={2500} rx="30%" ry="30%">
             <div
@@ -156,7 +156,7 @@ export function MailTopBar({
         {!chatMode && (
           <>
             {/* Search */}
-            <div className="relative w-36 sm:w-44 md:w-56">
+            <div data-tour="search-bar" className="relative w-36 sm:w-44 md:w-56">
               <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500 pointer-events-none" />
               <input
                 value={searchQuery}

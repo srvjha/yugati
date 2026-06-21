@@ -20,6 +20,7 @@ import {
   Activity,
   BookOpen,
   Bot,
+  HelpCircle,
 } from "lucide-react";
 import { SIDEBAR_FOLDERS, type SidebarFolder } from "../constants";
 import { TooltipWrap } from "./TooltipWrap";
@@ -104,6 +105,7 @@ export function MailSidebar({
   showSubscriptions,
   onSubscriptions,
   onSummarize,
+  onTakeTour,
 }: {
   collapsed: boolean;
   onCollapse: (v: boolean) => void;
@@ -116,9 +118,11 @@ export function MailSidebar({
   showSubscriptions: boolean;
   onSubscriptions: () => void;
   onSummarize: () => void;
+  onTakeTour?: () => void;
 }) {
   return (
     <aside
+      data-tour="mail-sidebar"
       className={`shrink-0 flex flex-col h-full bg-zinc-950 border-r border-zinc-800/70 transition-[width] duration-300 ease-in-out overflow-hidden
         ${collapsed ? "w-14" : "w-56"}`}
     >
@@ -153,7 +157,7 @@ export function MailSidebar({
       </div>
 
       {/* Compose */}
-      <div className="px-2 pt-3 pb-1 shrink-0">
+      <div data-tour="compose-btn" className="px-2 pt-3 pb-1 shrink-0">
         <TooltipWrap label="Compose" side="right" disabled={!collapsed}>
           <button
             onClick={onCompose}
@@ -177,70 +181,95 @@ export function MailSidebar({
       <ScrollArea.Root className="flex-1 overflow-hidden">
         <ScrollArea.Viewport className="h-full w-full py-2 px-1.5 space-y-0.5">
           {SIDEBAR_FOLDERS.map((f) => (
-            <NavItem
-              key={f.id}
-              icon={f.icon}
-              label={f.label}
-              active={activeFolder === f.id && !showSubscriptions}
-              collapsed={collapsed}
-              badge={f.id === "inbox" ? unreadCount : undefined}
-              onClick={() => onFolderChange(f.id)}
-            />
+            <div key={f.id} data-tour={`nav-${f.id}`}>
+              <NavItem
+                icon={f.icon}
+                label={f.label}
+                active={activeFolder === f.id && !showSubscriptions}
+                collapsed={collapsed}
+                badge={f.id === "inbox" ? unreadCount : undefined}
+                onClick={() => onFolderChange(f.id)}
+              />
+            </div>
           ))}
-          <NavItem
-            icon={MailMinus}
-            label="Manage subscriptions"
-            active={showSubscriptions}
-            collapsed={collapsed}
-            onClick={onSubscriptions}
-          />
+          <div data-tour="nav-subscriptions">
+            <NavItem
+              icon={MailMinus}
+              label="Manage subscriptions"
+              active={showSubscriptions}
+              collapsed={collapsed}
+              onClick={onSubscriptions}
+            />
+          </div>
 
           <div className="mx-3 my-1.5 border-t border-zinc-800/40" />
 
-          <NavItem
-            icon={SlidersHorizontal}
-            label="Overview"
-            collapsed={collapsed}
-            href="/dashboard/overview"
-            isNew
-          />
-          <NavItem
-            icon={Calendar}
-            label="Calendar"
-            collapsed={collapsed}
-            href="/dashboard/calendar"
-          />
-          <NavItem
-            icon={Blocks}
-            label="Integrations"
-            collapsed={collapsed}
-            href="/dashboard/integrations"
-          />
-          <NavItem
-            icon={Bot}
-            label="Agentic"
-            collapsed={collapsed}
-            href="/dashboard/chat"
-            isNew
-          />
-          <NavItem
-            icon={CreditCard}
-            label="Billing"
-            collapsed={collapsed}
-            href="/dashboard/billing"
-          />
-          <NavItem
-            icon={BookOpen}
-            label="Docs"
-            collapsed={collapsed}
-            href="/docs"
-          />
-          <NavItem
-            icon={Settings}
-            label="Settings"
-            collapsed={collapsed}
-            href="/dashboard/settings"
-          />
+          <div data-tour="nav-overview">
+            <NavItem
+              icon={SlidersHorizontal}
+              label="Overview"
+              collapsed={collapsed}
+              href="/dashboard/overview"
+              isNew
+            />
+          </div>
+          <div data-tour="nav-calendar">
+            <NavItem
+              icon={Calendar}
+              label="Calendar"
+              collapsed={collapsed}
+              href="/dashboard/calendar"
+            />
+          </div>
+          <div data-tour="nav-integrations">
+            <NavItem
+              icon={Blocks}
+              label="Integrations"
+              collapsed={collapsed}
+              href="/dashboard/integrations"
+            />
+          </div>
+          <div data-tour="nav-agentic">
+            <NavItem
+              icon={Bot}
+              label="Agentic"
+              collapsed={collapsed}
+              href="/dashboard/chat"
+              isNew
+            />
+          </div>
+          <div data-tour="nav-billing">
+            <NavItem
+              icon={CreditCard}
+              label="Billing"
+              collapsed={collapsed}
+              href="/dashboard/billing"
+            />
+          </div>
+          <div data-tour="nav-docs">
+            <NavItem
+              icon={BookOpen}
+              label="Docs"
+              collapsed={collapsed}
+              href="/docs"
+            />
+          </div>
+          <div data-tour="nav-settings">
+            <NavItem
+              icon={Settings}
+              label="Settings"
+              collapsed={collapsed}
+              href="/dashboard/settings"
+            />
+          </div>
+          {onTakeTour && (
+            <NavItem
+              icon={HelpCircle}
+              label="Take Tour"
+              collapsed={collapsed}
+              onClick={onTakeTour}
+            />
+          )}
           {isAdmin && (
             <NavItem
               icon={Activity}

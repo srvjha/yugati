@@ -29,6 +29,7 @@ import { SubscriptionsPanel } from "./components/SubscriptionsPanel";
 import { ComposeModal } from "./components/ComposeModal";
 import { AuthError } from "./components/AuthError";
 import { SkeletonList } from "./components/SkeletonList";
+import { PlatformTour, useTour } from "@/features/tour/PlatformTour";
 
 
 function popReplyContext(): string | null {
@@ -78,6 +79,7 @@ export default function MailPage() {
   const router = useRouter();
   const { data: authData } = useSession();
   const user = authData?.user as SessionUser | undefined;
+  const { startTour } = useTour();
 
   const { data: connData } = useQuery({
     ...trpc.stats.connectionStatus.queryOptions(),
@@ -367,6 +369,7 @@ export default function MailPage() {
 
   return (
     <Tooltip.Provider delayDuration={300}>
+      <PlatformTour userName={user?.name} />
       <div className="h-screen flex overflow-hidden bg-zinc-950 text-zinc-50">
         {paletteOpen && (
           <CommandPalette
@@ -448,6 +451,7 @@ export default function MailPage() {
               `Summarize my most recent unread emails (up to 10) — give me the key topics, senders, and anything urgent that needs my attention. Use snippets only, not full content.`,
             );
           }}
+          onTakeTour={startTour}
         />
 
         <div className="flex-1 min-w-0 flex flex-col overflow-hidden">

@@ -37,6 +37,7 @@
     "client-only": "^0.0.1",
     "clsx": "^2.1.1",
     "corsair": "^0.1.76",
+    "driver.js": "^1.4.0",
     "drizzle-orm": "^0.45.2",
     "framer-motion": "^12.40.0",
     "lucide-react": "^1.17.0",

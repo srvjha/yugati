@@ -369,3 +369,237 @@ body {
     @apply font-sans;
   }
 }
+
+/* ── Driver.js platform tour ──────────────────────────────────────── */
+
+/* Base popover shell */
+.yugati-tour-popover.driver-popover {
+  border-radius: 14px;
+  padding: 22px 22px 18px;
+  max-width: 340px;
+  font-family: inherit;
+  box-shadow: 0 32px 64px -12px rgba(0, 0, 0, 0.5);
+}
+
+/* ── Dark mode (default — app defaults to dark) ── */
+html[data-theme="dark"] .yugati-tour-popover.driver-popover,
+.yugati-tour-popover.driver-popover {
+  background: #18181b;
+  border: 1px solid #3f3f46;
+}
+
+html[data-theme="dark"] .yugati-tour-popover .driver-popover-title,
+.yugati-tour-popover .driver-popover-title {
+  font-size: 15px;
+  font-weight: 700;
+  color: #fafafa;
+  margin-bottom: 8px;
+  letter-spacing: -0.01em;
+}
+
+html[data-theme="dark"] .yugati-tour-popover .driver-popover-description,
+.yugati-tour-popover .driver-popover-description {
+  font-size: 13px;
+  line-height: 1.65;
+  color: #a1a1aa;
+}
+
+html[data-theme="dark"] .yugati-tour-popover .driver-popover-description b,
+.yugati-tour-popover .driver-popover-description b {
+  color: #e4e4e7;
+  font-weight: 600;
+}
+
+html[data-theme="dark"] .yugati-tour-popover .driver-popover-description i,
+.yugati-tour-popover .driver-popover-description i {
+  color: #d4d4d8;
+  font-style: italic;
+}
+
+html[data-theme="dark"] .yugati-tour-popover .driver-popover-description code,
+html[data-theme="dark"] .yugati-tour-popover .driver-popover-description kbd,
+.yugati-tour-popover .driver-popover-description code,
+.yugati-tour-popover .driver-popover-description kbd {
+  font-size: 11px;
+  background: #27272a;
+  border: 1px solid #3f3f46;
+  border-radius: 5px;
+  padding: 1px 6px;
+  color: #c084fc;
+  font-family: ui-monospace, monospace;
+}
+
+html[data-theme="dark"] .yugati-tour-popover .driver-popover-footer,
+.yugati-tour-popover .driver-popover-footer {
+  margin-top: 18px;
+  gap: 8px;
+  align-items: center;
+}
+
+/* Hide disabled prev button (shown on first step) */
+.yugati-tour-popover .driver-popover-prev-btn.driver-popover-btn-disabled {
+  display: none !important;
+}
+
+html[data-theme="dark"] .yugati-tour-popover .driver-popover-progress-text,
+.yugati-tour-popover .driver-popover-progress-text {
+  font-size: 11px;
+  color: #52525b;
+}
+
+/* Next / Done button — white on dark */
+html[data-theme="dark"] .yugati-tour-popover .driver-popover-next-btn,
+.yugati-tour-popover .driver-popover-next-btn {
+  background: #ffffff;
+  color: #09090b;
+  border: none;
+  border-radius: 8px;
+  font-size: 12px;
+  font-weight: 700;
+  padding: 8px 16px;
+  cursor: pointer;
+  transition: background 0.15s;
+  text-shadow: none;
+  font-family: inherit;
+}
+
+html[data-theme="dark"] .yugati-tour-popover .driver-popover-next-btn:hover,
+.yugati-tour-popover .driver-popover-next-btn:hover {
+  background: #e4e4e7;
+}
+
+/* Previous button */
+html[data-theme="dark"] .yugati-tour-popover .driver-popover-prev-btn,
+.yugati-tour-popover .driver-popover-prev-btn {
+  background: transparent;
+  color: #71717a;
+  border: 1px solid #3f3f46;
+  border-radius: 8px;
+  font-size: 12px;
+  font-weight: 500;
+  padding: 8px 14px;
+  cursor: pointer;
+  transition: color 0.15s, border-color 0.15s;
+  text-shadow: none;
+  font-family: inherit;
+}
+
+html[data-theme="dark"] .yugati-tour-popover .driver-popover-prev-btn:hover,
+.yugati-tour-popover .driver-popover-prev-btn:hover {
+  color: #e4e4e7;
+  border-color: #71717a;
+}
+
+/* Close (×) button */
+html[data-theme="dark"] .yugati-tour-popover .driver-popover-close-btn,
+.yugati-tour-popover .driver-popover-close-btn {
+  color: #52525b;
+  font-size: 18px;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  transition: color 0.15s;
+}
+
+html[data-theme="dark"] .yugati-tour-popover .driver-popover-close-btn:hover,
+.yugati-tour-popover .driver-popover-close-btn:hover {
+  color: #a1a1aa;
+}
+
+/* Injected skip button */
+.yugati-tour-skip-btn {
+  background: transparent !important;
+  border: none !important;
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  padding: 8px 10px;
+  margin-right: auto;
+  white-space: nowrap !important;
+  flex-shrink: 0;
+  transition: color 0.15s;
+  font-family: inherit;
+}
+
+html[data-theme="dark"] .yugati-tour-skip-btn,
+.yugati-tour-skip-btn {
+  color: #52525b;
+}
+
+html[data-theme="dark"] .yugati-tour-skip-btn:hover,
+.yugati-tour-skip-btn:hover {
+  color: #a1a1aa;
+}
+
+/* Popover arrow — dark */
+html[data-theme="dark"] .yugati-tour-popover .driver-popover-arrow-side-left.driver-popover-arrow,
+.yugati-tour-popover .driver-popover-arrow-side-left.driver-popover-arrow { border-left-color: #3f3f46; }
+html[data-theme="dark"] .yugati-tour-popover .driver-popover-arrow-side-right.driver-popover-arrow,
+.yugati-tour-popover .driver-popover-arrow-side-right.driver-popover-arrow { border-right-color: #3f3f46; }
+html[data-theme="dark"] .yugati-tour-popover .driver-popover-arrow-side-top.driver-popover-arrow,
+.yugati-tour-popover .driver-popover-arrow-side-top.driver-popover-arrow { border-top-color: #3f3f46; }
+html[data-theme="dark"] .yugati-tour-popover .driver-popover-arrow-side-bottom.driver-popover-arrow,
+.yugati-tour-popover .driver-popover-arrow-side-bottom.driver-popover-arrow { border-bottom-color: #3f3f46; }
+
+/* ── Light mode — warm cream paper theme ── */
+html[data-theme="light"] .yugati-tour-popover.driver-popover {
+  background: #fbf7ec;       /* --card */
+  border: 1px solid #ece3d0; /* --card-border */
+  box-shadow: 0 24px 48px -8px rgba(33, 29, 22, 0.14);
+}
+
+html[data-theme="light"] .yugati-tour-popover .driver-popover-title {
+  color: #211d16; /* --foreground */
+}
+html[data-theme="light"] .yugati-tour-popover .driver-popover-description {
+  color: #8c8472; /* --muted */
+}
+html[data-theme="light"] .yugati-tour-popover .driver-popover-description b {
+  color: #211d16;
+}
+html[data-theme="light"] .yugati-tour-popover .driver-popover-description i {
+  color: #6b6453; /* --muted-foreground */
+}
+html[data-theme="light"] .yugati-tour-popover .driver-popover-description code,
+html[data-theme="light"] .yugati-tour-popover .driver-popover-description kbd {
+  background: #ece3d0;
+  border-color: #e6ddc8; /* --border */
+  color: #443d2d;         /* zinc-300 remapped */
+}
+
+html[data-theme="light"] .yugati-tour-popover .driver-popover-progress-text {
+  color: #a99e85; /* zinc-700 remapped */
+}
+
+/* Primary action — dark ink on cream, matches app's primary */
+html[data-theme="light"] .yugati-tour-popover .driver-popover-next-btn {
+  background: #211d16; /* --primary */
+  color: #f6f1e4;      /* --primary-foreground */
+}
+html[data-theme="light"] .yugati-tour-popover .driver-popover-next-btn:hover {
+  background: #322c20; /* zinc-200 remapped */
+}
+
+html[data-theme="light"] .yugati-tour-popover .driver-popover-prev-btn {
+  color: #8c8472;        /* --muted */
+  border-color: #e6ddc8; /* --border */
+}
+html[data-theme="light"] .yugati-tour-popover .driver-popover-prev-btn:hover {
+  color: #211d16;
+  border-color: #a99e85;
+}
+
+html[data-theme="light"] .yugati-tour-popover .driver-popover-close-btn {
+  color: #a99e85;
+}
+html[data-theme="light"] .yugati-tour-popover .driver-popover-close-btn:hover {
+  color: #6b6453;
+}
+
+html[data-theme="light"] .yugati-tour-skip-btn { color: #a99e85; }
+html[data-theme="light"] .yugati-tour-skip-btn:hover { color: #6b6453; }
+
+html[data-theme="light"] .yugati-tour-popover .driver-popover-arrow-side-left.driver-popover-arrow   { border-left-color:   #ece3d0; }
+html[data-theme="light"] .yugati-tour-popover .driver-popover-arrow-side-right.driver-popover-arrow  { border-right-color:  #ece3d0; }
+html[data-theme="light"] .yugati-tour-popover .driver-popover-arrow-side-top.driver-popover-arrow    { border-top-color:    #ece3d0; }
+html[data-theme="light"] .yugati-tour-popover .driver-popover-arrow-side-bottom.driver-popover-arrow { border-bottom-color: #ece3d0; }

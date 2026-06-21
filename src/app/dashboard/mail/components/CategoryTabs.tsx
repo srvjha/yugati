@@ -20,7 +20,7 @@ export function CategoryTabs({
   counts?: Record<string, number>;
 }) {
   return (
-    <div className="flex items-center border-b border-zinc-800/60 px-2 shrink-0 overflow-x-auto">
+    <div data-tour="category-tabs" className="flex items-center border-b border-zinc-800/60 px-2 shrink-0 overflow-x-auto">
       {INBOX_TABS.map((tab) => {
         const count = counts?.[tab.id] ?? 0;
         return (

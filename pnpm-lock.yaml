@@ -68,6 +68,9 @@ importers:
       corsair:
         specifier: ^0.1.76
         version: 0.1.76
+      driver.js:
+        specifier: ^1.4.0
+        version: 1.4.0
       drizzle-orm:
         specifier: ^0.45.2
         version: 0.45.2(@types/pg@8.20.0)(@upstash/redis@1.38.0)(kysely@0.28.17)(pg@8.21.0)
@@ -3072,6 +3075,9 @@ packages:
   dotenv@17.4.2:
     resolution: {integrity: sha512-nI4U3TottKAcAD9LLud4Cb7b2QztQMUEfHbvhTH09bqXTxnSie8WnjPALV/WMCrJZ6UV/qHJ6L03OqO3LcdYZw==}
     engines: {node: '>=12'}
+
+  driver.js@1.4.0:
+    resolution: {integrity: sha512-Gm64jm6PmcU+si21sQhBrTAM1JvUrR0QhNmjkprNLxohOBzul9+pNHXgQaT9lW84gwg9GMLB3NZGuGolsz5uew==}
 
   drizzle-kit@0.31.10:
     resolution: {integrity: sha512-7OZcmQUrdGI+DUNNsKBn1aW8qSoKuTH7d0mYgSP8bAzdFzKoovxEFnoGQp2dVs82EOJeYycqRtciopszwUf8bw==}
@@ -8675,6 +8681,8 @@ snapshots:
       esutils: 2.0.3
 
   dotenv@17.4.2: {}
+
+  driver.js@1.4.0: {}
 
   drizzle-kit@0.31.10:
     dependencies:
