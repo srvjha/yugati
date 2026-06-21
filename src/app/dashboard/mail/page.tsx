@@ -88,7 +88,7 @@ export default function MailPage() {
   const gmailConnected = connData?.gmail ?? true; // default true until we know
 
   const [collapsed, setCollapsed] = useState(false);
-  const [chatMode, setChatMode] = useState(false);
+  const [chatMode, setChatMode] = useState(true);
   const [activeFolder, setActiveFolder] = useState<SidebarFolder>("inbox");
   const [activeTab, setActiveTab] = useState<InboxTab>(() => {
     if (typeof window !== 'undefined') {
