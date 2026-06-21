@@ -14,10 +14,11 @@ import {
   SlidersHorizontal,
 } from "lucide-react";
 import Image from "next/image";
-import { ThemeToggle } from "@/components/theme-toggle";
+import { ThemeToggle, useTheme } from "@/components/theme-toggle";
 import { LABEL_FILTERS } from "../constants";
 import type { Sender } from "../types";
 import { TooltipWrap } from "./TooltipWrap";
+import { MovingBorder } from "@/components/ui/moving-border";
 
 function DropdownMenu({
   trigger,
@@ -89,28 +90,41 @@ export function MailTopBar({
   onDeleteSelected: () => void;
   senders: Sender[];
 }) {
+  const { theme } = useTheme();
+  const borderColor = theme === "dark" ? "#3b82f6" : "#92400e";
+
   return (
     <header className="h-14 shrink-0 border-b border-zinc-800/70 px-4 flex items-center gap-3">
 
       {/* Mode toggle */}
-      <div className="flex items-center gap-0.5 bg-zinc-900 border border-zinc-800 rounded-lg p-0.5 shrink-0">
-        <button
-          onClick={() => onModeChange(false)}
-          className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-md transition-all
-            ${!chatMode ? "bg-zinc-700 text-white shadow-sm" : "text-zinc-500 hover:text-zinc-300"}`}
-        >
-          <Mail size={11} />
-          Manual
-        </button>
-        <button
-          onClick={() => onModeChange(true)}
-          className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-md transition-all
-            ${chatMode ? "bg-zinc-700 text-white shadow-sm" : "text-zinc-500 hover:text-zinc-300"}`}
-        >
-          <Image src="/openai.png" alt="AI" width={12} height={12} className="rounded-sm" />
-          Agentic
-          {chatMode && <span className="w-1.5 h-1.5 rounded-full bg-green-400 shadow-[0_0_4px_1px_rgba(74,222,128,0.5)]" />}
-        </button>
+      <div className="relative overflow-hidden rounded-lg p-px shrink-0">
+        <div className="absolute inset-0 rounded-lg">
+          <MovingBorder duration={2500} rx="30%" ry="30%">
+            <div
+              className="h-14 w-14 opacity-80"
+              style={{ background: `radial-gradient(${borderColor} 40%, transparent 60%)` }}
+            />
+          </MovingBorder>
+        </div>
+        <div className="relative flex items-center gap-0.5 bg-zinc-900 rounded-[7px] p-0.5">
+          <button
+            onClick={() => onModeChange(false)}
+            className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-md transition-all
+              ${!chatMode ? "bg-zinc-700 text-white shadow-sm" : "text-zinc-500 hover:text-zinc-300"}`}
+          >
+            <Mail size={11} />
+            Manual
+          </button>
+          <button
+            onClick={() => onModeChange(true)}
+            className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-md transition-all
+              ${chatMode ? "bg-zinc-700 text-white shadow-sm" : "text-zinc-500 hover:text-zinc-300"}`}
+          >
+            <Image src="/openai.png" alt="AI" width={12} height={12} className="rounded-sm" />
+            Agentic
+            {chatMode && <span className="w-1.5 h-1.5 rounded-full bg-green-400 shadow-[0_0_4px_1px_rgba(74,222,128,0.5)]" />}
+          </button>
+        </div>
       </div>
 
       {/* Right side: search + action buttons */}
