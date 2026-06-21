@@ -370,6 +370,14 @@ body {
   }
 }
 
+/* ── Mode-toggle moving border glow (CSS-driven to avoid SSR mismatch) ── */
+.yugati-mode-glow {
+  background: radial-gradient(#3b82f6 40%, transparent 60%); /* dark default */
+}
+html[data-theme="light"] .yugati-mode-glow {
+  background: radial-gradient(#92400e 40%, transparent 60%);
+}
+
 /* ── Driver.js platform tour ──────────────────────────────────────── */
 
 /* Base popover shell */

@@ -14,7 +14,7 @@ import {
   SlidersHorizontal,
 } from "lucide-react";
 import Image from "next/image";
-import { ThemeToggle, useTheme } from "@/components/theme-toggle";
+import { ThemeToggle } from "@/components/theme-toggle";
 import { LABEL_FILTERS } from "../constants";
 import type { Sender } from "../types";
 import { TooltipWrap } from "./TooltipWrap";
@@ -90,9 +90,6 @@ export function MailTopBar({
   onDeleteSelected: () => void;
   senders: Sender[];
 }) {
-  const { theme } = useTheme();
-  const borderColor = theme === "dark" ? "#3b82f6" : "#92400e";
-
   return (
     <header className="h-14 shrink-0 border-b border-zinc-800/70 px-4 flex items-center gap-3">
 
@@ -100,10 +97,7 @@ export function MailTopBar({
       <div data-tour="mode-toggle" className="relative overflow-hidden rounded-lg p-px shrink-0">
         <div className="absolute inset-0 rounded-lg">
           <MovingBorder duration={2500} rx="30%" ry="30%">
-            <div
-              className="h-14 w-14 opacity-80"
-              style={{ background: `radial-gradient(${borderColor} 40%, transparent 60%)` }}
-            />
+            <div className="yugati-mode-glow h-14 w-14 opacity-80" />
           </MovingBorder>
         </div>
         <div className="relative flex items-center gap-0.5 bg-zinc-900 rounded-[7px] p-0.5">
