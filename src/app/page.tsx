@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { signIn, useSession } from '@/lib/auth-client';
-import { ArrowRight, Calendar, Bot, Zap, Shield, Check, Sparkles, Loader2 } from 'lucide-react';
+import { ArrowRight, Calendar, Bot, Zap, Shield, Check, Sparkles, Loader2, Mail } from 'lucide-react';
 import { ThemeToggle } from '@/components/theme-toggle';
 
 // Shared edge-highlight style used on every "card" element
@@ -406,9 +406,10 @@ function DashedPaths() {
 
 function ProductMockup() {
   const [activeFolder,  setActiveFolder]  = useState<Folder>('Primary');
-  const [mode,          setMode]          = useState<'manual' | 'chat'>('manual');
+  const [mode,          setMode]          = useState<'agentic' | 'manual'>('manual');
   const [selectedEmail, setSelectedEmail] = useState<number | null>(null);
   const [hoveredCal,    setHoveredCal]    = useState<number | null>(null);
+  const [windowState,   setWindowState]   = useState<'normal' | 'minimized' | 'closed'>('normal');
 
   const emails = FOLDER_EMAILS[activeFolder] ?? [];
 
@@ -425,14 +426,26 @@ function ProductMockup() {
 
       {/* Browser frame — no float, static and interactive */}
       <div className={`relative w-full max-w-5xl border border-white/[0.08]
-        shadow-[0_40px_120px_rgba(0,0,0,0.9),inset_0_1px_0_rgba(255,255,255,0.08)] overflow-hidden`}>
+        shadow-[0_40px_120px_rgba(0,0,0,0.9),inset_0_1px_0_rgba(255,255,255,0.08)] overflow-hidden transition-all duration-300`}>
 
         {/* Chrome bar */}
         <div className="h-10 bg-zinc-950 flex items-center px-4 gap-3 border-b border-white/[0.06]">
           <div className="flex gap-1.5">
-            <div className="w-3 h-3 rounded-full bg-zinc-700" />
-            <div className="w-3 h-3 rounded-full bg-zinc-700" />
-            <div className="w-3 h-3 rounded-full bg-zinc-700" />
+            <button
+              onClick={() => setWindowState(windowState === 'closed' ? 'normal' : 'closed')}
+              className="w-3 h-3 rounded-full bg-[#ff5f57] hover:brightness-125 active:brightness-75 transition-all cursor-default"
+              title="Close"
+            />
+            <button
+              onClick={() => setWindowState(windowState === 'minimized' ? 'normal' : 'minimized')}
+              className="w-3 h-3 rounded-full bg-[#febc2e] hover:brightness-125 active:brightness-75 transition-all cursor-default"
+              title="Minimize"
+            />
+            <button
+              onClick={() => setWindowState('normal')}
+              className="w-3 h-3 rounded-full bg-[#28c840] hover:brightness-125 active:brightness-75 transition-all cursor-default"
+              title="Expand"
+            />
           </div>
           <div className="flex-1 max-w-xs mx-auto">
             <div className="bg-zinc-900 border border-white/[0.05] h-6 flex items-center justify-center px-3">
@@ -442,19 +455,31 @@ function ProductMockup() {
         </div>
 
         {/* App UI */}
+        {windowState === 'closed' ? (
+          <div className="flex items-center justify-center bg-zinc-950" style={{ height: '400px' }}>
+            <p className="text-[11px] text-zinc-700">Click the red dot to reopen</p>
+          </div>
+        ) : windowState === 'minimized' ? (
+          <div className="flex items-center justify-center bg-zinc-950 border-t border-white/[0.04]" style={{ height: '36px' }}>
+            <p className="text-[10px] text-zinc-700">Minimized — click yellow dot to restore</p>
+          </div>
+        ) : (
         <div className="flex bg-black" style={{ height: '400px' }}>
 
           {/* App sidebar */}
           <div className="w-40 bg-zinc-950 border-r border-white/[0.05] flex flex-col py-3 px-2 shrink-0">
-            <div className="flex items-center gap-2 px-2 mb-4">
-              <div className="w-5 h-5 bg-white flex items-center justify-center">
-                <span className="text-black text-[9px] font-black">Y</span>
-              </div>
-              <span className="text-[11px] font-semibold">Yugati</span>
+            <div className="px-2 mb-4">
+              <Image
+                src="https://res.cloudinary.com/sauravjha/image/upload/e_trim/v1782117736/yugati-dark-mode_xsais0.png"
+                alt="Yugati"
+                width={480}
+                height={160}
+                className="h-5 w-auto object-contain"
+              />
             </div>
-            {(['Mail', 'Calendar', 'AI Chat'] as const).map((label) => (
+            {(['Mail', 'Calendar'] as const).map((label) => (
               <div key={label}
-                className={`flex items-center gap-2 px-2 py-1.5 mb-0.5 select-none
+                className={`flex items-center gap-2 px-2 py-1.5 mb-0.5 select-none rounded-md
                   ${label === 'Mail' ? 'bg-zinc-800 text-white' : 'text-zinc-600'}`}
               >
                 <div className={`w-2.5 h-2.5 ${label === 'Mail' ? 'bg-zinc-400' : 'bg-zinc-800'}`} />
@@ -497,20 +522,24 @@ function ProductMockup() {
 
             {/* Mode toggle — clickable */}
             <div className="h-10 border-b border-white/[0.04] px-3 flex items-center gap-2.5 shrink-0">
-              <div className="flex items-center bg-zinc-950 border border-white/[0.06] p-0.5 gap-0.5">
-                {(['manual', 'chat'] as const).map((m) => (
-                  <button
-                    key={m}
-                    onClick={() => setMode(m)}
-                    className={`flex items-center gap-1.5 px-2 py-1 text-[9px] font-medium transition-colors duration-100
-                      ${mode === m ? 'bg-zinc-800 text-white' : 'text-zinc-600 hover:text-zinc-400'}`}
-                  >
-                    {m === 'manual'
-                      ? <><div className="w-1.5 h-1.5 bg-zinc-400" />Manual{mode === 'manual' && <span className="w-1.5 h-1.5 rounded-full bg-white/50" />}</>
-                      : <>AI Chat{mode === 'chat' && <span className="w-1.5 h-1.5 rounded-full bg-white/50" />}</>
-                    }
-                  </button>
-                ))}
+              <div className="flex items-center bg-zinc-900 border border-white/[0.06] p-0.5 gap-0.5 rounded-lg">
+                <button
+                  onClick={() => setMode('agentic')}
+                  className={`flex items-center gap-1.5 px-2.5 py-1 text-[9px] font-medium transition-all rounded-md
+                    ${mode === 'agentic' ? 'bg-zinc-700 text-white shadow-sm' : 'text-zinc-600 hover:text-zinc-400'}`}
+                >
+                  <Sparkles size={9} />
+                  Agentic
+                  {mode === 'agentic' && <span className="w-1.5 h-1.5 rounded-full bg-green-400 shadow-[0_0_3px_rgba(74,222,128,0.5)]" />}
+                </button>
+                <button
+                  onClick={() => setMode('manual')}
+                  className={`flex items-center gap-1.5 px-2.5 py-1 text-[9px] font-medium transition-all rounded-md
+                    ${mode === 'manual' ? 'bg-zinc-700 text-white shadow-sm' : 'text-zinc-600 hover:text-zinc-400'}`}
+                >
+                  <Mail size={9} />
+                  Manual
+                </button>
               </div>
               <span className="text-[9px] text-zinc-700">
                 {mode === 'manual' ? `● ${activeFolder}` : '● AI assistant'}
@@ -611,6 +640,7 @@ function ProductMockup() {
           </div>
 
         </div>
+        )}
       </div>
     </section>
   );
