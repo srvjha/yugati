@@ -356,10 +356,10 @@ const FOLDER_EMAILS: Record<string, MockEmail[]> = {
 };
 
 const MOCK_CHAT = [
-  { role: 'user', text: 'Summarise my unread emails' },
-  { role: 'ai',   text: 'You have 2 unread emails:\n1. Anthropic Team — new Claude release\n2. GitHub — PR review requested for feat/ai-chat' },
-  { role: 'user', text: 'Draft a reply to the GitHub one' },
-  { role: 'ai',   text: 'Sure! Here\'s a draft:\n\n"Thanks for the heads-up — I\'ll review it this afternoon. Looks like a clean implementation, I\'ll leave comments shortly."' },
+  { role: 'user', text: 'Summarise my unread emails',                                                                                                                             icon: null       },
+  { role: 'ai',   text: 'You have 2 unread emails:\n1. Anthropic Team — new Claude release\n2. GitHub — PR review requested for feat/ai-chat',                                   icon: 'gmail'    },
+  { role: 'user', text: 'Draft a reply to the GitHub one',                                                                                                                        icon: null       },
+  { role: 'ai',   text: 'Sure! Here\'s a draft:\n\n"Thanks for the heads-up — I\'ll review it this afternoon. Looks like a clean implementation, I\'ll leave comments shortly."', icon: 'gmail'    },
 ];
 
 const MOCK_EVENTS = [
@@ -573,12 +573,22 @@ function ProductMockup() {
                 style={{ animation: 'fade-in-up 0.18s ease-out both' }}>
                 {MOCK_CHAT.map((msg, i) => (
                   <div key={i} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-                    <div className={`max-w-[80%] px-3 py-2 text-[11px] leading-relaxed whitespace-pre-line
+                    <div className={`relative max-w-[80%] px-3 py-2 text-[11px] leading-relaxed whitespace-pre-line
                       ${msg.role === 'user'
                         ? 'bg-zinc-800 text-zinc-200'
                         : 'bg-zinc-950 border border-white/[0.06] text-zinc-400'
                       }`}
                     >
+                      {msg.icon && (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img
+                          src={msg.icon === 'gmail' ? GMAIL_ICON : GCAL_ICON}
+                          alt={msg.icon}
+                          width={10}
+                          height={10}
+                          className="absolute top-1.5 right-1.5 opacity-70"
+                        />
+                      )}
                       {msg.text}
                     </div>
                   </div>
@@ -659,12 +669,12 @@ function SectionDivider() {
 // ─── Agentic Showcase ─────────────────────────────────────────────────────────
 
 const AGENTIC_MSGS = [
-  { role: 'user', text: 'Summarise my unread emails' },
-  { role: 'ai',   text: 'You have 12 unread emails. Highlights:\n• 3 investor threads need replies\n• 2 GitHub PRs awaiting your review\n• Stripe invoice ready — $240' },
-  { role: 'user', text: 'Draft a reply to the Anthropic thread' },
-  { role: 'ai',   text: '"Thanks for the heads-up on the new release — excited to integrate this. I\'ll update the pipeline by EOD and report back."' },
-  { role: 'user', text: 'Book a 30-min call with Alex on Thursday 3 PM' },
-  { role: 'ai',   text: 'Done ✓  Created "Call with Alex" — Thu Jun 19 · 3:00–3:30 PM\nGoogle Meet link added · Invite sent to alex@vc.com' },
+  { role: 'user', text: 'Summarise my unread emails',                                                                                                                                         icon: null       },
+  { role: 'ai',   text: 'You have 12 unread emails. Highlights:\n• 3 investor threads need replies\n• 2 GitHub PRs awaiting your review\n• Stripe invoice ready — $240',                      icon: 'gmail'    },
+  { role: 'user', text: 'Draft a reply to the Anthropic thread',                                                                                                                              icon: null       },
+  { role: 'ai',   text: '"Thanks for the heads-up on the new release — excited to integrate this. I\'ll update the pipeline by EOD and report back."',                                        icon: 'gmail'    },
+  { role: 'user', text: 'Book a 30-min call with Alex on Thursday 3 PM',                                                                                                                     icon: null       },
+  { role: 'ai',   text: 'Done ✓  Created "Call with Alex" — Thu Jun 19 · 3:00–3:30 PM\nGoogle Meet link added · Invite sent to alex@vc.com',                                                 icon: 'calendar' },
 ];
 
 function AgenticSection() {
@@ -725,10 +735,20 @@ function AgenticSection() {
           <div className="px-4 py-4 space-y-3 overflow-hidden" style={{ maxHeight: 320 }}>
             {AGENTIC_MSGS.map((msg, i) => (
               <div key={i} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-                <div className={`max-w-[88%] px-3.5 py-2.5 text-[12px] leading-relaxed whitespace-pre-line
+                <div className={`relative max-w-[88%] px-3.5 py-2.5 text-[12px] leading-relaxed whitespace-pre-line
                   ${msg.role === 'user'
                     ? 'bg-zinc-800 text-zinc-200'
                     : 'bg-black border border-white/[0.07] text-zinc-400'}`}>
+                  {msg.icon && (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={msg.icon === 'gmail' ? GMAIL_ICON : GCAL_ICON}
+                      alt={msg.icon}
+                      width={12}
+                      height={12}
+                      className="absolute top-2 right-2 opacity-75"
+                    />
+                  )}
                   {msg.text}
                 </div>
               </div>
