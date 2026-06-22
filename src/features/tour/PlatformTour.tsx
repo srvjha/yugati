@@ -263,8 +263,12 @@ export function useTour() {
   return { startTour };
 }
 
-export function PlatformTour({ userName }: { userName?: string }) {
+export function PlatformTour({ userName, bothConnected }: { userName?: string; bothConnected?: boolean }) {
   useEffect(() => {
+    // Wait until we know both integrations are connected before showing the tour.
+    // bothConnected is undefined while loading — don't fire yet.
+    if (!bothConnected) return;
+
     try {
       if (localStorage.getItem(TOUR_KEY)) return;
     } catch {
@@ -275,11 +279,12 @@ export function PlatformTour({ userName }: { userName?: string }) {
       createDriver(buildSteps(userName), () => {
         try { localStorage.setItem(TOUR_KEY, "1"); } catch {}
       })?.drive();
-    }, 1000);
+    }, 1200);
 
     return () => clearTimeout(timer);
+  // userName intentionally omitted — we don't re-run the tour if the name loads late
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [bothConnected]);
 
   return null;
 }

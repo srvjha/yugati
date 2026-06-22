@@ -86,7 +86,8 @@ export default function MailPage() {
     ...trpc.stats.connectionStatus.queryOptions(),
     staleTime: 0,
   });
-  const gmailConnected = connData?.gmail ?? true; // default true until we know
+  const gmailConnected    = connData?.gmail          ?? true;  // default true until we know
+  const bothConnected     = connData?.gmail === true && connData?.googlecalendar === true;
 
   const [collapsed, setCollapsed] = useState(false);
   const [chatMode, setChatMode] = useState(true);
@@ -371,7 +372,7 @@ export default function MailPage() {
 
   return (
     <Tooltip.Provider delayDuration={300}>
-      <PlatformTour userName={user?.name} />
+      <PlatformTour userName={user?.name} bothConnected={bothConnected} />
       <div className="h-screen flex overflow-hidden bg-zinc-950 text-zinc-50">
         {paletteOpen && (
           <CommandPalette
