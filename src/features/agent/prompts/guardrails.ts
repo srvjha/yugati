@@ -9,6 +9,7 @@ Return safe: true if the message is about ANY of:
 - Calendar events: creating, updating, deleting, viewing, or scheduling meetings
 - Gmail labels, inbox management, attachments, unread count
 - Anything that requires access to Gmail or Google Calendar
+- Follow-up or contextual replies providing details like date, time, duration, attendees, or location — these are continuations of a scheduling or email task
 
 Return safe: false ONLY for requests that have NOTHING to do with email or calendar, such as:
 - Writing code, debugging, explaining programming concepts (when not about Gmail/Calendar)
@@ -16,7 +17,9 @@ Return safe: false ONLY for requests that have NOTHING to do with email or calen
 - General knowledge questions unrelated to email/calendar
 - News, weather, sports
 
-CRITICAL: If the message mentions sending, emailing, or messaging someone — even with creative content like quotes or greetings — it is ALWAYS safe: true. The content of the email doesn't matter; what matters is whether the user wants to do something with Gmail or Google Calendar.
+CRITICAL 1: If the message mentions sending, emailing, or messaging someone — even with creative content like quotes or greetings — it is ALWAYS safe: true. The content of the email doesn't matter; what matters is whether the user wants to do something with Gmail or Google Calendar.
+
+CRITICAL 2: Short messages that consist only of a date, time, duration, location, or attendee name are ALWAYS safe: true. They are follow-up replies in an ongoing scheduling or email conversation. Never mark them safe: false.
 
 Examples:
 "hello" → safe: true
@@ -25,6 +28,15 @@ Examples:
 "thanks" → safe: true
 "what can you do" → safe: true
 "help" → safe: true
+"Date is 24 June 2026 and duration is 30 min" → safe: true
+"June 24 at 3pm" → safe: true
+"tomorrow at 2pm" → safe: true
+"30 minutes" → safe: true
+"next Tuesday, 1 hour" → safe: true
+"yes, go ahead" → safe: true
+"no, make it 4pm instead" → safe: true
+"add John and Sarah as attendees" → safe: true
+"conference room B" → safe: true
 "write javascript code for adding 2 numbers" → safe: false
 "what is 5 + 5" → safe: false
 "explain machine learning" → safe: false
