@@ -14,6 +14,7 @@ import { useQuery, useMutation } from '@tanstack/react-query';
 import { motion } from 'framer-motion';
 import { useTRPC }  from '@/trpc/client';
 import { toast }    from 'sonner';
+import { ConnectIntegrationModal } from './ConnectIntegrationModal';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
 type AgentMode = 'guided' | 'auto';
@@ -1277,6 +1278,11 @@ export function ChatView({
   const { data: planData } = useQuery(trpc.plans.getMyPlan.queryOptions());
   const charLimit = planData?.charLimit ?? MAX_PROMPT_CHARS;
 
+  const { data: connData } = useQuery({ ...trpc.stats.connectionStatus.queryOptions(), staleTime: 0 });
+  const gmailConnected    = connData?.gmail ?? true;
+  const calendarConnected = connData?.googlecalendar ?? true;
+  const [connectModal, setConnectModal] = useState<'gmail' | 'calendar' | null>(null);
+
   const voice = useVoiceInput((transcript) => { void submit(transcript); });
   const [copiedId,         setCopiedId]         = useState<string | null>(null);
   const [editingSessionId, setEditingSessionId] = useState<string | null>(null);
@@ -1523,6 +1529,14 @@ export function ChatView({
     abortRef.current?.abort();
   }
 
+  function handleSubmit(text: string) {
+    if (!text.trim()) return;
+    const topic = detectTopic(text);
+    if (topic === 'email' && !gmailConnected) { setConnectModal('gmail'); return; }
+    if (topic === 'calendar' && !calendarConnected) { setConnectModal('calendar'); return; }
+    void submit(text);
+  }
+
   async function copyMessage(id: string, content: string) {
     await navigator.clipboard.writeText(content);
     setCopiedId(id);
@@ -1554,6 +1568,13 @@ export function ChatView({
 
   return (
     <div className={wrapClass}>
+
+      {connectModal && (
+        <ConnectIntegrationModal
+          integration={connectModal}
+          onClose={() => setConnectModal(null)}
+        />
+      )}
 
       {showClearDialog && (
         <ConfirmDialog
@@ -1867,7 +1888,7 @@ export function ChatView({
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
                 onKeyDown={(e) => {
-                  if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); void submit(input); }
+                  if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSubmit(input); }
                 }}
                 placeholder={
                   voice.state === 'recording'     ? `Listening… ${voice.timeLeft}s remaining` :
@@ -1947,7 +1968,7 @@ export function ChatView({
                   </button>
                 ) : (
                   <button
-                    onClick={() => void submit(input)}
+                    onClick={() => handleSubmit(input)}
                     disabled={!input.trim() || voice.state !== 'idle' || input.length > charLimit}
                     className="shrink-0 w-7 h-7 rounded-lg bg-white text-black flex items-center justify-center hover:bg-zinc-100 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
                   >

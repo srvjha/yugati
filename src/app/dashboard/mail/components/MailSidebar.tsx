@@ -2,6 +2,7 @@
 
 import Image from "next/image";
 import Link from "next/link";
+import { ThemeToggle } from "@/components/theme-toggle";
 import * as ScrollArea from "@radix-ui/react-scroll-area";
 import { signOut } from "@/lib/auth-client";
 import { UsagePill } from "../../components/usage-pill";
@@ -320,7 +321,9 @@ export function MailSidebar({
       {/* User footer */}
       <div className="shrink-0 border-t border-zinc-800/70 p-2">
         {collapsed ? (
-          <TooltipWrap label={user?.email ?? ""} side="right">
+          <div className="flex flex-col items-center gap-1">
+            <ThemeToggle />
+            <TooltipWrap label={user?.email ?? ""} side="right">
             <button
               onClick={() =>
                 signOut({
@@ -348,6 +351,7 @@ export function MailSidebar({
               )}
             </button>
           </TooltipWrap>
+          </div>
         ) : (
           <div className="flex items-center gap-2.5 px-1">
             {user?.image ? (
@@ -371,6 +375,7 @@ export function MailSidebar({
                 {user?.email}
               </p>
             </div>
+            <ThemeToggle />
             <TooltipWrap label="Sign out" side="top">
               <button
                 onClick={() =>

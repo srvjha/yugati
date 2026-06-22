@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useSession } from '@/lib/auth-client';
 import { useQuery } from '@tanstack/react-query';
 import { useTRPC } from '@/trpc/client';
@@ -11,7 +11,7 @@ import {
   Loader2, AlertCircle, Unplug, RefreshCw, Zap, SlidersHorizontal,
 } from 'lucide-react';
 import { Switch } from '@/components/ui/switch';
-import { ThemeToggle, useTheme, applyTheme } from '@/components/theme-toggle';
+import { useTheme, applyTheme } from '@/components/theme-toggle';
 import { SidebarNav } from '../components/sidebar-nav';
 import { PreferencesModal } from '../components/integrations-view';
 
@@ -32,15 +32,16 @@ type Tab = (typeof TABS)[number]['id'];
 export default function SettingsPage() {
   const { data: authData } = useSession();
   const user = authData?.user;
-  const [activeTab, setActiveTab] = useState<Tab>(() => {
-    if (typeof window !== 'undefined') {
-      const params = new URLSearchParams(window.location.search);
-      const tab = params.get('tab') as Tab | null;
-      if (tab && TABS.some((t) => t.id === tab)) return tab;
-      if (params.has('disconnected')) return 'integrations';
-    }
-    return 'profile';
-  });
+  const [activeTab, setActiveTab] = useState<Tab>('profile');
+
+  useEffect(() => {
+    // Read URL params after mount — avoids SSR/client hydration mismatch.
+    const params = new URLSearchParams(window.location.search);
+    const tab = params.get('tab') as Tab | null;
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    if (tab && TABS.some((t) => t.id === tab)) { setActiveTab(tab); return; }
+    if (params.has('disconnected')) setActiveTab('integrations');
+  }, []);
   const trpc = useTRPC();
   const { data: connData, isLoading: connLoading, refetch: connRefetch, isFetching: connFetching } = useQuery({
     ...trpc.stats.connectionStatus.queryOptions(),
@@ -61,9 +62,8 @@ export default function SettingsPage() {
       <div className="flex-1 flex flex-col overflow-hidden min-w-0">
 
         {/* Top bar */}
-        <header className="h-14 shrink-0 flex items-center justify-between px-6 border-b border-zinc-800/70">
+        <header className="h-14 shrink-0 flex items-center px-6 border-b border-zinc-800/70">
           <span className="text-sm font-semibold text-zinc-200">Settings</span>
-          <ThemeToggle />
         </header>
 
         {/* Horizontal tab strip */}

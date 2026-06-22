@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   X, Star, Reply, ReplyAll, Forward, Archive, Trash2,
-  Bot, Send, MoreHorizontal, CheckCheck, Loader2,
+  Bot, Send, MoreHorizontal, CheckCheck, Loader2, Plug,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useTRPC } from '@/trpc/client';
@@ -70,11 +70,13 @@ export function EmailDetailPanel({
   onClose,
   onRequestAI,
   onDeleted,
+  gmailConnected = true,
 }: {
   emailId: string;
   onClose: () => void;
   onRequestAI: (prompt: string) => void;
   onDeleted: () => void;
+  gmailConnected?: boolean;
 }) {
   const trpc = useTRPC();
   const qc   = useQueryClient();
@@ -343,8 +345,39 @@ export function EmailDetailPanel({
 
   if (!message) {
     return (
-      <div className="h-full flex items-center justify-center border-l border-zinc-800/50 text-sm text-zinc-600">
-        Message not found
+      <div className="h-full flex flex-col border-l border-zinc-800/50">
+        <div className="h-14 shrink-0 border-b border-zinc-800/60 flex items-center px-4">
+          <button
+            onClick={onClose}
+            className="p-1.5 rounded-lg text-zinc-500 hover:text-white hover:bg-zinc-800 transition-colors"
+          >
+            <X size={15} />
+          </button>
+        </div>
+        <div className="flex-1 flex flex-col items-center justify-center gap-4 px-6 text-center">
+          <div className="w-12 h-12 rounded-xl bg-zinc-800/60 border border-zinc-700/50 flex items-center justify-center">
+            <Plug size={20} className="text-zinc-500" />
+          </div>
+          <div>
+            <p className="text-sm font-medium text-zinc-300 mb-1">
+              {gmailConnected ? 'Message not found' : 'Gmail not connected'}
+            </p>
+            <p className="text-xs text-zinc-600 max-w-[220px]">
+              {gmailConnected
+                ? 'This message may have been deleted or moved.'
+                : 'Reconnect your Gmail account to read this message.'}
+            </p>
+          </div>
+          {!gmailConnected && (
+            <a
+              href="/dashboard/integrations"
+              className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-black bg-white hover:bg-zinc-100 rounded-lg transition-colors"
+            >
+              <Plug size={13} />
+              Connect Gmail
+            </a>
+          )}
+        </div>
       </div>
     );
   }

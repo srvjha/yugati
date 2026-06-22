@@ -11,6 +11,7 @@ import {
 } from 'lucide-react';
 import { signOut } from '@/lib/auth-client';
 import { UsagePill } from './usage-pill';
+import { ThemeToggle } from '@/components/theme-toggle';
 
 type User = { id: string; name: string; email: string; image?: string | null };
 
@@ -51,11 +52,17 @@ export function SidebarNav({ user, isAdmin }: { user: User; isAdmin?: boolean })
     <nav className="w-56 shrink-0 flex flex-col h-full bg-zinc-950 border-r border-zinc-800/70">
 
       {/* Logo */}
-      <div className="h-14 flex items-center px-3 gap-2 border-b border-zinc-800/70 shrink-0">
-        <div className="w-6 h-6 bg-white flex items-center justify-center shadow-sm shrink-0">
-          <span className="text-black text-xs font-black">Y</span>
-        </div>
-        <span className="font-semibold text-sm tracking-tight">Yugati</span>
+      <div className="h-14 flex items-center px-3 border-b border-zinc-800/70 shrink-0">
+        <Image
+          src="https://res.cloudinary.com/sauravjha/image/upload/e_trim/v1782117736/yugati-dark-mode_xsais0.png"
+          alt="Yugati" width={480} height={160}
+          className="h-7 w-auto object-contain block [html[data-theme='light']_&]:hidden"
+        />
+        <Image
+          src="https://res.cloudinary.com/sauravjha/image/upload/e_trim/v1782117817/yugati-light-mode_sblh0y.png"
+          alt="Yugati" width={480} height={160}
+          className="h-7 w-auto object-contain hidden [html[data-theme='light']_&]:block"
+        />
       </div>
 
       {/* Scrollable nav */}
@@ -123,6 +130,7 @@ export function SidebarNav({ user, isAdmin }: { user: User; isAdmin?: boolean })
             <p className="text-xs font-medium text-zinc-200 truncate">{user.name}</p>
             <p className="text-[10px] text-zinc-600 truncate">{user.email}</p>
           </div>
+          <ThemeToggle />
           <button
             onClick={() => signOut({ fetchOptions: { onSuccess: () => router.push('/') } })}
             className="p-1 rounded text-zinc-600 hover:text-zinc-300 hover:bg-zinc-800 transition-colors"

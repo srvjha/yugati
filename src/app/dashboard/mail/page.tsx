@@ -27,6 +27,7 @@ import { EmailDetailPanel } from "./components/EmailDetailPanel";
 import { CommandPalette } from "./components/CommandPalette";
 import { SubscriptionsPanel } from "./components/SubscriptionsPanel";
 import { ComposeModal } from "./components/ComposeModal";
+import { ConnectIntegrationModal } from "../components/ConnectIntegrationModal";
 import { AuthError } from "./components/AuthError";
 import { SkeletonList } from "./components/SkeletonList";
 import { PlatformTour, useTour } from "@/features/tour/PlatformTour";
@@ -99,6 +100,7 @@ export default function MailPage() {
   });
   const [searchQuery, setSearchQuery] = useState("");
   const [composing, setComposing] = useState(false);
+  const [showConnectModal, setShowConnectModal] = useState(false);
   const [paletteOpen, setPaletteOpen] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [unreadOnly, setUnreadOnly] = useState(false);
@@ -119,9 +121,9 @@ export default function MailPage() {
       return;
     }
     try {
-      if (localStorage.getItem("yugati_mail_mode") === "chat") {
-        startTransition(() => setChatMode(true));
-      }
+      const saved = localStorage.getItem("yugati_mail_mode");
+      if (saved === "manual") startTransition(() => setChatMode(false));
+      else if (saved === "chat") startTransition(() => setChatMode(true));
     } catch {}
   }, []);
 
@@ -438,7 +440,7 @@ export default function MailPage() {
           }}
           user={user ?? null}
           isAdmin={user?.role === 'admin'}
-          onCompose={() => setComposing(true)}
+          onCompose={() => gmailConnected ? setComposing(true) : setShowConnectModal(true)}
           unreadCount={unreadCount}
           showSubscriptions={showSubscriptions}
           onSubscriptions={() => {
@@ -567,6 +569,7 @@ export default function MailPage() {
                 <Panel defaultSize={50} minSize={28}>
                   <EmailDetailPanel
                     emailId={selectedEmailId}
+                    gmailConnected={gmailConnected}
                     onClose={() => setSelectedEmailId(null)}
                     onDeleted={() => setSelectedEmailId(null)}
                     onRequestAI={(prompt) => {
@@ -636,6 +639,10 @@ export default function MailPage() {
             )}
           </div>
         </div>
+
+        {showConnectModal && (
+          <ConnectIntegrationModal onClose={() => setShowConnectModal(false)} />
+        )}
 
         {composing && (
           <ComposeModal

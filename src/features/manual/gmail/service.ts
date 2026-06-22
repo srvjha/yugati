@@ -2,6 +2,7 @@ import { corsair }         from '@/server/corsair';
 import { db }              from '@/server/db';
 import { corsairAccounts, corsairIntegrations, corsairEntities } from '@/server/db/schema';
 import { eq, and, desc, sql } from 'drizzle-orm';
+import { AuthMissingError } from 'corsair';
 
 const CACHE_TTL_MS = 3 * 60 * 1000; // 3 minutes
 
@@ -44,7 +45,13 @@ export class GmailService {
 
     // Non-inbox queries (search, category tabs, starred, etc.) always hit live API.
     const isNonCacheable = opts.q && opts.q.trim() !== 'in:inbox';
-    if (isNonCacheable) return this.fetchFromApi(limit, opts.q);
+    if (isNonCacheable) {
+      try { return await this.fetchFromApi(limit, opts.q); }
+      catch (err) {
+        if (err instanceof AuthMissingError) return { messages: [], nextPageToken: null };
+        throw err;
+      }
+    }
 
     // ── Tier 1: direct Drizzle query on corsairEntities (fast ~50ms) ──────────
     // Fastest path — single SQL query, no Corsair abstraction overhead.
@@ -65,7 +72,7 @@ export class GmailService {
 
         if (rows.length > 0) {
           const newest = Math.max(...rows.map((r) => new Date(r.updatedAt).getTime()));
-          if (Date.now() - newest >= CACHE_TTL_MS) void this.fetchFromApi(limit);
+          if (Date.now() - newest >= CACHE_TTL_MS) void this.fetchFromApi(limit).catch(() => {});
 
           const messages = rows.map((r) => {
             const msg = r.data as RawMsg;
@@ -97,7 +104,7 @@ export class GmailService {
           .map((e) => e.data);
 
         const newest = Math.max(...cached.map((e) => new Date(e.updated_at).getTime()));
-        if (Date.now() - newest >= CACHE_TTL_MS) void this.fetchFromApi(limit);
+        if (Date.now() - newest >= CACHE_TTL_MS) void this.fetchFromApi(limit).catch(() => {});
 
         return { messages: sorted, nextPageToken: null };
       }
@@ -106,7 +113,12 @@ export class GmailService {
     }
 
     // ── Tier 3: live Gmail API ─────────────────────────────────────────────────
-    return this.fetchFromApi(limit);
+    try {
+      return await this.fetchFromApi(limit);
+    } catch (err) {
+      if (err instanceof AuthMissingError) return { messages: [], nextPageToken: null };
+      throw err;
+    }
   }
 
   private async fetchFromApi(limit: number, q?: string) {

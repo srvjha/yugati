@@ -14,7 +14,6 @@ import {
   SlidersHorizontal,
   Sparkles,
 } from "lucide-react";
-import { ThemeToggle } from "@/components/theme-toggle";
 import { LABEL_FILTERS } from "../constants";
 import type { Sender } from "../types";
 import { TooltipWrap } from "./TooltipWrap";
@@ -123,8 +122,6 @@ export function MailTopBar({
 
       {/* Right side: search + action buttons */}
       <div className="ml-auto flex items-center gap-2">
-        <ThemeToggle />
-
         {showRefresh && (
           <TooltipWrap label="Refresh">
             <button
