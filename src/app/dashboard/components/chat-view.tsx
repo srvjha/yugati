@@ -1239,6 +1239,121 @@ function CalendarEventCard({ event, onConfirm }: { event: CalendarEventDetails; 
   );
 }
 
+// ─── Calendar success card ────────────────────────────────────────────────────
+
+interface CalendarSuccess {
+  title?: string;
+  datetime?: string;
+  attendees?: string;
+  calendarLink?: string;
+}
+
+function parseCalendarSuccess(content: string): CalendarSuccess | null {
+  if (!/(has been scheduled|successfully scheduled|event.*scheduled|scheduled.*event)/i.test(content)) return null;
+
+  const lines = content.split('\n');
+  let title: string | undefined, datetime: string | undefined, attendees: string | undefined, calendarLink: string | undefined;
+
+  for (const line of lines) {
+    const s = line.replace(/^[-*•]\s*/, '').trim();
+    const get = (rx: RegExp) => { const m = s.match(rx); return m ? s.slice(m[0].length).trim() : null; };
+    title      = get(/^title:\s*/i)                    ?? title;
+    datetime   = get(/^date\s*(?:&|and)?\s*time:\s*/i) ?? datetime;
+    attendees  = get(/^attendees?:\s*/i)               ?? attendees;
+    const linkM = s.match(/https?:\/\/calendar\.google\.com[^\s)>\]"]*/i);
+    if (linkM) calendarLink = linkM[0];
+  }
+
+  return { title, datetime, attendees, calendarLink };
+}
+
+function CalendarSuccessCard({ details }: { details: CalendarSuccess }) {
+  return (
+    <div className="flex flex-col items-center justify-center py-8 gap-3">
+      {/* Ripple + checkmark animation */}
+      <div className="relative flex items-center justify-center w-24 h-24">
+        <motion.div
+          className="absolute rounded-full bg-[#4285F4]/15"
+          initial={{ width: 48, height: 48, opacity: 0.8 }}
+          animate={{ width: 96, height: 96, opacity: 0 }}
+          transition={{ duration: 1.1, ease: 'easeOut', repeat: Infinity, repeatDelay: 0.4 }}
+        />
+        <motion.div
+          className="absolute rounded-full bg-[#4285F4]/10"
+          initial={{ width: 48, height: 48, opacity: 0.6 }}
+          animate={{ width: 96, height: 96, opacity: 0 }}
+          transition={{ duration: 1.1, ease: 'easeOut', repeat: Infinity, repeatDelay: 0.4, delay: 0.35 }}
+        />
+        <motion.div
+          className="relative z-10 w-14 h-14 rounded-full bg-[#4285F4] flex items-center justify-center shadow-[0_0_24px_rgba(66,133,244,0.4)]"
+          initial={{ scale: 0, opacity: 0 }}
+          animate={{ scale: 1, opacity: 1 }}
+          transition={{ type: 'spring', stiffness: 300, damping: 18, delay: 0.05 }}
+        >
+          <motion.svg width="28" height="28" viewBox="0 0 28 28" fill="none">
+            <motion.path
+              d="M7 14.5l5 5 9-9"
+              stroke="white"
+              strokeWidth="2.5"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              initial={{ pathLength: 0 }}
+              animate={{ pathLength: 1 }}
+              transition={{ duration: 0.4, delay: 0.3, ease: 'easeOut' }}
+            />
+          </motion.svg>
+        </motion.div>
+      </div>
+
+      <motion.p
+        className="text-sm font-semibold text-zinc-200"
+        initial={{ opacity: 0, y: 6 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.5 }}
+      >
+        Meeting scheduled!
+      </motion.p>
+
+      {(details.title ?? details.datetime ?? details.attendees) && (
+        <motion.div
+          className="w-full mt-2 rounded-xl border border-zinc-800/60 bg-zinc-800/30 text-xs divide-y divide-zinc-800/50"
+          initial={{ opacity: 0, y: 8 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.65 }}
+        >
+          {details.title && (
+            <div className="flex gap-3 px-4 py-2.5">
+              <span className="w-16 shrink-0 text-zinc-500 font-medium uppercase tracking-wider">Event</span>
+              <span className="text-zinc-300 font-medium">{details.title}</span>
+            </div>
+          )}
+          {details.datetime && (
+            <div className="flex gap-3 px-4 py-2.5">
+              <span className="w-16 shrink-0 text-zinc-500 font-medium uppercase tracking-wider">When</span>
+              <span className="text-zinc-300">{details.datetime}</span>
+            </div>
+          )}
+          {details.attendees && (
+            <div className="flex gap-3 px-4 py-2.5">
+              <span className="w-16 shrink-0 text-zinc-500 font-medium uppercase tracking-wider">Who</span>
+              <span className="text-zinc-300 break-all">{details.attendees}</span>
+            </div>
+          )}
+          {details.calendarLink && (
+            <div className="flex gap-3 px-4 py-2.5">
+              <span className="w-16 shrink-0 text-zinc-500 font-medium uppercase tracking-wider">Link</span>
+              <a href={details.calendarLink} target="_blank" rel="noopener noreferrer"
+                className="text-[#4285F4] hover:underline truncate">
+                Open in Google Calendar →
+              </a>
+            </div>
+          )}
+        </motion.div>
+      )}
+    </div>
+  );
+}
+
 // ─── Main component ───────────────────────────────────────────────────────────
 
 export function ChatView({
@@ -1821,6 +1936,9 @@ export function ChatView({
                               if (!msg.streaming && !msg.blocked) {
                                 const emailDraft = parseEmailDraft(msg.content);
                                 if (emailDraft) return <EmailDraftCard draft={emailDraft} />;
+
+                                const calSuccess = parseCalendarSuccess(msg.content);
+                                if (calSuccess) return <CalendarSuccessCard details={calSuccess} />;
 
                                 if (isLastMsg) {
                                   const calEvent = parseCalendarConfirm(msg.content);

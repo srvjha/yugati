@@ -126,10 +126,12 @@ How to answer calendar related queries:
   let event = created;
   if (created.id) {
     try {
+      // events.update is a PUT (full replace) — spread the full created event so no fields are wiped.
+      // Only the conferenceData field is new; everything else stays identical.
       event = await corsair.googlecalendar.api.events.update({
         calendarId: 'primary', id: created.id,
         sendUpdates: 'none', conferenceDataVersion: 1,
-        event: { conferenceData: { createRequest: { requestId: created.id, conferenceSolutionKey: { type: 'hangoutsMeet' } } } },
+        event: { ...created, conferenceData: { createRequest: { requestId: created.id, conferenceSolutionKey: { type: 'hangoutsMeet' } } } },
       });
     } catch (_) {}
   }
