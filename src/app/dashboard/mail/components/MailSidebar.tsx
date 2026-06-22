@@ -132,12 +132,20 @@ export function MailSidebar({
           className={`flex items-center gap-2 overflow-hidden transition-[max-width,opacity] duration-300 ease-in-out
           ${collapsed ? "max-w-0 opacity-0" : "max-w-full opacity-100"}`}
         >
-          <div className="w-6 h-6 bg-white flex items-center justify-center shadow-sm shrink-0">
-            <span className="text-black text-xs font-black">Y</span>
-          </div>
-          <span className="font-semibold text-sm tracking-tight whitespace-nowrap">
-            Yugati
-          </span>
+          <Image
+            src="https://res.cloudinary.com/sauravjha/image/upload/e_trim/v1782117736/yugati-dark-mode_xsais0.png"
+            alt="Yugati"
+            width={480}
+            height={160}
+            className="h-7 w-auto object-contain block [html[data-theme='light']_&]:hidden"
+          />
+          <Image
+            src="https://res.cloudinary.com/sauravjha/image/upload/e_trim/v1782117817/yugati-light-mode_sblh0y.png"
+            alt="Yugati"
+            width={480}
+            height={160}
+            className="h-7 w-auto object-contain hidden [html[data-theme='light']_&]:block"
+          />
         </div>
         <TooltipWrap
           label={collapsed ? "Expand sidebar" : "Collapse sidebar"}

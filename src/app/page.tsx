@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
+import Image from 'next/image';
 import { signIn, useSession } from '@/lib/auth-client';
 import { ArrowRight, Calendar, Bot, Zap, Shield, Check, Sparkles, Loader2 } from 'lucide-react';
 import { ThemeToggle } from '@/components/theme-toggle';
@@ -61,11 +62,21 @@ function LandingNav({ onSignIn, signingIn }: { onSignIn: () => void; signingIn: 
         : 'bg-transparent backdrop-blur-none'}`}>
       <div className="max-w-6xl mx-auto px-6 h-14 flex items-center justify-between">
 
-        <div className="flex items-center gap-2.5">
-          <div className="w-6 h-6 bg-white flex items-center justify-center">
-            <span className="text-black text-xs font-black tracking-tight">Y</span>
-          </div>
-          <span className="font-semibold text-sm tracking-tight">Yugati</span>
+        <div className="flex items-center">
+          <Image
+            src="https://res.cloudinary.com/sauravjha/image/upload/e_trim/v1782117736/yugati-dark-mode_xsais0.png"
+            alt="Yugati"
+            width={480}
+            height={160}
+            className="h-7 mt-2 w-auto object-contain block [html[data-theme='light']_&]:hidden"
+          />
+          <Image
+            src="https://res.cloudinary.com/sauravjha/image/upload/e_trim/v1782117817/yugati-light-mode_sblh0y.png"
+            alt="Yugati"
+            width={480}
+            height={160}
+            className="h-6 mt-2 w-auto object-contain hidden [html[data-theme='light']_&]:block"
+          />
         </div>
 
         {/* Center nav links */}

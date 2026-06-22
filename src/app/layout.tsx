@@ -18,7 +18,9 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "Yugati",
   description: "Automate your manual plugins",
-  icons: { icon: '/favicon.svg' },
+  icons: {
+    icon: 'https://res.cloudinary.com/sauravjha/image/upload/w_1000,ar_1:1,c_fill,g_auto,e_art:hokusai/v1782128588/square_zavroo.png',
+  },
   verification: {
     google: 'z3iyyL2torlKDge6zjG6izidaDeTY1jUXsJLomLphEA',
   },
