@@ -551,11 +551,11 @@ html[data-theme="light"] .yugati-mode-glow {
   background: #18181b !important;
 }
 
-/* Arrows — dark */
-.yugati-tour-popover .driver-popover-arrow-side-left.driver-popover-arrow   { border-left-color:   #27272a; }
-.yugati-tour-popover .driver-popover-arrow-side-right.driver-popover-arrow  { border-right-color:  #27272a; }
-.yugati-tour-popover .driver-popover-arrow-side-top.driver-popover-arrow    { border-top-color:    #27272a; }
-.yugati-tour-popover .driver-popover-arrow-side-bottom.driver-popover-arrow { border-bottom-color: #27272a; }
+/* Arrows — match popover background (#09090b), not the border */
+.yugati-tour-popover .driver-popover-arrow-side-left.driver-popover-arrow   { border-left-color:   #09090b; }
+.yugati-tour-popover .driver-popover-arrow-side-right.driver-popover-arrow  { border-right-color:  #09090b; }
+.yugati-tour-popover .driver-popover-arrow-side-top.driver-popover-arrow    { border-top-color:    #09090b; }
+.yugati-tour-popover .driver-popover-arrow-side-bottom.driver-popover-arrow { border-bottom-color: #09090b; }
 
 /* ── Light mode ── */
 html[data-theme="light"] .yugati-tour-popover.driver-popover {
@@ -576,6 +576,10 @@ html[data-theme="light"] .yugati-tour-popover .driver-popover-description code,
 html[data-theme="light"] .yugati-tour-popover .driver-popover-description kbd {
   background: #ede8df; border-color: #ddd6ca; color: #44403c;
 }
+html[data-theme="light"] .yugati-tour-popover .driver-popover-arrow-side-left.driver-popover-arrow   { border-left-color:   #faf8f4; }
+html[data-theme="light"] .yugati-tour-popover .driver-popover-arrow-side-right.driver-popover-arrow  { border-right-color:  #faf8f4; }
+html[data-theme="light"] .yugati-tour-popover .driver-popover-arrow-side-top.driver-popover-arrow    { border-top-color:    #faf8f4; }
+html[data-theme="light"] .yugati-tour-popover .driver-popover-arrow-side-bottom.driver-popover-arrow { border-bottom-color: #faf8f4; }
 
 html[data-theme="light"] .yugati-tour-popover .driver-popover-footer { border-top-color: #f0ebe3; }
 html[data-theme="light"] .yugati-tour-popover .driver-popover-progress-text { color: #c4b9a8; }

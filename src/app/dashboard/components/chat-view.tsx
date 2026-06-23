@@ -795,9 +795,7 @@ function EmailDraftCard({ draft }: { draft: EmailDraft }) {
 
       {/* Card header */}
       <div className="flex items-center gap-2 px-4 py-2.5 bg-zinc-800/50 border-b border-zinc-700/40">
-        <div className="w-5 h-5 rounded-md bg-zinc-700 flex items-center justify-center shrink-0">
-          <Mail size={11} className="text-zinc-300" />
-        </div>
+        <GmailIcon size={18} />
         <span className="text-xs font-semibold text-zinc-300 flex-1">Draft</span>
         <button
           onClick={() => setEditing((v) => !v)}
@@ -1110,6 +1108,22 @@ function GoogleCalendarIcon({ size = 20 }: { size?: number }) {
       <rect x="7" y="2.5" width="2" height="5" rx="1" fill="#4285F4" />
       <rect x="15" y="2.5" width="2" height="5" rx="1" fill="#4285F4" />
       <text x="12" y="19" textAnchor="middle" fill="#4285F4" fontSize="7" fontWeight="700" fontFamily="Arial,sans-serif">21</text>
+    </svg>
+  );
+}
+
+function GmailIcon({ size = 20 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+      <path d="M2 6.5C2 5.67 2.67 5 3.5 5h17C21.33 5 22 5.67 22 6.5v11c0 .83-.67 1.5-1.5 1.5h-17C2.67 19 2 18.33 2 17.5V6.5Z" fill="white"/>
+      <path d="M2 7l10 6.5L22 7" stroke="#EA4335" strokeWidth="1.5" fill="none"/>
+      <path d="M2 7v10.5C2 18.33 2.67 19 3.5 19H8V11l4 2.5 4-2.5v8h4.5c.83 0 1.5-.67 1.5-1.5V7L12 13.5 2 7Z" fill="white"/>
+      <path d="M2 7l10 6.5L22 7V6.5C22 5.67 21.33 5 20.5 5H3.5C2.67 5 2 5.67 2 6.5V7Z" fill="#EA4335"/>
+      <path d="M8 19V11l4 2.5 4-2.5v8" fill="none"/>
+      <path d="M2 17.5V7l10 6.5L22 7v10.5c0 .83-.67 1.5-1.5 1.5H16V11l-4 2.5L8 11v8H3.5C2.67 19 2 18.33 2 17.5Z" fill="white"/>
+      <path d="M2 7l10 6.5L22 7V6.5C22 5.67 21.33 5 20.5 5H3.5C2.67 5 2 5.67 2 6.5V7Z" fill="#EA4335"/>
+      <path d="M8 11v8H3.5C2.67 19 2 18.33 2 17.5V7l6 4Z" fill="#34A853"/>
+      <path d="M16 11v8h4.5c.83 0 1.5-.67 1.5-1.5V7l-6 4Z" fill="#FBBC04"/>
     </svg>
   );
 }
