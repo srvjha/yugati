@@ -388,19 +388,20 @@ html[data-theme="light"] .yugati-mode-glow {
   max-width: 380px;
   min-width: 320px;
   font-family: inherit;
-  overflow: hidden;
+  overflow: visible;
   background: #09090b;
   border: 1px solid #27272a;
   box-shadow: 0 0 0 1px rgba(255,255,255,0.03), 0 24px 60px rgba(0,0,0,0.7);
 }
 
-/* Purple gradient accent bar */
+/* Purple gradient accent bar — rounded top corners to compensate for overflow: visible */
 .yugati-tour-popover.driver-popover::before {
   content: '';
   display: block;
   height: 3px;
   width: 100%;
   background: linear-gradient(90deg, #6366f1, #8b5cf6, #a78bfa);
+  border-radius: 16px 16px 0 0;
 }
 
 /* Title */
@@ -551,11 +552,11 @@ html[data-theme="light"] .yugati-mode-glow {
   background: #18181b !important;
 }
 
-/* Arrows — match popover background (#09090b), not the border */
-.yugati-tour-popover .driver-popover-arrow-side-left.driver-popover-arrow   { border-left-color:   #09090b; }
-.yugati-tour-popover .driver-popover-arrow-side-right.driver-popover-arrow  { border-right-color:  #09090b; }
-.yugati-tour-popover .driver-popover-arrow-side-top.driver-popover-arrow    { border-top-color:    #09090b; }
-.yugati-tour-popover .driver-popover-arrow-side-bottom.driver-popover-arrow { border-bottom-color: #09090b; }
+/* Arrows — use border color so the triangle is visible against the dark sidebar */
+.yugati-tour-popover .driver-popover-arrow-side-left.driver-popover-arrow   { border-left-color:   #27272a; }
+.yugati-tour-popover .driver-popover-arrow-side-right.driver-popover-arrow  { border-right-color:  #27272a; }
+.yugati-tour-popover .driver-popover-arrow-side-top.driver-popover-arrow    { border-top-color:    #27272a; }
+.yugati-tour-popover .driver-popover-arrow-side-bottom.driver-popover-arrow { border-bottom-color: #27272a; }
 
 /* ── Light mode ── */
 html[data-theme="light"] .yugati-tour-popover.driver-popover {
