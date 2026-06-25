@@ -9,7 +9,9 @@ import {
   Maximize2, Minimize2, Trash2, Mic, MicOff, Square, PanelLeftClose,
   Send, X, Bold, Italic, Underline, Link2, List, ListOrdered, AlertTriangle,
   Paperclip, Image as ImageIcon, Video, Music, FileText, Archive, File as FileIcon,
+  LayoutTemplate, ChevronRight,
 } from 'lucide-react';
+import Link from 'next/link';
 import { useQuery, useMutation } from '@tanstack/react-query';
 import { motion } from 'framer-motion';
 import { useTRPC }  from '@/trpc/client';
@@ -1372,12 +1374,14 @@ function CalendarSuccessCard({ details }: { details: CalendarSuccess }) {
 
 export function ChatView({
   initialPrompt,
+  prefillPrompt,
   onPromptFired,
   onAgentDone,
   showSidebar = false,
   userName,
 }: {
   initialPrompt?: string;
+  prefillPrompt?: string;
   onPromptFired?: () => void;
   onAgentDone?: () => void;
   showSidebar?: boolean;
@@ -1455,6 +1459,13 @@ export function ChatView({
     return () => clearTimeout(id);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [initialPrompt]);
+
+  useEffect(() => {
+    if (!prefillPrompt) return;
+    setInput(prefillPrompt);
+    setTimeout(() => textareaRef.current?.focus(), 50);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [prefillPrompt]);
 
   // ── Session helpers ───────────────────────────────────────────────────────
 
@@ -1866,6 +1877,20 @@ export function ChatView({
                   </button>
                 ))}
               </div>
+
+              <Link
+                href="/dashboard/templates"
+                className="flex items-center gap-2 px-4 py-2.5 rounded-xl border border-zinc-800/60 bg-zinc-900/40 hover:border-zinc-700 hover:bg-zinc-900 transition-all group"
+              >
+                <div className="w-6 h-6 rounded-lg bg-violet-500/15 flex items-center justify-center shrink-0">
+                  <LayoutTemplate size={12} className="text-violet-400" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <span className="text-xs font-medium text-zinc-400 group-hover:text-zinc-200 transition-colors">Not sure what to ask?</span>
+                  <span className="text-xs text-zinc-600 group-hover:text-zinc-500 transition-colors ml-1.5">Browse templates</span>
+                </div>
+                <ChevronRight size={13} className="text-zinc-700 group-hover:text-zinc-400 transition-colors shrink-0" />
+              </Link>
             </div>
 
           ) : (
@@ -2073,6 +2098,15 @@ export function ChatView({
                       : 'text-zinc-700'}`}>
                   {input.length}/{charLimit}
                 </span>
+                {/* Templates shortcut */}
+                <Tooltip>
+                  <TooltipTrigger className="shrink-0 w-7 h-7 rounded-lg flex items-center justify-center text-zinc-500 hover:text-violet-400 hover:bg-violet-500/10 transition-all">
+                    <Link href="/dashboard/templates" className="flex items-center justify-center w-full h-full">
+                      <LayoutTemplate size={13} />
+                    </Link>
+                  </TooltipTrigger>
+                  <TooltipContent side="top">Browse templates</TooltipContent>
+                </Tooltip>
                 {/* Mic button */}
                 <button
                   onClick={() => void voice.start()}

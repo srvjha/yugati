@@ -22,6 +22,7 @@ import {
   BookOpen,
   Bot,
   HelpCircle,
+  LayoutTemplate,
 } from "lucide-react";
 import { SIDEBAR_FOLDERS, type SidebarFolder } from "../constants";
 import { TooltipWrap } from "./TooltipWrap";
@@ -244,6 +245,15 @@ export function MailSidebar({
               label="Agentic"
               collapsed={collapsed}
               href="/dashboard/chat"
+              isNew
+            />
+          </div>
+          <div>
+            <NavItem
+              icon={LayoutTemplate}
+              label="Templates"
+              collapsed={collapsed}
+              href="/dashboard/templates"
               isNew
             />
           </div>

@@ -7,7 +7,7 @@ import { usePathname, useRouter } from 'next/navigation';
 import {
   Inbox, Star, Send, FileText, AlertCircle, Trash2, MailMinus,
   Calendar, LogOut, LayoutDashboard, Plug, CreditCard,
-  Activity, BookOpen, Settings, Bot,
+  Activity, BookOpen, Settings, Bot, LayoutTemplate,
 } from 'lucide-react';
 import { signOut } from '@/lib/auth-client';
 import { UsagePill } from './usage-pill';
@@ -30,6 +30,7 @@ const NAV_ITEMS: { href: string; label: string; icon: React.ElementType; isNew?:
   { href: '/dashboard/calendar',     label: 'Calendar',     icon: Calendar                     },
   { href: '/dashboard/integrations', label: 'Integrations', icon: Plug                         },
   { href: '/dashboard/chat',         label: 'Agentic',      icon: Bot,             isNew: true },
+  { href: '/dashboard/templates',    label: 'Templates',    icon: LayoutTemplate,  isNew: true },
   { href: '/dashboard/billing',      label: 'Billing',      icon: CreditCard                   },
   { href: '/docs',                   label: 'Docs',         icon: BookOpen                     },
   { href: '/dashboard/settings',     label: 'Settings',     icon: Settings                     },

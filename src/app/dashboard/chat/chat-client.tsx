@@ -1,6 +1,7 @@
 'use client';
 
 import dynamic from 'next/dynamic';
+import { useSearchParams } from 'next/navigation';
 
 const ChatView = dynamic(
   () => import('../components/chat-view').then((m) => ({ default: m.ChatView })),
@@ -8,5 +9,9 @@ const ChatView = dynamic(
 );
 
 export function ChatClient({ userName }: { userName?: string }) {
-  return <ChatView showSidebar={false} userName={userName} />;
+  const params       = useSearchParams();
+  const prefillRaw   = params.get('prompt');
+  const prefillPrompt = prefillRaw ? decodeURIComponent(prefillRaw) : undefined;
+
+  return <ChatView showSidebar={false} userName={userName} prefillPrompt={prefillPrompt} />;
 }
