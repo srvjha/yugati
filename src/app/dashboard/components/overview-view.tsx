@@ -119,6 +119,45 @@ function fmtDay(dateStr: string) {
   return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
 }
 
+// ─── Overview greeting ────────────────────────────────────────────────────────
+
+type GreetEntry = { headline: (n?: string) => string; sub: string };
+
+const OVERVIEW_GREET_SLOTS: Record<string, GreetEntry[]> = {
+  night: [
+    { headline: (n) => n ? `Still at it, ${n}.`          : 'Still at it.',          sub: "Here's where things stand."           },
+    { headline: (n) => n ? `Burning the midnight oil, ${n}?` : 'Burning the midnight oil?', sub: "Here's your inbox at a glance." },
+    { headline: (n) => n ? `Late night, ${n}.`            : 'Late-night mode.',      sub: "Let's see what came in today."        },
+  ],
+  morning: [
+    { headline: (n) => n ? `Good morning, ${n}.`          : 'Good morning.',         sub: "Here's what landed in your inbox overnight." },
+    { headline: (n) => n ? `Morning, ${n}!`                : 'Morning!',              sub: "Let's see what today looks like."     },
+    { headline: (n) => n ? `Rise and shine, ${n}.`         : 'Rise and shine.',       sub: "Your inbox is waiting."              },
+    { headline: (n) => n ? `A fresh start, ${n}.`          : 'A fresh start.',        sub: "Here's your communication overview." },
+    { headline: (n) => n ? `Hey ${n}, good morning.`       : 'Good morning!',         sub: "Here's the lay of the land."         },
+  ],
+  afternoon: [
+    { headline: (n) => n ? `Good afternoon, ${n}.`         : 'Good afternoon.',       sub: "Here's how your day is shaping up."  },
+    { headline: (n) => n ? `Afternoon, ${n}!`               : 'Afternoon!',            sub: "Let's check in on your inbox."       },
+    { headline: (n) => n ? `How's the day going, ${n}?`    : "How's the day going?",  sub: "Here's your overview."              },
+    { headline: (n) => n ? `Halfway through, ${n}.`         : 'Halfway through.',      sub: "Here's where your inbox stands."     },
+  ],
+  evening: [
+    { headline: (n) => n ? `Good evening, ${n}.`           : 'Good evening.',         sub: "Here's how your day wrapped up."     },
+    { headline: (n) => n ? `Evening, ${n}!`                 : 'Evening!',              sub: "Let's see what came in today."       },
+    { headline: (n) => n ? `Winding down, ${n}?`           : 'Winding down?',         sub: "Here's your end-of-day summary."     },
+    { headline: (n) => n ? `Hey ${n}, end of the day.`     : 'End of the day.',       sub: "Here's your communication overview." },
+  ],
+};
+
+function getOverviewGreeting(name?: string): { headline: string; sub: string } {
+  const h    = new Date().getHours();
+  const slot = h >= 22 || h < 5 ? 'night' : h < 12 ? 'morning' : h < 17 ? 'afternoon' : 'evening';
+  const list = OVERVIEW_GREET_SLOTS[slot]!;
+  const entry = list[new Date().getMinutes() % list.length]!;
+  return { headline: entry.headline(name?.split(' ')[0]), sub: entry.sub };
+}
+
 // ─── Main component ───────────────────────────────────────────────────────────
 
 // ─── Prompt quality analysis (client-side from localStorage) ─────────────────
@@ -214,12 +253,7 @@ export function OverviewView({ userName }: { userName?: string }) {
     fmt();
   }, [overviewFetching, emailFetching]);
 
-  const greeting = React.useMemo(() => {
-    const h = new Date().getHours();
-    const t = h < 5 ? 'night' : h < 12 ? 'morning' : h < 17 ? 'afternoon' : h < 21 ? 'evening' : 'night';
-    const first = userName?.split(' ')[0];
-    return first ? `Good ${t}, ${first}` : `Good ${t}`;
-  }, [userName]);
+  const greeting = React.useMemo(() => getOverviewGreeting(userName), [userName]);
 
   // Filter hourly to only show every 3 hours for cleanliness
   const hourlyData = (email?.byHour ?? []).filter((_, i) => i % 3 === 0 || i === 23);
@@ -231,8 +265,8 @@ export function OverviewView({ userName }: { userName?: string }) {
         {/* ── Header ── */}
         <div className="flex items-start justify-between">
           <div>
-            <h1 className="text-2xl font-bold text-white">{greeting}</h1>
-            <p className="text-sm text-zinc-500 mt-1">Here&apos;s your communication overview</p>
+            <h1 className="text-2xl font-bold text-white">{greeting.headline}</h1>
+            <p className="text-sm text-zinc-500 mt-1">{greeting.sub}</p>
           </div>
           <div className="flex items-center gap-3">
             <div className="flex items-center gap-2 text-xs text-zinc-600">
