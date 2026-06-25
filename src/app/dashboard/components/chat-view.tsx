@@ -1249,7 +1249,9 @@ interface CalendarSuccess {
 }
 
 function parseCalendarSuccess(content: string): CalendarSuccess | null {
-  if (!/(has been scheduled|successfully scheduled|event.*scheduled|scheduled.*event)/i.test(content)) return null;
+  // Only match passive-perfect phrasing that unambiguously means "I just created it".
+  // Avoid broad patterns like "scheduled.*event" which fire on "you have 3 scheduled events".
+  if (!/(has been (?:successfully )?scheduled|successfully (?:scheduled|created)|(?:was|has been) added to your calendar)/i.test(content)) return null;
 
   const lines = content.split('\n');
   let title: string | undefined, datetime: string | undefined, attendees: string | undefined, calendarLink: string | undefined;
