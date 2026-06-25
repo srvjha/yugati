@@ -107,7 +107,12 @@ export async function* streamChat(
   // gpt-4.1-nano streams the first token in ~200ms vs ~1.5s for the full agent.
   if (isChitchat(raw)) {
     const chatId = conversationId ?? crypto.randomUUID();
-    yield* streamChitchat(raw, messages, chatId, userName);
+    try {
+      yield* streamChitchat(raw, messages, chatId, userName);
+    } catch {
+      yield { type: 'delta', text: "Hey there! What can I help you with?" };
+      yield { type: 'done', conversationId: chatId };
+    }
     return;
   }
 
@@ -133,7 +138,9 @@ export async function* streamChat(
     // ("professional", "yes", "send it", "casual") that have no conversation context
     // for the classifier to evaluate correctly. Regex gate above is sufficient.
     const isShortReply = raw.trim().split(/\s+/).length <= 5;
-    const safety = isShortReply ? { safe: true, reason: '' } : await checkSafety(raw);
+    const safety = isShortReply
+      ? { safe: true, reason: '' }
+      : await checkSafety(raw).catch(() => ({ safe: true, reason: '' }));
     if (!safety.safe) {
       void logPrompt({
         userId: tenantId, conversationId: id, rawPrompt: raw,
@@ -146,7 +153,7 @@ export async function* streamChat(
     }
   }
 
-  const enhanced = await enhancePrompt(raw, messages);
+  const enhanced = await enhancePrompt(raw, messages).catch(() => raw);
 
   // Retry up to 3 times on OpenAI 429 with exponential backoff (2s → 5s → 10s)
   const RETRY_DELAYS = [2_000, 5_000, 10_000];
