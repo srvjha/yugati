@@ -12,6 +12,7 @@ import {
   LayoutTemplate, ChevronRight,
 } from 'lucide-react';
 import Link from 'next/link';
+import NextImage from 'next/image';
 import { useQuery, useMutation } from '@tanstack/react-query';
 import { motion } from 'framer-motion';
 import { useTRPC }  from '@/trpc/client';
@@ -1105,11 +1106,11 @@ const GMAIL_URL  = 'https://upload.wikimedia.org/wikipedia/commons/thumb/7/7e/Gm
 const GCAL_URL   = 'https://www.logo.wine/a/logo/Google_Calendar/Google_Calendar-Logo.wine.svg';
 
 function GoogleCalendarIcon({ size = 20 }: { size?: number }) {
-  return <img src={GCAL_URL} width={size} height={size} alt="Google Calendar" style={{ objectFit: 'contain' }} />;
+  return <NextImage src={GCAL_URL} width={size} height={size} alt="Google Calendar" unoptimized style={{ objectFit: 'contain' }} />;
 }
 
 function GmailIcon({ size = 20 }: { size?: number }) {
-  return <img src={GMAIL_URL} width={size} height={size} alt="Gmail" style={{ objectFit: 'contain' }} />;
+  return <NextImage src={GMAIL_URL} width={size} height={size} alt="Gmail" unoptimized style={{ objectFit: 'contain' }} />;
 }
 
 interface CalendarEventDetails {
@@ -1380,7 +1381,7 @@ export function ChatView({
   const [activeId,         setActiveId]         = useState<string>(initState.activeId);
   const [fullscreen,       setFullscreen]       = useState(false);
   const [sidebarOpen,      setSidebarOpen]      = useState(showSidebar);
-  const [input,            setInput]            = useState('');
+  const [input,            setInput]            = useState(prefillPrompt ?? '');
   const [isLoading,        setLoading]          = useState(false);
   const [editingMsgId,     setEditingMsgId]     = useState<string | null>(null);
   const [editMsgText,      setEditMsgText]      = useState('');
@@ -1444,10 +1445,10 @@ export function ChatView({
 
   useEffect(() => {
     if (!prefillPrompt) return;
-    setInput(prefillPrompt);
     setTimeout(() => textareaRef.current?.focus(), 50);
+  // only runs once on mount — prefillPrompt is a stable URL param
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [prefillPrompt]);
+  }, []);
 
   // ── Session helpers ───────────────────────────────────────────────────────
 

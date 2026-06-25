@@ -10,16 +10,17 @@ import {
 import { useState, useRef, KeyboardEvent, useEffect } from 'react';
 import { toast } from 'sonner';
 import { Switch } from '@/components/ui/switch';
+import NextImage from 'next/image';
 
 const GMAIL_URL = 'https://upload.wikimedia.org/wikipedia/commons/thumb/7/7e/Gmail_icon_%282020%29.svg/1280px-Gmail_icon_%282020%29.svg.png';
 const GCAL_URL  = 'https://www.logo.wine/a/logo/Google_Calendar/Google_Calendar-Logo.wine.svg';
 
 function GmailIcon({ size = 20 }: { size?: number }) {
-  return <img src={GMAIL_URL} width={size} height={size} alt="Gmail" style={{ objectFit: 'contain' }} />;
+  return <NextImage src={GMAIL_URL} width={size} height={size} alt="Gmail" unoptimized style={{ objectFit: 'contain' }} />;
 }
 
 function GoogleCalendarIcon({ size = 20 }: { size?: number }) {
-  return <img src={GCAL_URL} width={size} height={size} alt="Google Calendar" style={{ objectFit: 'contain' }} />;
+  return <NextImage src={GCAL_URL} width={size} height={size} alt="Google Calendar" unoptimized style={{ objectFit: 'contain' }} />;
 }
 
 const INTEGRATIONS = [

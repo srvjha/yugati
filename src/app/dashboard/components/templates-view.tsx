@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import {
   Sun, Calendar, Reply, ClipboardList,
@@ -174,14 +174,14 @@ function AddTemplateCard({ onSave }: { onSave: (t: Template) => void }) {
 
 export function TemplatesView() {
   const router = useRouter();
-  const [custom, setCustom] = useState<Template[]>([]);
-
-  useEffect(() => {
+  const [custom, setCustom] = useState<Template[]>(() => {
     try {
       const raw = localStorage.getItem(STORAGE_KEY);
-      if (raw) setCustom(JSON.parse(raw) as Template[]);
-    } catch {}
-  }, []);
+      return raw ? (JSON.parse(raw) as Template[]) : [];
+    } catch {
+      return [];
+    }
+  });
 
   function saveCustom(t: Template) {
     const next = [...custom, t];
