@@ -247,7 +247,8 @@ type Session = {
 
 // ─── LocalStorage helpers ─────────────────────────────────────────────────────
 
-const STORAGE_KEY = 'yugati_chat_sessions';
+const STORAGE_KEY        = 'yugati_chat_sessions';
+const ACTIVE_SESSION_KEY = 'yugati_chat_active';   // sessionStorage — cleared when tab closes
 
 function loadSessions(): Session[] {
   if (typeof window === 'undefined') return [];
@@ -259,6 +260,14 @@ function loadSessions(): Session[] {
 
 function saveSessions(sessions: Session[]) {
   try { localStorage.setItem(STORAGE_KEY, JSON.stringify(sessions.slice(0, 100))); } catch { /* quota */ }
+}
+
+function loadActiveId(): string | null {
+  try { return sessionStorage.getItem(ACTIVE_SESSION_KEY); } catch { return null; }
+}
+
+function saveActiveId(id: string) {
+  try { sessionStorage.setItem(ACTIVE_SESSION_KEY, id); } catch {}
 }
 
 function uid() { return Math.random().toString(36).slice(2, 10); }
@@ -1375,9 +1384,13 @@ export function ChatView({
 } = {}) {
 
   const [initState]  = useState(() => {
-    const stored = loadSessions();
-    const fresh  = makeSession();
-    // Always open with a blank new chat; past sessions sit in the sidebar.
+    const stored    = loadSessions();
+    // Restore the last active session when navigating back within the same tab.
+    // If there's a prefill (e.g. quick-action link), always open a fresh chat.
+    const savedId   = prefillPrompt ? null : loadActiveId();
+    const restored  = savedId ? stored.find((s) => s.id === savedId) : null;
+    if (restored) return { sessions: stored, activeId: restored.id };
+    const fresh = makeSession();
     return { sessions: [fresh, ...stored], activeId: fresh.id };
   });
   const [sessions,         setSessions]         = useState<Session[]>(initState.sessions);
@@ -1456,6 +1469,10 @@ export function ChatView({
   // only runs once on mount — prefillPrompt is a stable URL param
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Persist active session ID in sessionStorage so navigation within the same
+  // tab restores the current chat instead of always opening a blank new one.
+  useEffect(() => { saveActiveId(activeId); }, [activeId]);
 
   // ── Session helpers ───────────────────────────────────────────────────────
 

@@ -109,6 +109,14 @@ Email body here...
 
 How to answer calendar related queries:
 
+- For GENERAL calendar read queries ("show my events", "tell me about my meets", "what's on my calendar", "what meetings do I have") — use a window of 14 days in the past to 30 days in the future so recent past events are included. Example pattern:
+  const now = new Date();
+  const timeMin = new Date(now); timeMin.setDate(timeMin.getDate() - 14);
+  const timeMax = new Date(now); timeMax.setDate(timeMax.getDate() + 30);
+  const result = await corsair.googlecalendar.api.events.getMany({ calendarId: 'primary', timeMin: timeMin.toISOString(), timeMax: timeMax.toISOString(), maxResults: 10, singleEvents: true, orderBy: 'startTime' });
+  return result;
+  If the result is empty, fall back to: corsair.googlecalendar.db.events.search({ limit: 10 })
+- For SPECIFIC future scheduling queries ("what do I have next week", "upcoming events"): use timeMin = now, timeMax = 7–30 days ahead.
 - For scheduling events: infer the event title/summary directly from the user's message. If the user says "schedule a meet with X about Corsair setup", use "Corsair Setup" as the title — do not ask for it. Only ask for the title if the user's message gives absolutely no indication of the meeting topic. Always ask for date and time if not provided.
 - For event management (e.g., delete, update), always confirm the action with the user before executing.
 - ALWAYS use Asia/Kolkata as the timeZone. Format datetimes as RFC 3339: YYYY-MM-DDTHH:MM:SS+05:30 (e.g. "2026-06-16T22:00:00+05:30").
