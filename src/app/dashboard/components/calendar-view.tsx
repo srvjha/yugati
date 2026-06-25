@@ -9,6 +9,7 @@ import {
   Copy, Check,
 } from 'lucide-react';
 import { ThemeToggle } from '@/components/theme-toggle';
+import { Switch } from '@/components/ui/switch';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { motion } from 'framer-motion';
@@ -1210,16 +1211,15 @@ function CreateEventModal({
             </div>
           )}
 
-          <button type="button" onClick={() => setAddMeet((v) => !v)}
-            className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl border text-sm transition-colors
+          <div onClick={() => setAddMeet((v) => !v)} role="button" tabIndex={0}
+            onKeyDown={(e) => e.key === 'Enter' && setAddMeet((v) => !v)}
+            className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl border text-sm transition-colors cursor-pointer
               ${addMeet ? 'bg-blue-500/10 border-blue-500/30 text-blue-400' : 'bg-zinc-900 border-zinc-800 text-zinc-500 hover:text-zinc-300'}`}
           >
             <Video size={13} className={addMeet ? 'text-blue-400' : 'text-zinc-600'} />
             <span className="flex-1 text-left text-xs">Add Google Meet link</span>
-            <div className={`w-8 h-4 rounded-full flex items-center px-0.5 transition-colors ${addMeet ? 'bg-blue-500' : 'bg-zinc-700'}`}>
-              <div className={`w-3 h-3 rounded-full bg-white shadow transition-transform ${addMeet ? 'translate-x-4' : ''}`} />
-            </div>
-          </button>
+            <Switch checked={addMeet} onCheckedChange={setAddMeet} />
+          </div>
 
           <Expandable icon={<AlignLeft size={12} />} label="description" show={showDesc} onToggle={() => setShowDesc((v) => !v)}>
             <textarea value={desc} onChange={(e) => setDesc(e.target.value)} placeholder="What's this event about?" rows={2} className={`${inputCls} mt-2 resize-none`} />

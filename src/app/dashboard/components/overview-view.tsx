@@ -179,16 +179,19 @@ export function OverviewView({ userName }: { userName?: string }) {
 
   const { data: overview, isLoading: overviewLoading, isFetching: overviewFetching } = useQuery({
     ...trpc.stats.overview.queryOptions(),
+    staleTime:       3 * 60 * 1000,
     refetchInterval: REFETCH,
   });
 
   const { data: email, isLoading: emailLoading, isFetching: emailFetching } = useQuery({
     ...trpc.stats.emailActivity.queryOptions(),
+    staleTime:       5 * 60 * 1000,
     refetchInterval: REFETCH,
   });
 
   const { data: cal, isLoading: calLoading } = useQuery({
     ...trpc.stats.calendarActivity.queryOptions(),
+    staleTime:       5 * 60 * 1000,
     refetchInterval: REFETCH,
   });
 

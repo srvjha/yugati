@@ -3,6 +3,17 @@ import { corsair }  from '@/server/corsair';
 import { db }       from '@/server/db';
 import { corsairAccounts, corsairIntegrations } from '@/server/db/schema';
 import { eq, and, inArray } from 'drizzle-orm';
+import { Redis }    from '@upstash/redis';
+
+const redis = Redis.fromEnv();
+
+async function cached<T>(key: string, ttlSec: number, fn: () => Promise<T>): Promise<T> {
+  const hit = await redis.get<T>(key).catch(() => null);
+  if (hit !== null) return hit;
+  const result = await fn();
+  await redis.set(key, result, { ex: ttlSec }).catch(() => null);
+  return result;
+}
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -71,6 +82,10 @@ export class StatsService {
   // ── Overview: counts + this-week calendar summary ──────────────────────────
 
   async getOverview() {
+    return cached(`stats:overview:${this.tenantId}`, 180, () => this._getOverview());
+  }
+
+  private async _getOverview() {
     const now      = new Date();
     const weekStart = new Date(now);
     weekStart.setDate(now.getDate() - now.getDay());
@@ -115,6 +130,10 @@ export class StatsService {
   // ── Email activity: volume, senders, hourly, categories ───────────────────
 
   async getEmailActivity() {
+    return cached(`stats:email:${this.tenantId}`, 300, () => this._getEmailActivity());
+  }
+
+  private async _getEmailActivity() {
     type DbMsg = { id?: string; internalDate?: string; labelIds?: string[]; from?: string; payload?: { headers?: { name?: string; value?: string }[] } };
 
     const thirtyDaysAgo = new Date();
@@ -131,7 +150,7 @@ export class StatsService {
       .map((m) => m.id).filter(Boolean) as string[];
 
     const metaItems = await Promise.all(
-      ids.slice(0, 50).map((id) =>
+      ids.slice(0, 30).map((id) =>
         this.c.gmail.api.messages.get({ id, format: 'metadata' }).catch(() => null),
       ),
     );
@@ -225,6 +244,10 @@ export class StatsService {
   // ── Calendar activity: events last 30 days ─────────────────────────────────
 
   async getCalendarActivity() {
+    return cached(`stats:cal:${this.tenantId}`, 300, () => this._getCalendarActivity());
+  }
+
+  private async _getCalendarActivity() {
     const now     = new Date();
     const past30  = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
 
@@ -333,6 +356,7 @@ export class StatsService {
   // ── AI Insights ───────────────────────────────────────────────────────────
 
   async getAiInsights() {
+    // getOverview() is cached — this won't make extra API calls if overview was already fetched
     const overview = await this.getOverview().catch(() => null);
     if (!overview) return { insights: [] };
 
