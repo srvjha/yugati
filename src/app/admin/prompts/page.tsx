@@ -3,7 +3,7 @@
 import React, { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useTRPC }  from '@/trpc/client';
-import { MessageSquare, Search, ChevronLeft, ChevronRight, AlertTriangle, Bot } from 'lucide-react';
+import { MessageSquare, Search, ChevronLeft, ChevronRight, AlertTriangle } from 'lucide-react';
 
 const PLAN_COLORS: Record<string, string> = {
   free:       'text-zinc-400 bg-zinc-800/60 border-zinc-700',
@@ -141,12 +141,6 @@ export default function AdminPromptsPage() {
                             )}
                             {log.blockedReason && (
                               <p className="text-xs text-red-400 bg-red-500/10 border border-red-500/20 rounded-xl px-4 py-2">{log.blockedReason}</p>
-                            )}
-                            {log.agentReply && (
-                              <div>
-                                <p className="text-[10px] font-semibold text-zinc-600 uppercase tracking-wider mb-1 flex items-center gap-1"><Bot size={10} /> AI Reply</p>
-                                <p className="text-xs text-zinc-300 whitespace-pre-wrap break-words bg-zinc-900/60 border border-zinc-800/60 rounded-xl px-4 py-3">{log.agentReply}</p>
-                              </div>
                             )}
                             <div className="flex items-center gap-4 text-[11px] text-zinc-600">
                               <span>Model: {log.model}</span>

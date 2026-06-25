@@ -1,6 +1,6 @@
 'use client';
 
-import { AlertTriangle, Shield, Clock, Cpu, User, Globe, Trash2 } from 'lucide-react';
+import { AlertTriangle, Shield, Clock, Cpu, User, Globe } from 'lucide-react';
 
 type SnapshotLog = {
   id: string;
@@ -83,7 +83,7 @@ function HighlightedPrompt({ text }: { text: string }) {
   );
 }
 
-export function PromptSnapshot({ log, onDelete }: { log: SnapshotLog; onDelete?: () => void }) {
+export function PromptSnapshot({ log }: { log: SnapshotLog }) {
   const isInjection = log.status === 'blocked_input';
   const ts = new Date(log.createdAt).toLocaleString('en-IN', {
     day: 'numeric', month: 'short', year: 'numeric',
@@ -114,20 +114,9 @@ export function PromptSnapshot({ log, onDelete }: { log: SnapshotLog; onDelete?:
           <span className="text-[10px] text-zinc-600 font-mono truncate hidden sm:block">{log.id}</span>
         </div>
 
-        <div className="flex items-center gap-3 shrink-0">
-          <div className="flex items-center gap-3 text-[11px] text-zinc-500">
-            <span className="flex items-center gap-1.5"><Clock size={10} />{ts} IST</span>
-            <span className="flex items-center gap-1.5 hidden sm:flex"><Cpu size={10} />{log.model}</span>
-          </div>
-          {onDelete && (
-            <button
-              onClick={onDelete}
-              title="Delete"
-              className="p-1.5 rounded-lg text-zinc-600 hover:text-red-500 hover:bg-red-500/10 transition-colors"
-            >
-              <Trash2 size={13} />
-            </button>
-          )}
+        <div className="flex items-center gap-3 text-[11px] text-zinc-500 shrink-0">
+          <span className="flex items-center gap-1.5"><Clock size={10} />{ts} IST</span>
+          <span className="flex items-center gap-1.5 hidden sm:flex"><Cpu size={10} />{log.model}</span>
         </div>
       </div>
 
