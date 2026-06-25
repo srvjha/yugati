@@ -1101,33 +1101,15 @@ function MdContent({ content, streaming }: { content: string; streaming?: boolea
 
 // ─── Google Calendar event card ──────────────────────────────────────────────
 
+const GMAIL_URL  = 'https://upload.wikimedia.org/wikipedia/commons/thumb/7/7e/Gmail_icon_%282020%29.svg/1280px-Gmail_icon_%282020%29.svg.png';
+const GCAL_URL   = 'https://www.logo.wine/a/logo/Google_Calendar/Google_Calendar-Logo.wine.svg';
+
 function GoogleCalendarIcon({ size = 20 }: { size?: number }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-      <rect x="3" y="5" width="18" height="16" rx="2" fill="white" />
-      <rect x="3" y="5" width="18" height="5.5" rx="2" fill="#4285F4" />
-      <rect x="3" y="8" width="18" height="2.5" fill="#4285F4" />
-      <rect x="7" y="2.5" width="2" height="5" rx="1" fill="#4285F4" />
-      <rect x="15" y="2.5" width="2" height="5" rx="1" fill="#4285F4" />
-      <text x="12" y="19" textAnchor="middle" fill="#4285F4" fontSize="7" fontWeight="700" fontFamily="Arial,sans-serif">21</text>
-    </svg>
-  );
+  return <img src={GCAL_URL} width={size} height={size} alt="Google Calendar" style={{ objectFit: 'contain' }} />;
 }
 
 function GmailIcon({ size = 20 }: { size?: number }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-      <path d="M2 6.5C2 5.67 2.67 5 3.5 5h17C21.33 5 22 5.67 22 6.5v11c0 .83-.67 1.5-1.5 1.5h-17C2.67 19 2 18.33 2 17.5V6.5Z" fill="white"/>
-      <path d="M2 7l10 6.5L22 7" stroke="#EA4335" strokeWidth="1.5" fill="none"/>
-      <path d="M2 7v10.5C2 18.33 2.67 19 3.5 19H8V11l4 2.5 4-2.5v8h4.5c.83 0 1.5-.67 1.5-1.5V7L12 13.5 2 7Z" fill="white"/>
-      <path d="M2 7l10 6.5L22 7V6.5C22 5.67 21.33 5 20.5 5H3.5C2.67 5 2 5.67 2 6.5V7Z" fill="#EA4335"/>
-      <path d="M8 19V11l4 2.5 4-2.5v8" fill="none"/>
-      <path d="M2 17.5V7l10 6.5L22 7v10.5c0 .83-.67 1.5-1.5 1.5H16V11l-4 2.5L8 11v8H3.5C2.67 19 2 18.33 2 17.5Z" fill="white"/>
-      <path d="M2 7l10 6.5L22 7V6.5C22 5.67 21.33 5 20.5 5H3.5C2.67 5 2 5.67 2 6.5V7Z" fill="#EA4335"/>
-      <path d="M8 11v8H3.5C2.67 19 2 18.33 2 17.5V7l6 4Z" fill="#34A853"/>
-      <path d="M16 11v8h4.5c.83 0 1.5-.67 1.5-1.5V7l-6 4Z" fill="#FBBC04"/>
-    </svg>
-  );
+  return <img src={GMAIL_URL} width={size} height={size} alt="Gmail" style={{ objectFit: 'contain' }} />;
 }
 
 interface CalendarEventDetails {
@@ -1289,19 +1271,19 @@ function CalendarSuccessCard({ details }: { details: CalendarSuccess }) {
       {/* Ripple + checkmark animation */}
       <div className="relative flex items-center justify-center w-24 h-24">
         <motion.div
-          className="absolute rounded-full bg-[#4285F4]/15"
+          className="absolute rounded-full bg-green-500/15"
           initial={{ width: 48, height: 48, opacity: 0.8 }}
           animate={{ width: 96, height: 96, opacity: 0 }}
           transition={{ duration: 1.1, ease: 'easeOut', repeat: Infinity, repeatDelay: 0.4 }}
         />
         <motion.div
-          className="absolute rounded-full bg-[#4285F4]/10"
+          className="absolute rounded-full bg-green-500/10"
           initial={{ width: 48, height: 48, opacity: 0.6 }}
           animate={{ width: 96, height: 96, opacity: 0 }}
           transition={{ duration: 1.1, ease: 'easeOut', repeat: Infinity, repeatDelay: 0.4, delay: 0.35 }}
         />
         <motion.div
-          className="relative z-10 w-14 h-14 rounded-full bg-[#4285F4] flex items-center justify-center shadow-[0_0_24px_rgba(66,133,244,0.4)]"
+          className="relative z-10 w-14 h-14 rounded-full bg-green-500 flex items-center justify-center shadow-[0_0_24px_rgba(34,197,94,0.4)]"
           initial={{ scale: 0, opacity: 0 }}
           animate={{ scale: 1, opacity: 1 }}
           transition={{ type: 'spring', stiffness: 300, damping: 18, delay: 0.05 }}

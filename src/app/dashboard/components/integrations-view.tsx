@@ -11,30 +11,15 @@ import { useState, useRef, KeyboardEvent, useEffect } from 'react';
 import { toast } from 'sonner';
 import { Switch } from '@/components/ui/switch';
 
+const GMAIL_URL = 'https://upload.wikimedia.org/wikipedia/commons/thumb/7/7e/Gmail_icon_%282020%29.svg/1280px-Gmail_icon_%282020%29.svg.png';
+const GCAL_URL  = 'https://www.logo.wine/a/logo/Google_Calendar/Google_Calendar-Logo.wine.svg';
+
 function GmailIcon({ size = 20 }: { size?: number }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
-      <path d="M4.5 39h6V23.25L2 17.5V36.5A2.5 2.5 0 0 0 4.5 39Z" fill="#4285F4"/>
-      <path d="M37.5 39h6a2.5 2.5 0 0 0 2.5-2.5V17.5l-8.5 5.75V39Z" fill="#34A853"/>
-      <path d="M37.5 12.5v10.75L46 17.5v-2.75C46 11.95 43.42 10.5 41.2 12.07L37.5 12.5Z" fill="#FBBC04"/>
-      <path d="M10.5 23.25V12.5l13.5 9 13.5-9v10.75L24 32.25 10.5 23.25Z" fill="#EA4335"/>
-      <path d="M2 14.75V17.5l8.5 5.75V12.5L6.8 12.07C4.58 10.5 2 11.95 2 14.75Z" fill="#C5221F"/>
-    </svg>
-  );
+  return <img src={GMAIL_URL} width={size} height={size} alt="Gmail" style={{ objectFit: 'contain' }} />;
 }
 
 function GoogleCalendarIcon({ size = 20 }: { size?: number }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
-      <rect x="6" y="6" width="36" height="36" rx="3" fill="white"/>
-      <rect x="6" y="6" width="36" height="36" rx="3" stroke="#E0E0E0" strokeWidth="1"/>
-      <rect x="6" y="6" width="36" height="12" rx="3" fill="#1A73E8"/>
-      <rect x="6" y="12" width="36" height="6" fill="#1A73E8"/>
-      <rect x="13" y="2" width="4" height="9" rx="2" fill="#1A73E8"/>
-      <rect x="31" y="2" width="4" height="9" rx="2" fill="#1A73E8"/>
-      <text x="24" y="36" textAnchor="middle" fontSize="16" fontWeight="700" fill="#1A73E8" fontFamily="Arial, sans-serif">31</text>
-    </svg>
-  );
+  return <img src={GCAL_URL} width={size} height={size} alt="Google Calendar" style={{ objectFit: 'contain' }} />;
 }
 
 const INTEGRATIONS = [
