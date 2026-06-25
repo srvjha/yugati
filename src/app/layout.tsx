@@ -31,7 +31,7 @@ export default async function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  const theme = (await cookies()).get("theme")?.value === "light" ? "light" : "dark";
+  const theme = (await cookies()).get("theme")?.value === "dark" ? "dark" : "light";
 
   return (
     <html

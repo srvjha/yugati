@@ -24,8 +24,8 @@ export function useTheme() {
   // theme cookie) in the state initializer so it runs synchronously on mount
   // and avoids a setState-in-effect that triggers a second render.
   const [theme, setTheme] = useState<Theme>(() => {
-    if (typeof window === 'undefined') return 'dark';
-    return document.documentElement.getAttribute('data-theme') === 'light' ? 'light' : 'dark';
+    if (typeof window === 'undefined') return 'light';
+    return document.documentElement.getAttribute('data-theme') === 'dark' ? 'dark' : 'light';
   });
 
   useEffect(() => {

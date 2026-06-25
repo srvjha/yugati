@@ -449,22 +449,34 @@ function ProductMockup() {
 
         {/* Chrome bar */}
         <div className="h-10 bg-zinc-950 flex items-center px-4 gap-3 border-b border-white/[0.06]">
-          <div className="flex gap-1.5">
+          <div className="flex gap-1.5 group/traffic">
             <button
               onClick={() => setWindowState(windowState === 'closed' ? 'normal' : 'closed')}
-              className="w-3 h-3 rounded-full bg-[#ff5f57] hover:brightness-125 active:brightness-75 transition-all cursor-default"
+              className="w-3 h-3 rounded-full bg-[#ff5f57] active:brightness-75 transition-all cursor-default flex items-center justify-center"
               title="Close"
-            />
+            >
+              <svg className="opacity-0 group-hover/traffic:opacity-100 transition-opacity" width="6" height="6" viewBox="0 0 6 6">
+                <path d="M1 1l4 4M5 1L1 5" stroke="#7a1a14" strokeWidth="1.2" strokeLinecap="round"/>
+              </svg>
+            </button>
             <button
               onClick={() => setWindowState(windowState === 'minimized' ? 'normal' : 'minimized')}
-              className="w-3 h-3 rounded-full bg-[#febc2e] hover:brightness-125 active:brightness-75 transition-all cursor-default"
+              className="w-3 h-3 rounded-full bg-[#febc2e] active:brightness-75 transition-all cursor-default flex items-center justify-center"
               title="Minimize"
-            />
+            >
+              <svg className="opacity-0 group-hover/traffic:opacity-100 transition-opacity" width="6" height="6" viewBox="0 0 6 6">
+                <path d="M1 3h4" stroke="#7a5a00" strokeWidth="1.2" strokeLinecap="round"/>
+              </svg>
+            </button>
             <button
               onClick={() => setWindowState('normal')}
-              className="w-3 h-3 rounded-full bg-[#28c840] hover:brightness-125 active:brightness-75 transition-all cursor-default"
+              className="w-3 h-3 rounded-full bg-[#28c840] active:brightness-75 transition-all cursor-default flex items-center justify-center"
               title="Expand"
-            />
+            >
+              <svg className="opacity-0 group-hover/traffic:opacity-100 transition-opacity" width="6" height="6" viewBox="0 0 6 6">
+                <path d="M1 5L5 1M1 1v4h4" stroke="#0a4a14" strokeWidth="1.1" strokeLinecap="round" strokeLinejoin="round"/>
+              </svg>
+            </button>
           </div>
           <div className="flex-1 max-w-xs mx-auto">
             <div className="bg-zinc-900 border border-white/[0.05] h-6 flex items-center justify-center px-3">

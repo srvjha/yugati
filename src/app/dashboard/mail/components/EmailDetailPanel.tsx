@@ -187,7 +187,7 @@ export function EmailDetailPanel({
         html, body {
           font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
           font-size: 14px; color: ${isDark ? '#e2e8f0' : '#1f2937'};
-          margin: 0; padding: 20px 24px;
+          margin: 0; padding: 4px 0 16px;
           word-break: break-word; background: transparent;
         }
         * { box-sizing: border-box; }
@@ -439,12 +439,12 @@ export function EmailDetailPanel({
 
       {/* Scrollable body */}
       <div className="flex-1 overflow-y-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-        <div className="px-6 pt-6 pb-10 max-w-2xl mx-auto w-full">
+        <div className="px-6 pt-5 pb-10 max-w-2xl mx-auto w-full">
           {/* Subject */}
-          <h1 className="text-xl font-bold leading-snug text-white mb-4">{subject}</h1>
+          <h1 className="text-xl font-bold leading-snug text-white mb-3">{subject}</h1>
 
           {/* Sender row */}
-          <div className="flex items-center gap-3 mb-5">
+          <div className="flex items-center gap-3 mb-3">
             <div className="w-8 h-8 rounded-full bg-zinc-800 border border-zinc-700 flex items-center justify-center text-xs font-bold shrink-0 text-zinc-200">
               {(fromName[0] ?? fromEmail[0] ?? '?').toUpperCase()}
             </div>
@@ -462,6 +462,8 @@ export function EmailDetailPanel({
             </div>
             <span className="text-xs text-zinc-500 shrink-0 text-right">{date}</span>
           </div>
+
+          <div className="border-t border-zinc-800/50 mb-4" />
 
           {/* Email body */}
           <div>
