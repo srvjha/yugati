@@ -1137,7 +1137,8 @@ function parseCalendarConfirm(content: string): CalendarEventDetails | null {
   let phase: 'intro' | 'fields' | 'outro' = 'intro';
 
   for (const line of lines) {
-    const stripped = line.replace(/^[-*•]\s*/, '').trim();
+    // Strip bullet markers and ** markdown bold so "- **Title:** foo" → "Title: foo"
+    const stripped = line.replace(/^[-*•]\s*/, '').replace(/\*\*/g, '').trim();
     if (!stripped) { if (phase === 'fields') phase = 'outro'; continue; }
 
     const get = (rx: RegExp) => { const m = stripped.match(rx); return m ? stripped.slice(m[0].length).trim() : null; };
@@ -1254,7 +1255,7 @@ function parseCalendarSuccess(content: string): CalendarSuccess | null {
   let title: string | undefined, datetime: string | undefined, attendees: string | undefined, calendarLink: string | undefined;
 
   for (const line of lines) {
-    const s = line.replace(/^[-*•]\s*/, '').trim();
+    const s = line.replace(/^[-*•]\s*/, '').replace(/\*\*/g, '').trim();
     const get = (rx: RegExp) => { const m = s.match(rx); return m ? s.slice(m[0].length).trim() : null; };
     title      = get(/^title:\s*/i)                    ?? title;
     datetime   = get(/^date\s*(?:&|and)?\s*time:\s*/i) ?? datetime;
@@ -1563,6 +1564,20 @@ export function ChatView({
 
       if (!res.ok) {
         const err = await res.json() as { error?: string };
+        const isDemo = err.error?.startsWith('Demo limit reached');
+        if (isDemo) {
+          // Remove the empty assistant bubble and show a prominent toast instead
+          updateSession(currentId, (s) => ({
+            ...s,
+            messages: s.messages.filter((m) => m.id !== assistantMsg.id),
+          }));
+          toast.error(`You've hit the demo limit. Sign in with your own account to keep going.`, {
+            description: 'The demo account is shared — each IP gets 5 AI requests per 2 hours.',
+            action: { label: 'Sign in', onClick: () => { window.location.href = '/'; } },
+            duration: 8000,
+          });
+          return;
+        }
         const msg = err.error ?? (res.status === 429 ? 'Too many requests — slow down a bit.' : 'Request failed.');
         updateSession(currentId, (s) => ({
           ...s,

@@ -1,5 +1,6 @@
 import { OpenAIAgentsProvider } from '@corsair-dev/mcp';
 import { Agent, run, tool, InputGuardrailTripwireTriggered, OutputGuardrailTripwireTriggered } from '@openai/agents';
+import OpenAI from 'openai';
 import { corsair } from '@/server/corsair';
 import { loadSession, saveSession } from './session';
 import { enhancePrompt } from './enhancer';
@@ -8,6 +9,48 @@ import { buildAgentInstructions } from './prompts/agent';
 import { buildGmailTools } from './tools';
 import { logPrompt } from './logger';
 import type { ChatMessage } from './types';
+
+const openai = new OpenAI();
+
+// Purely conversational messages that need zero tool access — fast path bypasses the full agent.
+const CHITCHAT_RE = /^(hi+|hey+|hello+|howdy|hiya|sup|what'?s ?up|how are (you|u)|how r u|good (morning|afternoon|evening|night)|thanks?|thank you|thx|ty|bye|goodbye|see (you|ya)|ok+|okay|great|awesome|cool|nice|sounds good|got it|perfect|sure|yep|yup|nope|no problem|you'?re welcome|welcome|cheers)$/i;
+
+function isChitchat(msg: string): boolean {
+  return CHITCHAT_RE.test(msg.trim().replace(/[!?.，。]+$/, '').trim());
+}
+
+async function* streamChitchat(
+  raw: string,
+  messages: ChatMessage[],
+  conversationId: string,
+  userName?: string,
+): AsyncGenerator<ChatStreamChunk> {
+  const firstName = userName?.split(' ')[0];
+  const system    = firstName
+    ? `You are Yugati, a friendly AI assistant. The user's name is ${firstName}. Reply warmly and briefly — one or two sentences max. Do not mention email or calendar unless the user does.`
+    : `You are Yugati, a friendly AI assistant. Reply warmly and briefly — one or two sentences max. Do not mention email or calendar unless the user does.`;
+
+  // Include last few turns so greetings in an ongoing convo feel natural
+  const history = messages.slice(-5, -1).map((m) => ({
+    role:    m.role as 'user' | 'assistant',
+    content: m.content,
+  }));
+
+  const stream = await openai.chat.completions.create({
+    model:       'gpt-4.1-nano',
+    temperature: 0.7,
+    max_tokens:  80,
+    stream:      true,
+    messages:    [{ role: 'system', content: system }, ...history, { role: 'user', content: raw }],
+  });
+
+  for await (const chunk of stream) {
+    const delta = chunk.choices[0]?.delta?.content;
+    if (delta) yield { type: 'delta', text: delta };
+  }
+
+  yield { type: 'done', conversationId };
+}
 
 const MODEL = 'gpt-4.1';
 
@@ -56,9 +99,19 @@ export async function* streamChat(
   meta:            ChatMeta = {},
   skipGuardrail:   boolean = false,
 ): AsyncGenerator<ChatStreamChunk> {
-  const t0              = Date.now();
+  const t0  = Date.now();
+  const raw = [...messages].reverse().find((m) => m.role === 'user')?.content ?? '';
+
+  // ── Fast path: pure chitchat (hi, thanks, bye…) ──────────────────────────────
+  // Skip session load, enhancer, safety LLM, and the full agent pipeline entirely.
+  // gpt-4.1-nano streams the first token in ~200ms vs ~1.5s for the full agent.
+  if (isChitchat(raw)) {
+    const chatId = conversationId ?? crypto.randomUUID();
+    yield* streamChitchat(raw, messages, chatId, userName);
+    return;
+  }
+
   const { session, id } = await loadSession(tenantId, conversationId);
-  const raw             = [...messages].reverse().find((m) => m.role === 'user')?.content ?? '';
 
   // Safety checks BEFORE the enhancer — prevents injected prompts from reaching any LLM pass.
   if (!skipGuardrail) {
