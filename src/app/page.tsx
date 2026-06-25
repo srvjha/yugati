@@ -294,6 +294,15 @@ function HeroSection({ onSignIn, signingIn }: { onSignIn: () => void; signingIn:
             )}
           </button>
 
+          <a
+            href="/docs"
+            className="group flex items-center gap-2 px-5 py-3 border border-white/[0.08] text-zinc-500 text-sm font-medium
+              hover:border-white/20 hover:text-white transition-all duration-150"
+          >
+            See docs
+            <ArrowRight size={12} className="text-zinc-700 group-hover:text-zinc-400 transition-colors duration-150 group-hover:translate-x-0.5 transition-transform" />
+          </a>
+
         </div>
 
       </div>
