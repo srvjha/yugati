@@ -7,10 +7,10 @@ const client = new OpenAI();
 // Skip enhancement for short, already-clear messages — saves ~1s per request.
 export function needsEnhancement(msg: string, history: ChatMessage[]): boolean {
   const words = msg.trim().split(/\s+/).length;
-  // Very short and looks like a direct command → skip
-  if (words <= 6) return false;
-  // Already contains specific detail (email address, date, number) → likely clear enough
-  if (/\b[\w.+-]+@[\w-]+\.\w+\b/.test(msg)) return false;
+  // Single-word replies and very short confirmations → skip (yes, ok, send it, do it…)
+  if (words <= 3) return false;
+  // Long messages with an email address are already specific — but short ones still benefit from enhancement
+  if (/\b[\w.+-]+@[\w-]+\.\w+\b/.test(msg) && words > 12) return false;
   // Follow-up in an active conversation is usually clear from context
   if (history.length >= 2 && words <= 12) return false;
   return true;
