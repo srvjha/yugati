@@ -1373,9 +1373,9 @@ export function ChatView({
 
   const [initState]  = useState(() => {
     const stored = loadSessions();
-    if (stored.length > 0) return { sessions: stored, activeId: stored[0].id };
-    const s = makeSession();
-    return { sessions: [s], activeId: s.id };
+    const fresh  = makeSession();
+    // Always open with a blank new chat; past sessions sit in the sidebar.
+    return { sessions: [fresh, ...stored], activeId: fresh.id };
   });
   const [sessions,         setSessions]         = useState<Session[]>(initState.sessions);
   const [activeId,         setActiveId]         = useState<string>(initState.activeId);
@@ -1417,7 +1417,11 @@ export function ChatView({
   const lastQuery      = [...messages].reverse().find((m) => m.role === 'user')?.content ?? '';
   const fillerText     = useFillerText(isLoading, lastQuery);
 
-  useEffect(() => { if (sessions.length > 0) saveSessions(sessions); }, [sessions]);
+  // Only persist sessions that have at least one message — never save empty stubs.
+  useEffect(() => {
+    const withMessages = sessions.filter((s) => s.messages.length > 0);
+    if (withMessages.length > 0) saveSessions(withMessages);
+  }, [sessions]);
   useEffect(() => { bottomRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [messages, isLoading]);
 
   useEffect(() => {
