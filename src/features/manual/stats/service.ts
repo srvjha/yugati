@@ -4,14 +4,45 @@ import { db }       from '@/server/db';
 import { corsairAccounts, corsairIntegrations } from '@/server/db/schema';
 import { eq, and, inArray } from 'drizzle-orm';
 import { Redis }    from '@upstash/redis';
+import { after }    from 'next/server';
 
 const redis = Redis.fromEnv();
 
-async function cached<T>(key: string, ttlSec: number, fn: () => Promise<T>): Promise<T> {
-  const hit = await redis.get<T>(key).catch(() => null);
-  if (hit !== null) return hit;
+// Stale-while-revalidate cache:
+// - `key`       stores the data with a long safety-net TTL (20× freshSec)
+// - `key:fresh` is a short-lived marker (freshSec); when it expires, data is "stale"
+// On a cache hit: return immediately (~5ms), then revalidate in the background via after()
+// On a cold cache: fetch synchronously, store both keys
+async function swrCached<T>(key: string, freshSec: number, fn: () => Promise<T>): Promise<T> {
+  const [data, freshMarker] = await Promise.all([
+    redis.get<T>(key).catch(() => null),
+    redis.exists(`${key}:fresh`).catch(() => 0),
+  ]);
+
+  async function refresh() {
+    try {
+      const fresh = await fn();
+      await Promise.all([
+        redis.set(key, fresh, { ex: freshSec * 20 }),
+        redis.set(`${key}:fresh`, '1', { ex: freshSec }),
+      ]);
+    } catch { /* ignore — stale data stays */ }
+  }
+
+  if (data !== null) {
+    if (!freshMarker) {
+      // Stale — return immediately, revalidate after response is sent
+      after(refresh);
+    }
+    return data;
+  }
+
+  // Cold cache — must fetch synchronously
   const result = await fn();
-  await redis.set(key, result, { ex: ttlSec }).catch(() => null);
+  await Promise.all([
+    redis.set(key, result, { ex: freshSec * 20 }),
+    redis.set(`${key}:fresh`, '1', { ex: freshSec }),
+  ]).catch(() => null);
   return result;
 }
 
@@ -82,7 +113,7 @@ export class StatsService {
   // ── Overview: counts + this-week calendar summary ──────────────────────────
 
   async getOverview() {
-    return cached(`stats:overview:${this.tenantId}`, 180, () => this._getOverview());
+    return swrCached(`stats:overview:${this.tenantId}`, 180, () => this._getOverview());
   }
 
   private async _getOverview() {
@@ -130,7 +161,7 @@ export class StatsService {
   // ── Email activity: volume, senders, hourly, categories ───────────────────
 
   async getEmailActivity() {
-    return cached(`stats:email:${this.tenantId}`, 300, () => this._getEmailActivity());
+    return swrCached(`stats:email:${this.tenantId}`, 300, () => this._getEmailActivity());
   }
 
   private async _getEmailActivity() {
@@ -244,7 +275,7 @@ export class StatsService {
   // ── Calendar activity: events last 30 days ─────────────────────────────────
 
   async getCalendarActivity() {
-    return cached(`stats:cal:${this.tenantId}`, 300, () => this._getCalendarActivity());
+    return swrCached(`stats:cal:${this.tenantId}`, 300, () => this._getCalendarActivity());
   }
 
   private async _getCalendarActivity() {
