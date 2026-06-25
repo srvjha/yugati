@@ -8,11 +8,10 @@ import { env }                         from '@/env';
 
 const DEMO_EMAIL    = 'yugati09@gmail.com';
 const DEMO_PASSWORD = 'Yug@ti#0179';
-const BASE_URL      = env.NEXT_PUBLIC_APP_URL;
 const SECRET        = env.BETTER_AUTH_SECRET;
 const COOKIE_NAME   = 'better-auth.session_token';
 
-// Signs a cookie value the same way better-call does (HMAC-SHA256 + btoa)
+// Matches better-call's signCookieValue exactly (HMAC-SHA256 + btoa + encodeURIComponent)
 async function signCookieValue(value: string, secret: string): Promise<string> {
   const key    = await crypto.subtle.importKey('raw', new TextEncoder().encode(secret), { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']);
   const sigBuf = await crypto.subtle.sign('HMAC', key, new TextEncoder().encode(value));
@@ -21,10 +20,14 @@ async function signCookieValue(value: string, secret: string): Promise<string> {
 }
 
 export async function GET(request: Request) {
+  // Use the request's own origin so the cookie and redirect domain always match
+  const origin = new URL(request.url).origin;
+  const isHttps = origin.startsWith('https://');
+
   // 1. Find demo user
   const [demoUser] = await db.select().from(user).where(eq(user.email, DEMO_EMAIL)).limit(1);
   if (!demoUser) {
-    return NextResponse.redirect(new URL('/?demo=notfound', BASE_URL));
+    return NextResponse.redirect(new URL('/?demo=notfound', origin));
   }
 
   const now     = new Date();
@@ -46,7 +49,7 @@ export async function GET(request: Request) {
     });
   }
 
-  // 3. Ensure credential account exists (enables email+password login too)
+  // 3. Ensure credential account exists
   const [cred] = await db.select().from(account)
     .where(and(eq(account.userId, demoUser.id), eq(account.providerId, 'credential'))).limit(1);
   if (!cred) {
@@ -57,7 +60,7 @@ export async function GET(request: Request) {
     });
   }
 
-  // 4. Create a 7-day session in the DB
+  // 4. Create a 7-day session
   const token     = randomUUID();
   const expiresAt = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
   await db.insert(session).values({
@@ -66,11 +69,12 @@ export async function GET(request: Request) {
     userAgent: request.headers.get('user-agent') ?? undefined,
   });
 
-  // 5. Sign the token (matches better-call's signCookieValue format) and set cookie
+  // 5. Sign + set cookie, then redirect — same origin so cookie always lands correctly
   const cookieValue = await signCookieValue(token, SECRET);
-  const res         = NextResponse.redirect(new URL('/dashboard', BASE_URL));
+  const securePart  = isHttps ? '; Secure' : '';
+  const res         = NextResponse.redirect(new URL('/dashboard', origin));
   res.headers.set('Set-Cookie',
-    `${COOKIE_NAME}=${cookieValue}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${7 * 24 * 3600}`
+    `${COOKIE_NAME}=${cookieValue}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${7 * 24 * 3600}${securePart}`
   );
   return res;
 }
