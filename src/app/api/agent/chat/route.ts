@@ -2,7 +2,7 @@ import { auth } from '@/lib/auth';
 import { streamChat } from '@/features/agent/agent';
 import { initCorsair } from '@/server/corsair';
 import { headers } from 'next/headers';
-import { rateLimiters } from '@/lib/rate-limit';
+import { rateLimiters, demoIpLimiter } from '@/lib/rate-limit';
 import { checkAndIncrement, getUserPlan } from '@/lib/usage';
 import { PLANS } from '@/lib/plans';
 import type { PlanId } from '@/lib/plans';
@@ -43,6 +43,22 @@ export async function POST(request: Request) {
 
   const u = await db.query.user.findFirst({ where: eq(user.id, session.user.id), columns: { banned: true } });
   if (u?.banned) return Response.json({ error: 'Account suspended' }, { status: 403 });
+
+  // Demo account is shared — apply per-IP cap (5 requests / 2 hours) to prevent one visitor from burning all credits.
+  if (session.user.email === 'yugati09@gmail.com') {
+    const hdrs = await headers();
+    const ip   = hdrs.get('x-forwarded-for')?.split(',')[0]?.trim()
+               ?? hdrs.get('x-real-ip')
+               ?? 'unknown';
+    const { success: ipOk, reset: ipReset } = await demoIpLimiter.limit(ip);
+    if (!ipOk) {
+      const retryMins = Math.ceil((ipReset - Date.now()) / 60_000);
+      return Response.json(
+        { error: `Demo limit reached — 5 AI requests per 2 hours. Try again in ${retryMins} minute${retryMins === 1 ? '' : 's'}.` },
+        { status: 429, headers: { 'Retry-After': String(Math.ceil((ipReset - Date.now()) / 1000)) } },
+      );
+    }
+  }
 
   // Per-plan character limit
   const userPlan  = await getUserPlan(session.user.id);
