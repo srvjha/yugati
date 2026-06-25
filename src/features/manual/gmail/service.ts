@@ -47,7 +47,7 @@ export class GmailService {
     // forceRefresh also bypasses cache and goes straight to the live API.
     const isNonCacheable = (opts.q && opts.q.trim() !== 'in:inbox') || opts.forceRefresh;
     if (isNonCacheable) {
-      try { return await this.fetchFromApi(limit, opts.forceRefresh ? undefined : opts.q); }
+      try { return await this.fetchFromApi(limit, opts.q); }
       catch (err) {
         if (err instanceof AuthMissingError) return { messages: [], nextPageToken: null };
         throw err;
