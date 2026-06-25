@@ -177,7 +177,7 @@ export function EmailDetailPanel({
       processedHtml = processedHtml.split(`cid:${img.cid}`).join(dataUrl);
     }
     const darkStyles = isDark ? `
-      html, body { background: #141414 !important; color: #e2e8f0 !important; }
+      html, body { color: #e2e8f0 !important; }
       * { border-color: rgba(255,255,255,0.08) !important; }
     ` : '';
     doc.open();
@@ -188,7 +188,7 @@ export function EmailDetailPanel({
           font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
           font-size: 14px; color: ${isDark ? '#e2e8f0' : '#1f2937'};
           margin: 0; padding: 20px 24px;
-          word-break: break-word; background: ${isDark ? '#141414' : '#ffffff'};
+          word-break: break-word; background: transparent;
         }
         * { box-sizing: border-box; }
         a { color: ${isDark ? '#60a5fa' : '#2563eb'}; }
@@ -212,7 +212,7 @@ export function EmailDetailPanel({
           if (bgM && bgM.length >= 3) {
             const [r, g, b] = bgM.map(Number) as [number, number, number];
             if ((0.299*r + 0.587*g + 0.114*b)/255 > 0.85)
-              el.style.setProperty('background-color', '#141414', 'important');
+              el.style.setProperty('background-color', 'transparent', 'important');
           }
           const color = win.getComputedStyle(el).color;
           const m = color.match(/\d+/g);
@@ -464,7 +464,7 @@ export function EmailDetailPanel({
           </div>
 
           {/* Email body */}
-          <div className={`rounded-xl overflow-hidden ${isDark ? 'bg-zinc-900 ring-1 ring-white/8' : ''}`}>
+          <div>
             {html ? (
               <iframe
                 ref={iframeRef}
@@ -475,11 +475,11 @@ export function EmailDetailPanel({
                 title="Email content"
               />
             ) : text ? (
-              <pre className="whitespace-pre-wrap font-sans text-sm leading-relaxed p-5 bg-white text-zinc-800">
+              <pre className="whitespace-pre-wrap font-sans text-sm leading-relaxed py-2 text-zinc-300">
                 {text}
               </pre>
             ) : (
-              <p className="p-5 bg-white text-zinc-500 italic text-sm">
+              <p className="py-2 text-zinc-500 italic text-sm">
                 {message.snippet ?? 'No content'}
               </p>
             )}
