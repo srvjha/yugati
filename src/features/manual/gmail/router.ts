@@ -20,8 +20,9 @@ export const gmailRouter = createTRPCRouter({
 
   listInbox: protectedProcedure
     .input(z.object({
-      maxResults: z.number().int().min(1).max(100).default(20),
-      q:          z.string().optional(),
+      maxResults:    z.number().int().min(1).max(100).default(20),
+      q:             z.string().optional(),
+      forceRefresh:  z.boolean().optional(),
     }).optional())
     .query(({ ctx, input }) => new GmailService(ctx.tenantId).listInbox(input ?? {})),
 

@@ -109,6 +109,7 @@ export default function MailPage() {
   const [showSubscriptions, setShowSubscriptions] = useState(false);
   const [fetchedCount, setFetchedCount] = useState(20);
   const [selectedEmailId, setSelectedEmailId] = useState<string | null>(null);
+  const [isSyncing, setIsSyncing] = useState(false);
 
   // Restore mode, active tab, and reply context from localStorage after hydration (avoids SSR mismatch).
   // startTransition defers the state updates so they don't cascade synchronously in the effect.
@@ -165,10 +166,27 @@ export default function MailPage() {
   });
 
   // Live query — disabled on category tabs (we derive those from allInboxData instead).
-  const { data: liveData, isLoading, error, refetch, isFetching } = useQuery({
+  const { data: liveData, isLoading, error, isFetching } = useQuery({
     ...trpc.gmail.listInbox.queryOptions({ maxResults: fetchedCount, q: effectiveQ }),
     enabled: gmailConnected && !isCategoryTab,
   });
+
+  async function handleSync() {
+    setIsSyncing(true);
+    try {
+      const fresh = await queryClient.fetchQuery({
+        ...trpc.gmail.listInbox.queryOptions({ maxResults: fetchedCount, q: effectiveQ, forceRefresh: true }),
+      });
+      queryClient.setQueryData(
+        trpc.gmail.listInbox.queryKey({ maxResults: fetchedCount, q: effectiveQ }),
+        fresh,
+      );
+    } catch {
+      // ignore — stale data stays visible
+    } finally {
+      setIsSyncing(false);
+    }
+  }
 
   // Client-side category filter — instant, uses cached allInboxData.
   const categoryData = useMemo(() => {
@@ -211,7 +229,7 @@ export default function MailPage() {
       onError: (_err, _vars, ctx) => {
         if (ctx?.previous !== undefined) queryClient.setQueryData(inboxQueryKey, ctx.previous);
       },
-      onSettled: () => void refetch(),
+      onSettled: () => void queryClient.invalidateQueries({ queryKey: inboxQueryKey }),
     }),
   );
 
@@ -468,8 +486,8 @@ export default function MailPage() {
             onModeChange={setChatMode}
             searchQuery={searchQuery}
             onSearch={setSearchQuery}
-            isFetching={isFetching}
-            onRefresh={() => void refetch()}
+            isFetching={isFetching || isSyncing}
+            onRefresh={() => void handleSync()}
             showRefresh={!!data && !chatMode}
             unreadOnly={unreadOnly}
             onToggleUnread={() => setUnreadOnly((u) => !u)}

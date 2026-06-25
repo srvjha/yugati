@@ -40,13 +40,14 @@ export class GmailService {
     return this.c.gmail.api.messages.list({ maxResults: 20, ...opts });
   }
 
-  async listInbox(opts: { maxResults?: number; q?: string } = {}) {
+  async listInbox(opts: { maxResults?: number; q?: string; forceRefresh?: boolean } = {}) {
     const limit = opts.maxResults ?? 15;
 
     // Non-inbox queries (search, category tabs, starred, etc.) always hit live API.
-    const isNonCacheable = opts.q && opts.q.trim() !== 'in:inbox';
+    // forceRefresh also bypasses cache and goes straight to the live API.
+    const isNonCacheable = (opts.q && opts.q.trim() !== 'in:inbox') || opts.forceRefresh;
     if (isNonCacheable) {
-      try { return await this.fetchFromApi(limit, opts.q); }
+      try { return await this.fetchFromApi(limit, opts.forceRefresh ? undefined : opts.q); }
       catch (err) {
         if (err instanceof AuthMissingError) return { messages: [], nextPageToken: null };
         throw err;
