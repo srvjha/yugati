@@ -241,7 +241,12 @@ export default function MailPage() {
     (error as { data?: { code?: string } } | null)?.data?.code === "UNAUTHORIZED";
 
   const groupedEmails = useMemo(() => {
-    const msgs = (data?.messages ?? []) as EmailMsg[];
+    const seen = new Set<string>();
+    const msgs = ((data?.messages ?? []) as EmailMsg[]).filter((m) => {
+      if (!m.id || seen.has(m.id)) return false;
+      seen.add(m.id);
+      return true;
+    });
     const seenOrder: string[] = [];
     const map = new Map<string, EmailMsg[]>();
     for (const msg of msgs) {

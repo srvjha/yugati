@@ -347,45 +347,107 @@ export function CalendarView({ userName }: { userName?: string }) {
       </header>
 
       {/* Body */}
-      {view === 'month' ? (
-        <MonthGrid
-          grid={grid}
-          events={events}
-          isLoading={isLoading}
-          month={month}
-          today={today}
-          onDayClick={(d) => openCreate(d)}
-          onDayDoubleClick={switchToDay}
-          onEventClick={setSelectedEvent}
-          onEventHover={showPreview}
-          onEventHoverEnd={hidePreview}
-          onDayHover={() => {}}
-          onDayHoverEnd={() => {}}
-        />
-      ) : view === 'week' ? (
-        <WeekView
-          weekStart={weekStart}
-          events={events}
-          isLoading={isLoading}
-          today={today}
-          onDayClick={switchToDay}
-          onHourClick={(d, time) => openCreate(d, time)}
-          onEventClick={setSelectedEvent}
-          onEventHover={showPreview}
-          onEventHoverEnd={hidePreview}
-        />
-      ) : (
-        <DayView
-          date={selectedDate}
-          events={eventsForDay(events, selectedDate)}
-          isLoading={isLoading}
-          isToday={isToday(selectedDate)}
-          onHourClick={(time) => openCreate(selectedDate, time)}
-          onEventClick={setSelectedEvent}
-          onEventHover={showPreview}
-          onEventHoverEnd={hidePreview}
-        />
-      )}
+      <div className="flex-1 flex min-h-0">
+        <div className="flex-1 min-w-0">
+          {view === 'month' ? (
+            <MonthGrid
+              grid={grid}
+              events={events}
+              isLoading={isLoading}
+              month={month}
+              today={today}
+              onDayClick={(d) => openCreate(d)}
+              onDayDoubleClick={switchToDay}
+              onEventClick={setSelectedEvent}
+              onEventHover={showPreview}
+              onEventHoverEnd={hidePreview}
+              onDayHover={() => {}}
+              onDayHoverEnd={() => {}}
+            />
+          ) : view === 'week' ? (
+            <WeekView
+              weekStart={weekStart}
+              events={events}
+              isLoading={isLoading}
+              today={today}
+              onDayClick={switchToDay}
+              onHourClick={(d, time) => openCreate(d, time)}
+              onEventClick={setSelectedEvent}
+              onEventHover={showPreview}
+              onEventHoverEnd={hidePreview}
+            />
+          ) : (
+            <DayView
+              date={selectedDate}
+              events={eventsForDay(events, selectedDate)}
+              isLoading={isLoading}
+              isToday={isToday(selectedDate)}
+              onHourClick={(time) => openCreate(selectedDate, time)}
+              onEventClick={setSelectedEvent}
+              onEventHover={showPreview}
+              onEventHoverEnd={hidePreview}
+            />
+          )}
+        </div>
+
+        {/* Right sidebar — events for current view */}
+        <aside className="w-64 shrink-0 border-l border-zinc-800/60 flex flex-col overflow-hidden bg-zinc-950/50">
+          <div className="px-4 pt-4 pb-2 shrink-0 border-b border-zinc-800/40">
+            <p className="text-[11px] font-semibold text-zinc-500 uppercase tracking-wider">Events</p>
+            <p className="text-[10px] text-zinc-600 mt-0.5">
+              {view === 'month' ? MONTHS[month] : view === 'week' ? 'This week' : 'Today'}
+            </p>
+          </div>
+          <div className="flex-1 overflow-y-auto py-2">
+            {events.length === 0 ? (
+              <div className="px-4 py-8 text-center">
+                <p className="text-xs text-zinc-600">No events</p>
+              </div>
+            ) : (
+              <div className="space-y-px px-2">
+                {[...events].sort((a, b) => {
+                  const ta = a.start?.dateTime ?? a.start?.date ?? '';
+                  const tb = b.start?.dateTime ?? b.start?.date ?? '';
+                  return ta.localeCompare(tb);
+                }).map((ev) => {
+                  const dt      = ev.start?.dateTime ? new Date(ev.start.dateTime) : null;
+                  const isAllDay = !ev.start?.dateTime && !!ev.start?.date;
+                  const time     = dt ? dt.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : null;
+                  const dateStr  = dt
+                    ? dt.toLocaleDateString([], { weekday: 'short', month: 'short', day: 'numeric' })
+                    : ev.start?.date
+                      ? new Date(ev.start.date + 'T00:00').toLocaleDateString([], { weekday: 'short', month: 'short', day: 'numeric' })
+                      : null;
+                  const hasMeet  = !!ev.hangoutLink;
+                  return (
+                    <button
+                      key={ev.id}
+                      onClick={() => setSelectedEvent(ev)}
+                      className="w-full flex items-start gap-2.5 px-2.5 py-2.5 rounded-xl hover:bg-zinc-800/60 transition-colors text-left group"
+                    >
+                      <div className="w-1.5 h-1.5 rounded-full bg-blue-400 shrink-0 mt-1.5" />
+                      <div className="flex-1 min-w-0 space-y-0.5">
+                        <p className="text-[12px] font-medium text-zinc-200 group-hover:text-white truncate leading-snug">
+                          {ev.summary ?? 'Untitled'}
+                        </p>
+                        {dateStr && (
+                          <p className="text-[10px] text-zinc-500 truncate">{dateStr}{time ? ` · ${time}` : isAllDay ? ' · All day' : ''}</p>
+                        )}
+                        {hasMeet && (
+                          <span className="inline-flex items-center gap-1 text-[9px] font-semibold px-1.5 py-0.5 rounded-full bg-[#1a73e8]/15 text-[#4285F4] border border-[#1a73e8]/25 leading-none mt-1">
+                            <Video size={8} />
+                            Meet
+                          </span>
+                        )}
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        </aside>
+      </div>
 
       {/* Hover preview cards */}
       {preview?.kind === 'event' && (

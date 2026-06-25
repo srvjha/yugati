@@ -2,28 +2,23 @@
 
 import { useState, useEffect } from 'react';
 import { useSession } from '@/lib/auth-client';
-import { useQuery } from '@tanstack/react-query';
-import { useTRPC } from '@/trpc/client';
 import Image from 'next/image';
 import {
-  User, Plug, Bot, Palette, Mail, Calendar,
+  User, Bot, Palette,
   CheckCircle, ExternalLink, Shield, Bell, Keyboard,
-  Loader2, AlertCircle, Unplug, RefreshCw, Zap, SlidersHorizontal,
 } from 'lucide-react';
 import { Switch } from '@/components/ui/switch';
 import { useTheme, applyTheme } from '@/components/theme-toggle';
 import { SidebarNav } from '../components/sidebar-nav';
-import { PreferencesModal } from '../components/integrations-view';
 
 // ─── Tabs ─────────────────────────────────────────────────────────────────────
 
 const TABS = [
-  { id: 'profile',      label: 'Profile',        icon: User     },
-  { id: 'integrations', label: 'Integrations',   icon: Plug     },
-  { id: 'ai',           label: 'AI',             icon: Bot      },
-  { id: 'notifs',       label: 'Notifications',  icon: Bell     },
-  { id: 'shortcuts',    label: 'Shortcuts',      icon: Keyboard },
-  { id: 'appearance',   label: 'Appearance',     icon: Palette  },
+  { id: 'profile',    label: 'Profile',       icon: User     },
+  { id: 'ai',         label: 'Agent',         icon: Bot      },
+  { id: 'notifs',     label: 'Notifications', icon: Bell     },
+  { id: 'shortcuts',  label: 'Shortcuts',     icon: Keyboard },
+  { id: 'appearance', label: 'Appearance',    icon: Palette  },
 ] as const;
 type Tab = (typeof TABS)[number]['id'];
 
@@ -39,14 +34,8 @@ export default function SettingsPage() {
     const params = new URLSearchParams(window.location.search);
     const tab = params.get('tab') as Tab | null;
     // eslint-disable-next-line react-hooks/set-state-in-effect
-    if (tab && TABS.some((t) => t.id === tab)) { setActiveTab(tab); return; }
-    if (params.has('disconnected')) setActiveTab('integrations');
+    if (tab && TABS.some((t) => t.id === tab)) setActiveTab(tab);
   }, []);
-  const trpc = useTRPC();
-  const { data: connData, isLoading: connLoading, refetch: connRefetch, isFetching: connFetching } = useQuery({
-    ...trpc.stats.connectionStatus.queryOptions(),
-    staleTime: 0,
-  });
 
   return (
     <div className="h-screen flex bg-zinc-950 text-zinc-50 overflow-hidden">
@@ -91,16 +80,8 @@ export default function SettingsPage() {
         {/* Scrollable centered content */}
         <div className="flex-1 overflow-y-auto">
           <div className="max-w-2xl mx-auto px-6 py-10">
-            {activeTab === 'profile'      && <ProfileTab user={user ?? null} />}
-            {activeTab === 'integrations' && (
-              <IntegrationsTab
-                connData={connData}
-                connLoading={connLoading}
-                connFetching={connFetching}
-                onRefetch={() => void connRefetch()}
-              />
-            )}
-            {activeTab === 'ai'           && <AITab />}
+            {activeTab === 'profile'    && <ProfileTab user={user ?? null} />}
+            {activeTab === 'ai'         && <AITab />}
             {activeTab === 'notifs'       && <NotifsTab />}
             {activeTab === 'shortcuts'    && <ShortcutsTab />}
             {activeTab === 'appearance'   && <AppearanceTab />}
@@ -189,179 +170,6 @@ function ProfileTab({ user }: { user: { name: string; email: string; image?: str
     </>
   );
 }
-
-// ─── Integrations tab ────────────────────────────────────────────────────────
-
-const INTEGRATIONS = [
-  {
-    id: 'gmail', plugin: 'gmail', name: 'Gmail',
-    tagline: 'Read, compose, send and manage emails',
-    icon: Mail, iconBg: 'bg-red-500/10 text-red-400',
-    permissions: ['Read all messages & threads', 'Send emails on your behalf', 'Manage labels & drafts'],
-    docsHref: 'https://developers.google.com/gmail/api',
-  },
-  {
-    id: 'googlecalendar', plugin: 'googlecalendar', name: 'Google Calendar',
-    tagline: 'View and create calendar events with attendees',
-    icon: Calendar, iconBg: 'bg-blue-500/10 text-blue-400',
-    permissions: ['Read calendar events', 'Create & update events', 'Manage Google Meet links'],
-    docsHref: 'https://developers.google.com/calendar',
-  },
-] as const;
-
-function openOAuthPopup(url: string, onClose: () => void) {
-  const w = 600, h = 660;
-  const left = window.screenX + Math.round((window.outerWidth - w) / 2);
-  const top  = window.screenY + Math.round((window.outerHeight - h) / 2);
-  const popup = window.open(url, 'yugati_oauth', `width=${w},height=${h},left=${left},top=${top},toolbar=0,menubar=0`);
-  if (!popup) { window.location.href = url; return; }
-  const timer = setInterval(() => {
-    if (popup.closed) { clearInterval(timer); onClose(); }
-  }, 500);
-}
-
-function IntegrationCard({
-  integration, connected, loading, onRefetch,
-}: {
-  integration: typeof INTEGRATIONS[number];
-  connected: boolean;
-  loading: boolean;
-  onRefetch: () => void;
-}) {
-  const Icon = integration.icon;
-  return (
-    <div className="border border-zinc-800 rounded-2xl overflow-hidden">
-      <div className="flex items-center justify-between px-5 py-4 bg-zinc-950">
-        <div className="flex items-center gap-3.5">
-          <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${integration.iconBg} border border-white/5`}>
-            <Icon size={18} />
-          </div>
-          <div>
-            <div className="flex items-center gap-2">
-              <p className="text-sm font-semibold text-zinc-100">{integration.name}</p>
-              {loading ? (
-                <Loader2 size={11} className="text-zinc-600 animate-spin" />
-              ) : connected ? (
-                <span className="flex items-center gap-1 text-[10px] font-semibold text-green-400 bg-green-500/10 px-2 py-0.5 rounded-full border border-green-500/20">
-                  <span className="w-1.5 h-1.5 rounded-full bg-green-400 shadow-[0_0_4px_rgba(74,222,128,0.6)]" />
-                  Connected
-                </span>
-              ) : (
-                <span className="flex items-center gap-1 text-[10px] font-semibold text-zinc-500 bg-zinc-800 px-2 py-0.5 rounded-full border border-zinc-700">
-                  <AlertCircle size={9} /> Not connected
-                </span>
-              )}
-            </div>
-            <p className="text-xs text-zinc-500 mt-0.5">{integration.tagline}</p>
-          </div>
-        </div>
-        <div className="flex items-center gap-2">
-          {connected ? (
-            <>
-              <button
-                onClick={() => openOAuthPopup(`/api/corsair/connect?plugin=${integration.plugin}`, onRefetch)}
-                className="flex items-center gap-1.5 text-xs text-zinc-400 hover:text-white border border-zinc-700 hover:border-zinc-500 px-3 py-1.5 rounded-lg transition-colors">
-                <RefreshCw size={11} /> Reconnect
-              </button>
-              <a href={`/api/corsair/disconnect?plugin=${integration.plugin}`}
-                className="flex items-center gap-1.5 text-xs text-red-400 hover:text-red-300 border border-red-500/30 hover:border-red-400/50 bg-red-500/5 hover:bg-red-500/10 px-3 py-1.5 rounded-lg transition-colors">
-                <Unplug size={11} /> Disconnect
-              </a>
-            </>
-          ) : (
-            <button
-              onClick={() => openOAuthPopup(`/api/corsair/connect?plugin=${integration.plugin}`, onRefetch)}
-              className="flex items-center gap-1.5 text-xs font-semibold bg-white text-black px-3 py-1.5 rounded-lg hover:bg-zinc-100 transition-colors">
-              <Plug size={11} /> Connect
-            </button>
-          )}
-        </div>
-      </div>
-      <div className="px-5 py-3 bg-zinc-900/40 border-t border-zinc-800/60">
-        <p className="text-[10px] font-semibold text-zinc-600 uppercase tracking-wider mb-2">Permissions</p>
-        <div className="flex flex-wrap gap-2">
-          {integration.permissions.map((p) => (
-            <span key={p} className="flex items-center gap-1 text-[11px] text-zinc-400 bg-zinc-800/60 px-2.5 py-1 rounded-lg border border-zinc-800">
-              <CheckCircle size={9} className="text-zinc-600 shrink-0" /> {p}
-            </span>
-          ))}
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function IntegrationsTab({
-  connData,
-  connLoading,
-  connFetching,
-  onRefetch,
-}: {
-  connData?: { gmail: boolean; googlecalendar: boolean };
-  connLoading: boolean;
-  connFetching: boolean;
-  onRefetch: () => void;
-}) {
-  const [showPrefs, setShowPrefs] = useState(false);
-
-  return (
-    <>
-      <div className="flex items-center justify-between mb-6">
-        <div>
-          <h2 className="text-sm font-semibold text-zinc-100">Integrations</h2>
-          <p className="text-xs text-zinc-500 mt-0.5">Manage connected apps and their permissions</p>
-        </div>
-        <button onClick={onRefetch} disabled={connFetching}
-          className="flex items-center gap-1.5 text-xs text-zinc-500 hover:text-zinc-300 border border-zinc-800 hover:border-zinc-600 px-2.5 py-1.5 rounded-lg transition-colors disabled:opacity-40">
-          <RefreshCw size={11} className={connFetching ? 'animate-spin' : ''} /> Check status
-        </button>
-      </div>
-
-      <div className="space-y-3">
-        {INTEGRATIONS.map((intg) => (
-          <IntegrationCard
-            key={intg.id}
-            integration={intg}
-            connected={connData ? (intg.id === 'gmail' ? connData.gmail : connData.googlecalendar) : false}
-            loading={connLoading}
-            onRefetch={onRefetch}
-          />
-        ))}
-      </div>
-
-      {/* Preferences */}
-      <button
-        onClick={() => setShowPrefs(true)}
-        className="mt-4 w-full flex items-center justify-between px-5 py-4 bg-zinc-950 border border-zinc-800 rounded-xl hover:border-zinc-700 hover:bg-zinc-900/40 transition-all group"
-      >
-        <div className="flex items-center gap-3">
-          <div className="w-9 h-9 rounded-xl bg-zinc-900 border border-zinc-800 flex items-center justify-center group-hover:border-zinc-700 transition-colors">
-            <SlidersHorizontal size={15} className="text-zinc-400" />
-          </div>
-          <div className="text-left">
-            <p className="text-sm font-semibold text-zinc-200">Preferences</p>
-            <p className="text-[11px] text-zinc-500 mt-0.5">AI tone, email signature, focus areas &amp; more</p>
-          </div>
-        </div>
-        <span className="text-[10px] font-semibold text-zinc-600 group-hover:text-zinc-400 uppercase tracking-wider transition-colors">
-          Configure →
-        </span>
-      </button>
-
-      <div className="mt-4 flex items-start gap-2.5 px-4 py-3 bg-zinc-900/60 border border-zinc-800 rounded-xl">
-        <Zap size={13} className="text-amber-400 shrink-0 mt-0.5" />
-        <p className="text-xs text-zinc-500">
-          Disconnecting an integration will prevent Yugati from accessing that data.
-          Your data is never stored — it&apos;s fetched live from Google on each request.
-        </p>
-      </div>
-
-      {showPrefs && <PreferencesModal onClose={() => setShowPrefs(false)} />}
-    </>
-  );
-}
-
-// ─── AI tab ───────────────────────────────────────────────────────────────────
 
 function AITab() {
   const [confirmActions, setConfirmActions] = useState(true);
