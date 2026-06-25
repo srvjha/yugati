@@ -9,13 +9,26 @@ const twoTurns: ChatMessage[]  = [
 ];
 
 describe('needsEnhancement', () => {
-  it('skips very short messages (≤6 words)', () => {
+  it('skips very short messages (≤3 words)', () => {
     expect(needsEnhancement('Show emails', noHistory)).toBe(false);
-    expect(needsEnhancement('What are my meetings today', noHistory)).toBe(false);
+    expect(needsEnhancement('ok', noHistory)).toBe(false);
   });
 
-  it('skips messages that contain an email address', () => {
-    expect(needsEnhancement('Send a follow-up to alice@example.com about the Q3 report', noHistory)).toBe(false);
+  it('enhances medium messages in fresh sessions (4–6 words)', () => {
+    // These are short but ambiguous enough to benefit from enhancement
+    expect(needsEnhancement('What are my meetings today', noHistory)).toBe(true);
+    expect(needsEnhancement('Show me unread emails', noHistory)).toBe(true);
+  });
+
+  it('skips messages that contain an email address with many words (>12)', () => {
+    expect(needsEnhancement(
+      'Send a follow-up to alice@example.com about the Q3 budget report we discussed last Tuesday',
+      noHistory,
+    )).toBe(false);
+  });
+
+  it('enhances short messages that contain an email address (≤12 words)', () => {
+    expect(needsEnhancement('Send a follow-up to alice@example.com about the Q3 report', noHistory)).toBe(true);
   });
 
   it('skips short follow-ups in an active conversation', () => {
