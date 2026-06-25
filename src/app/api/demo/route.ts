@@ -1,28 +1,15 @@
-import { NextResponse }                from 'next/server';
-import { randomUUID }                  from 'crypto';
-import { eq, and }                     from 'drizzle-orm';
-import { hashPassword }                from 'better-auth/crypto';
-import { db }                          from '@/server/db';
-import { user, session, account, userPlans } from '@/server/db/schema';
-import { env }                         from '@/env';
+import { NextResponse }  from 'next/server';
+import { randomUUID }    from 'crypto';
+import { eq, and }       from 'drizzle-orm';
+import { hashPassword }  from 'better-auth/crypto';
+import { db }            from '@/server/db';
+import { user, account, userPlans } from '@/server/db/schema';
 
 const DEMO_EMAIL    = 'yugati09@gmail.com';
 const DEMO_PASSWORD = 'Yug@ti#0179';
-const SECRET        = env.BETTER_AUTH_SECRET;
-const COOKIE_NAME   = 'better-auth.session_token';
-
-// Matches better-call's signCookieValue exactly (HMAC-SHA256 + btoa + encodeURIComponent)
-async function signCookieValue(value: string, secret: string): Promise<string> {
-  const key    = await crypto.subtle.importKey('raw', new TextEncoder().encode(secret), { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']);
-  const sigBuf = await crypto.subtle.sign('HMAC', key, new TextEncoder().encode(value));
-  const sig    = btoa(String.fromCharCode(...new Uint8Array(sigBuf)));
-  return encodeURIComponent(`${value}.${sig}`);
-}
 
 export async function GET(request: Request) {
-  // Use the request's own origin so the cookie and redirect domain always match
-  const origin = new URL(request.url).origin;
-  const isHttps = origin.startsWith('https://');
+  const origin  = new URL(request.url).origin;
 
   // 1. Find demo user
   const [demoUser] = await db.select().from(user).where(eq(user.email, DEMO_EMAIL)).limit(1);
@@ -33,10 +20,10 @@ export async function GET(request: Request) {
   const now     = new Date();
   const yearOut = new Date(now.getTime() + 365 * 24 * 60 * 60 * 1000);
 
-  // 2. Upgrade to admin + premium (idempotent)
+  // 2. Ensure admin role + premium plan (idempotent)
   await db.update(user).set({ role: 'admin', updatedAt: now }).where(eq(user.id, demoUser.id));
 
-  const [plan] = await db.select().from(userPlans).where(eq(userPlans.userId, demoUser.id)).limit(1);
+  const [plan] = await db.select({ id: userPlans.id }).from(userPlans).where(eq(userPlans.userId, demoUser.id)).limit(1);
   if (plan) {
     await db.update(userPlans)
       .set({ plan: 'premium', subscriptionStatus: 'active', currentPeriodEnd: yearOut, updatedAt: now })
@@ -50,7 +37,7 @@ export async function GET(request: Request) {
   }
 
   // 3. Ensure credential account exists
-  const [cred] = await db.select().from(account)
+  const [cred] = await db.select({ id: account.id }).from(account)
     .where(and(eq(account.userId, demoUser.id), eq(account.providerId, 'credential'))).limit(1);
   if (!cred) {
     const hashed = await hashPassword(DEMO_PASSWORD);
@@ -60,21 +47,24 @@ export async function GET(request: Request) {
     });
   }
 
-  // 4. Create a 7-day session
-  const token     = randomUUID();
-  const expiresAt = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
-  await db.insert(session).values({
-    id: randomUUID(), token, userId: demoUser.id,
-    expiresAt, createdAt: now, updatedAt: now,
-    userAgent: request.headers.get('user-agent') ?? undefined,
+  // 4. Let better-auth do the sign-in — it handles session creation and cookie signing
+  const signInRes = await fetch(`${origin}/api/auth/sign-in/email`, {
+    method:  'POST',
+    headers: { 'Content-Type': 'application/json', 'Origin': origin },
+    body:    JSON.stringify({ email: DEMO_EMAIL, password: DEMO_PASSWORD }),
+    // @ts-expect-error: duplex is required for streaming bodies in some runtimes
+    duplex: 'half',
   });
 
-  // 5. Sign + set cookie, then redirect — same origin so cookie always lands correctly
-  const cookieValue = await signCookieValue(token, SECRET);
-  const securePart  = isHttps ? '; Secure' : '';
-  const res         = NextResponse.redirect(new URL('/dashboard', origin));
-  res.headers.set('Set-Cookie',
-    `${COOKIE_NAME}=${cookieValue}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${7 * 24 * 3600}${securePart}`
-  );
+  if (!signInRes.ok) {
+    return NextResponse.redirect(new URL('/?demo=error', origin));
+  }
+
+  // 5. Forward the Set-Cookie from better-auth's response, then redirect
+  const res = NextResponse.redirect(new URL('/dashboard', origin));
+  const setCookieHeaders = signInRes.headers.getSetCookie?.() ?? [signInRes.headers.get('set-cookie') ?? ''];
+  for (const cookie of setCookieHeaders.filter(Boolean)) {
+    res.headers.append('set-cookie', cookie);
+  }
   return res;
 }
