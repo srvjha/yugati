@@ -27,5 +27,3 @@ export const paymentLimiter  = makeRl(10, '1 m',  'yugati_pay');      // 10 paym
 export const corsairLimiter  = makeRl(15, '1 m',  'yugati_cors');     // 15 OAuth connects/min per user
 export const voiceLimiter    = makeRl(10, '1 m',  'yugati_voice');    // 10 voice requests/min per user
 export const webhookLimiter  = makeRl(60, '1 m',  'yugati_webhook');  // 60 webhook hits/min per IP
-// Shared demo account is used by many concurrent visitors — 5 AI calls per IP per 2 hours.
-export const demoIpLimiter   = makeRl(5,  '2 h',  'yugati_demo_ip');

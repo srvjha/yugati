@@ -1583,20 +1583,6 @@ export function ChatView({
 
       if (!res.ok) {
         const err = await res.json() as { error?: string };
-        const isDemo = err.error?.startsWith('Demo limit reached');
-        if (isDemo) {
-          // Remove the empty assistant bubble and show a prominent toast instead
-          updateSession(currentId, (s) => ({
-            ...s,
-            messages: s.messages.filter((m) => m.id !== assistantMsg.id),
-          }));
-          toast.error(`You've hit the demo limit. Sign in with your own account to keep going.`, {
-            description: 'The demo account is shared — each IP gets 5 AI requests per 2 hours.',
-            action: { label: 'Sign in', onClick: () => { window.location.href = '/'; } },
-            duration: 8000,
-          });
-          return;
-        }
         const msg = err.error ?? (res.status === 429 ? 'Too many requests — slow down a bit.' : 'Request failed.');
         updateSession(currentId, (s) => ({
           ...s,
