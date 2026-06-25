@@ -1,5 +1,5 @@
 import { OpenAIAgentsProvider } from '@corsair-dev/mcp';
-import { Agent, run, tool, InputGuardrailTripwireTriggered, OutputGuardrailTripwireTriggered } from '@openai/agents';
+import { Agent, run, tool, OpenAIChatCompletionsModel, InputGuardrailTripwireTriggered, OutputGuardrailTripwireTriggered } from '@openai/agents';
 import OpenAI from 'openai';
 import { corsair } from '@/server/corsair';
 import { loadSession, saveSession } from './session';
@@ -52,7 +52,7 @@ async function* streamChitchat(
   yield { type: 'done', conversationId };
 }
 
-const MODEL = 'gpt-4.1';
+const MODEL = 'gpt-4.1-mini';
 
 // Cache agents per (tenantId, mode, skipGuardrail)
 const agentCache = new Map<string, Agent>();
@@ -66,9 +66,14 @@ function getAgent(tenantId: string, userName: string, mode: 'guided' | 'auto', s
   const corsairTools = provider.build({ corsair: corsair.withTenant(tenantId), tool });
   const gmailTools   = buildGmailTools(tenantId);
 
+  // Use Chat Completions API instead of the Responses API default.
+  // The Responses API has lower per-tier rate limits; Chat Completions is
+  // the established endpoint with higher RPM/TPM on all OpenAI tiers.
+  const model = new OpenAIChatCompletionsModel(openai, MODEL);
+
   const agent = new Agent({
     name:             'yugati',
-    model:            MODEL,
+    model,
     instructions:     buildAgentInstructions(userName, mode),
     tools:            [...corsairTools, ...gmailTools],
     inputGuardrails:  skipGuardrail ? [] : [safetyGuardrail],
