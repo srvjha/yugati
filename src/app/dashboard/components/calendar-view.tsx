@@ -6,8 +6,12 @@ import { useTRPC } from '@/trpc/client';
 import {
   ChevronLeft, ChevronRight, Plus, Plug, Video, X, Clock, MapPin,
   Users, Trash2, ExternalLink, AlignLeft, UserPlus, ChevronDown, ArrowUp, Loader2,
+  Copy, Check,
 } from 'lucide-react';
 import { ThemeToggle } from '@/components/theme-toggle';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
+import { motion } from 'framer-motion';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -1309,12 +1313,134 @@ type AIPanelMsg = { id: string; role: 'user' | 'assistant'; content: string; str
 function uid() { return Math.random().toString(36).slice(2, 10); }
 
 const CAL_CHIPS = [
-  { label: "Today's agenda",       prompt: "What's on my calendar today?"         },
-  { label: 'Schedule meeting',     prompt: 'Help me schedule a meeting'            },
-  { label: 'Summarize emails',     prompt: 'Summarize my unread emails'            },
-  { label: 'Find free slots',      prompt: 'When am I free this week?'             },
-  { label: 'Create task from email', prompt: 'Create a task list from my recent emails' },
+  { label: "Today's agenda",         prompt: "What's on my calendar today?"              },
+  { label: 'Schedule meeting',       prompt: 'Help me schedule a meeting'                },
+  { label: 'Summarize emails',       prompt: 'Summarize my unread emails'                },
+  { label: 'Find free slots',        prompt: 'When am I free this week?'                 },
+  { label: 'Create task from email', prompt: 'Create a task list from my recent emails'  },
 ];
+
+const FILLER_CAL = [
+  'Checking your calendar…',
+  'Looking up your schedule…',
+  'Scanning your events…',
+  'Reviewing upcoming meetings…',
+  'Fetching calendar data…',
+  'Checking for conflicts…',
+  'Looking at your availability…',
+  'Analysing your schedule…',
+  'Almost there…',
+];
+
+function useFillerCal(active: boolean) {
+  const [tick, setTick] = useState(0);
+  useEffect(() => {
+    if (!active) return;
+    const id = setInterval(() => setTick((t) => t + 1), 1800);
+    return () => clearInterval(id);
+  }, [active]);
+  return FILLER_CAL[tick % FILLER_CAL.length]!;
+}
+
+// ─── Calendar success card (same as chat-view) ────────────────────────────────
+
+interface CalSuccess { title?: string; datetime?: string; attendees?: string; calendarLink?: string; }
+
+function parseCalSuccess(content: string): CalSuccess | null {
+  if (!/(has been scheduled|successfully scheduled|event.*scheduled|scheduled.*event)/i.test(content)) return null;
+  const lines = content.split('\n');
+  let title: string | undefined, datetime: string | undefined, attendees: string | undefined, calendarLink: string | undefined;
+  for (const line of lines) {
+    const s   = line.replace(/^[-*•]\s*/, '').trim();
+    const get = (rx: RegExp) => { const m = s.match(rx); return m ? s.slice(m[0].length).trim() : null; };
+    title    = get(/^(?:\*\*)?(?:event|title|summary)(?:\*\*)?:\s*/i) ?? title;
+    datetime = get(/^(?:\*\*)?date\s*(?:[&+]|and)?\s*time(?:\*\*)?:\s*/i) ?? datetime;
+    attendees = get(/^(?:\*\*)?attendees?(?:\*\*)?:\s*/i) ?? attendees;
+    const lm = s.match(/https?:\/\/calendar\.google\.com[^\s)>\]"]*/i);
+    if (lm) calendarLink = lm[0];
+  }
+  return { title, datetime, attendees, calendarLink };
+}
+
+function CalSuccessCard({ details }: { details: CalSuccess }) {
+  return (
+    <div className="flex flex-col items-center justify-center py-8 gap-3">
+      <div className="relative flex items-center justify-center w-24 h-24">
+        <motion.div className="absolute rounded-full bg-green-500/15"
+          initial={{ width: 48, height: 48, opacity: 0.8 }} animate={{ width: 96, height: 96, opacity: 0 }}
+          transition={{ duration: 1.1, ease: 'easeOut', repeat: Infinity, repeatDelay: 0.4 }} />
+        <motion.div className="absolute rounded-full bg-green-500/10"
+          initial={{ width: 48, height: 48, opacity: 0.6 }} animate={{ width: 96, height: 96, opacity: 0 }}
+          transition={{ duration: 1.1, ease: 'easeOut', repeat: Infinity, repeatDelay: 0.4, delay: 0.35 }} />
+        <motion.div className="relative z-10 w-14 h-14 rounded-full bg-green-500 flex items-center justify-center shadow-[0_0_24px_rgba(34,197,94,0.4)]"
+          initial={{ scale: 0, opacity: 0 }} animate={{ scale: 1, opacity: 1 }}
+          transition={{ type: 'spring', stiffness: 300, damping: 18, delay: 0.05 }}>
+          <motion.svg width="28" height="28" viewBox="0 0 28 28" fill="none">
+            <motion.path d="M7 14.5l5 5 9-9" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"
+              initial={{ pathLength: 0 }} animate={{ pathLength: 1 }}
+              transition={{ duration: 0.4, delay: 0.3, ease: 'easeOut' }} />
+          </motion.svg>
+        </motion.div>
+      </div>
+      <motion.p className="text-sm font-semibold text-zinc-200"
+        initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.5 }}>
+        Meeting scheduled!
+      </motion.p>
+      {(details.title ?? details.datetime ?? details.attendees) && (
+        <motion.div className="w-full mt-2 rounded-xl border border-zinc-800/60 bg-zinc-800/30 text-xs divide-y divide-zinc-800/50"
+          initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.65 }}>
+          {details.title    && <div className="flex gap-3 px-4 py-2.5"><span className="w-16 shrink-0 text-zinc-500 font-medium uppercase tracking-wider">Event</span><span className="text-zinc-300 font-medium">{details.title}</span></div>}
+          {details.datetime && <div className="flex gap-3 px-4 py-2.5"><span className="w-16 shrink-0 text-zinc-500 font-medium uppercase tracking-wider">When</span><span className="text-zinc-300">{details.datetime}</span></div>}
+          {details.attendees && <div className="flex gap-3 px-4 py-2.5"><span className="w-16 shrink-0 text-zinc-500 font-medium uppercase tracking-wider">Who</span><span className="text-zinc-300 break-all">{details.attendees}</span></div>}
+          {details.calendarLink && (
+            <div className="flex gap-3 px-4 py-2.5">
+              <span className="w-16 shrink-0 text-zinc-500 font-medium uppercase tracking-wider">Link</span>
+              <a href={details.calendarLink} target="_blank" rel="noopener noreferrer" className="text-[#4285F4] hover:underline truncate">Open in Google Calendar →</a>
+            </div>
+          )}
+        </motion.div>
+      )}
+    </div>
+  );
+}
+
+// ─── Markdown renderer (same as chat-view) ────────────────────────────────────
+
+function CalMdContent({ content, streaming }: { content: string; streaming?: boolean }) {
+  return (
+    <div className="prose prose-sm prose-invert max-w-none leading-relaxed">
+      <ReactMarkdown
+        remarkPlugins={[remarkGfm]}
+        components={{
+          h1: ({ children }) => <h1 className="text-base font-bold text-zinc-100 mt-4 mb-2 first:mt-0">{children}</h1>,
+          h2: ({ children }) => <h2 className="text-sm font-bold text-zinc-100 mt-3 mb-1.5 first:mt-0">{children}</h2>,
+          h3: ({ children }) => <h3 className="text-sm font-semibold text-zinc-200 mt-3 mb-1 first:mt-0">{children}</h3>,
+          p:  ({ children }) => <p className="text-sm text-zinc-100 leading-relaxed mb-2 last:mb-0">{children}</p>,
+          strong: ({ children }) => <strong className="font-semibold text-white">{children}</strong>,
+          em: ({ children }) => <em className="italic text-zinc-300">{children}</em>,
+          ul: ({ children }) => <ul className="list-disc list-inside space-y-1.5 mb-2 text-sm text-zinc-100">{children}</ul>,
+          ol: ({ children }) => <ol className="list-decimal list-inside space-y-1.5 mb-2 text-sm text-zinc-100">{children}</ol>,
+          li: ({ children }) => <li className="text-zinc-100 leading-relaxed">{children}</li>,
+          code: ({ children, className }) => {
+            const isBlock = className?.includes('language-');
+            return isBlock
+              ? <pre className="bg-zinc-900/80 border border-zinc-700/50 rounded-xl px-4 py-3.5 overflow-x-auto my-3"><code className="text-xs text-zinc-300 font-mono">{children}</code></pre>
+              : <code className="bg-zinc-800/70 text-zinc-300 font-mono text-[11px] px-1.5 py-0.5 rounded-md border border-zinc-700/40">{children}</code>;
+          },
+          blockquote: ({ children }) => <blockquote className="border-l-2 border-zinc-600 pl-3.5 text-zinc-400 italic my-2 rounded-r-lg bg-white/[0.03] py-1">{children}</blockquote>,
+          a: ({ href, children }) => (
+            <a href={href} target="_blank" rel="noopener noreferrer"
+              className="text-[#4f80c9] hover:text-[#6b97d8] underline underline-offset-2">{children}</a>
+          ),
+          hr: () => <hr className="border-zinc-800 my-4" />,
+        }}
+      >
+        {content}
+      </ReactMarkdown>
+      {streaming && <span className="inline-block w-1.5 h-4 bg-zinc-500 ml-0.5 animate-pulse align-middle rounded-full" />}
+    </div>
+  );
+}
 
 function CalendarAIPanel({ defaultDate, userName, onClose, onRefresh }: {
   defaultDate: string; userName?: string; onClose: () => void; onRefresh: () => void;
@@ -1331,17 +1457,25 @@ function CalendarAIPanel({ defaultDate, userName, onClose, onRefresh }: {
   const [messages, setMessages] = useState<AIPanelMsg[]>([
     { id: 'init', role: 'assistant', content: `${initGreet}\nHow can I help with your calendar?` },
   ]);
-  const [input, setInput]     = useState('');
-  const [loading, setLoading] = useState(false);
+  const [input, setInput]       = useState('');
+  const [loading, setLoading]   = useState(false);
+  const [copiedId, setCopiedId] = useState<string | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
   const abortRef  = useRef<AbortController | null>(null);
+  const filler    = useFillerCal(loading);
+
+  async function copyMessage(id: string, content: string) {
+    await navigator.clipboard.writeText(content);
+    setCopiedId(id);
+    setTimeout(() => setCopiedId(null), 2000);
+  }
 
   useEffect(() => { bottomRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [messages]);
 
   async function submit(text: string) {
     if (!text.trim() || loading) return;
     setInput('');
-    const context = defaultDate ? `[Context: selected calendar date is ${formattedDate}]\n\n${text.trim()}` : text.trim();
+    const context = defaultDate ? `${text.trim()}\n\n(I have ${formattedDate} open in my calendar.)` : text.trim();
     const userMsg: AIPanelMsg      = { id: uid(), role: 'user',      content: text.trim() };
     const assistantMsg: AIPanelMsg = { id: uid(), role: 'assistant', content: '', streaming: true };
     setMessages((prev) => [...prev, userMsg, assistantMsg]);
@@ -1363,7 +1497,7 @@ function CalendarAIPanel({ defaultDate, userName, onClose, onRefresh }: {
         setMessages((prev) => prev.map((m) => m.id === assistantMsg.id ? { ...m, content: err.error ?? 'Something went wrong.', streaming: false } : m));
         return;
       }
-      const reader = res.body!.getReader();
+      const reader  = res.body!.getReader();
       const decoder = new TextDecoder();
       let buffer = '', accumulated = '';
       while (true) {
@@ -1380,11 +1514,18 @@ function CalendarAIPanel({ defaultDate, userName, onClose, onRefresh }: {
               const snap = accumulated;
               setMessages((prev) => prev.map((m) => m.id === assistantMsg.id ? { ...m, content: snap } : m));
             }
+            if (data.type === 'done') {
+              setMessages((prev) => {
+                const msg = prev.find((m) => m.id === assistantMsg.id);
+                if (!msg?.content?.trim()) return prev.filter((m) => m.id !== assistantMsg.id);
+                return prev.map((m) => m.id === assistantMsg.id ? { ...m, streaming: false } : m);
+              });
+              onRefresh();
+            }
           } catch { /* partial */ }
         }
       }
       setMessages((prev) => prev.map((m) => m.id === assistantMsg.id ? { ...m, streaming: false } : m));
-      onRefresh();
     } catch (err) {
       if ((err as Error).name !== 'AbortError') {
         setMessages((prev) => prev.map((m) => m.id === assistantMsg.id ? { ...m, content: 'Request failed. Please try again.', streaming: false } : m));
@@ -1414,12 +1555,30 @@ function CalendarAIPanel({ defaultDate, userName, onClose, onRefresh }: {
           {messages.map((msg) => (
             <div key={msg.id} className={msg.role === 'user' ? 'flex justify-end' : ''}>
               {msg.role === 'assistant' ? (
-                <div className="bg-zinc-900/80 border border-zinc-800/60 rounded-2xl px-5 py-4 max-w-2xl">
-                  <p className="text-[10px] font-semibold tracking-widest text-zinc-500 mb-2 uppercase">Assistant</p>
-                  <div className="text-sm text-zinc-100 whitespace-pre-wrap leading-relaxed">
-                    {msg.content || (msg.streaming && <span className="text-zinc-500">Thinking…</span>)}
-                    {msg.streaming && msg.content && <span className="inline-block w-1.5 h-4 bg-zinc-400 ml-0.5 animate-pulse align-middle" />}
+                <div className="group/msg">
+                  <div className="bg-zinc-900/80 border border-zinc-800/60 rounded-2xl px-5 py-4 max-w-2xl">
+                    {msg.streaming && !msg.content ? (
+                      <p className="text-sm text-zinc-500 animate-pulse">{filler}</p>
+                    ) : (() => {
+                      const success = !msg.streaming ? parseCalSuccess(msg.content) : null;
+                      return success
+                        ? <CalSuccessCard details={success} />
+                        : <CalMdContent content={msg.content} streaming={msg.streaming} />;
+                    })()}
                   </div>
+                  {!msg.streaming && msg.content && (
+                    <div className="flex items-center gap-1 mt-1 opacity-0 group-hover/msg:opacity-100 transition-opacity">
+                      <button
+                        onClick={() => void copyMessage(msg.id, msg.content)}
+                        title="Copy"
+                        className="p-1.5 rounded-lg text-zinc-600 hover:text-zinc-300 hover:bg-zinc-800/60 transition-colors"
+                      >
+                        {copiedId === msg.id
+                          ? <Check size={13} className="text-green-400" />
+                          : <Copy size={13} />}
+                      </button>
+                    </div>
+                  )}
                 </div>
               ) : (
                 <div className="max-w-xs bg-zinc-700/70 rounded-2xl rounded-tr-sm px-4 py-2.5 text-sm text-zinc-100">{msg.content}</div>

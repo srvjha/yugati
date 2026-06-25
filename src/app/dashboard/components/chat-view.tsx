@@ -1602,13 +1602,24 @@ export function ChatView({
             }
 
             if (data.type === 'done') {
-              updateSession(currentId, (s) => ({
-                ...s,
-                conversationId: data.conversationId ?? s.conversationId,
-                messages: s.messages.map((m) =>
-                  m.id === assistantMsg.id ? { ...m, streaming: false } : m,
-                ),
-              }));
+              updateSession(currentId, (s) => {
+                const msg = s.messages.find((m) => m.id === assistantMsg.id);
+                // If no text was ever streamed, remove the empty bubble entirely
+                if (!msg?.content?.trim()) {
+                  return {
+                    ...s,
+                    conversationId: data.conversationId ?? s.conversationId,
+                    messages: s.messages.filter((m) => m.id !== assistantMsg.id),
+                  };
+                }
+                return {
+                  ...s,
+                  conversationId: data.conversationId ?? s.conversationId,
+                  messages: s.messages.map((m) =>
+                    m.id === assistantMsg.id ? { ...m, streaming: false } : m,
+                  ),
+                };
+              });
               onAgentDone?.();
             }
 
