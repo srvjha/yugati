@@ -12,7 +12,8 @@ const edgeShadow =
   'shadow-[inset_0_1px_0_rgba(255,255,255,0.07),inset_1px_0_0_rgba(255,255,255,0.03),0_4px_24px_rgba(0,0,0,0.6)]';
 
 export default function LandingPage() {
-  const [signingIn, setSigningIn] = useState(false);
+  const [signingIn,   setSigningIn]   = useState(false);
+  const [demoLoading, setDemoLoading] = useState(false);
 
   function handleSignIn() {
     if (signingIn) return;
@@ -20,10 +21,16 @@ export default function LandingPage() {
     void signIn.social({ provider: 'google', callbackURL: '/dashboard' });
   }
 
+  function handleDemo() {
+    if (demoLoading) return;
+    setDemoLoading(true);
+    window.location.href = '/api/demo';
+  }
+
   return (
     <div className="min-h-screen bg-black text-white flex flex-col overflow-x-hidden">
       <LandingNav onSignIn={handleSignIn} signingIn={signingIn} />
-      <HeroSection   onSignIn={handleSignIn} signingIn={signingIn} />
+      <HeroSection   onSignIn={handleSignIn} signingIn={signingIn} onDemo={handleDemo} demoLoading={demoLoading} />
       <ProductMockup />
       <AgenticSection />
       <SectionDivider />
@@ -211,7 +218,7 @@ const FLOAT_CARDS: FloatCard[] = [
   { icon: <ExtIcon src={CORSAIR_ICON} size={ICON_SIZE} />,                             label: 'Corsair',  delay: '-6s',   style: { top: '70%', right: 'calc(50% - 503px)' } },
 ];
 
-function HeroSection({ onSignIn, signingIn }: { onSignIn: () => void; signingIn: boolean }) {
+function HeroSection({ onSignIn, signingIn, onDemo, demoLoading }: { onSignIn: () => void; signingIn: boolean; onDemo: () => void; demoLoading: boolean }) {
   return (
     <section className="relative flex flex-col items-center justify-center text-center px-6 pt-44 pb-32">
 
@@ -294,12 +301,24 @@ function HeroSection({ onSignIn, signingIn }: { onSignIn: () => void; signingIn:
             )}
           </button>
 
-          <button className="group flex items-center gap-2 px-5 py-3 border border-white/[0.08] text-zinc-500 text-sm font-medium
-            hover:border-white/20 hover:text-white
-            active:bg-white/5
-            transition-all duration-150">
-            See how it works
-            <ArrowRight size={12} className="text-zinc-700 group-hover:text-zinc-400 transition-colors duration-150 group-hover:translate-x-0.5 transition-transform" />
+          <button
+            onClick={onDemo}
+            disabled={demoLoading}
+            className="group flex items-center gap-2 px-5 py-3 border border-white/[0.08] text-zinc-500 text-sm font-medium
+              hover:border-white/20 hover:text-white disabled:opacity-60
+              active:bg-white/5 transition-all duration-150"
+          >
+            {demoLoading ? (
+              <>
+                <Loader2 size={12} className="animate-spin" />
+                Loading demo…
+              </>
+            ) : (
+              <>
+                Demo login
+                <ArrowRight size={12} className="text-zinc-700 group-hover:text-zinc-400 transition-colors duration-150 group-hover:translate-x-0.5 transition-transform" />
+              </>
+            )}
           </button>
         </div>
 
