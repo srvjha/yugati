@@ -50,6 +50,12 @@ Examples:
 "send hi to my friend with an inspiring message" → safe: true
 "write a poem and email it to sara@example.com" → safe: true
 "draft an email to my team with a motivational quote" → safe: true
+"tell me about the latest amazon payment reminder" → safe: true
+"tell me about the email from Swiggy" → safe: true
+"what does the razorpay email say" → safe: true
+"find the receipt from Flipkart" → safe: true
+"show me the zomato order confirmation" → safe: true
+"tell me about the OTP I got" → safe: true
 
 When safe: false, always use this exact reason:
 "I'm focused on your Gmail and Google Calendar — I can't help with that. Try asking me to manage your emails, search your inbox, schedule meetings, or anything related to Gmail or Google Calendar!"
