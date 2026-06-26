@@ -13,6 +13,7 @@ import {
   ChevronDown,
   SlidersHorizontal,
   Sparkles,
+  Menu,
 } from "lucide-react";
 import { LABEL_FILTERS } from "../constants";
 import type { Sender } from "../types";
@@ -74,6 +75,7 @@ export function MailTopBar({
   selectedCount,
   onDeleteSelected,
   senders,
+  onOpenSidebar,
 }: {
   chatMode: boolean;
   onModeChange: (v: boolean) => void;
@@ -88,9 +90,18 @@ export function MailTopBar({
   selectedCount: number;
   onDeleteSelected: () => void;
   senders: Sender[];
+  onOpenSidebar?: () => void;
 }) {
   return (
     <header className="h-14 shrink-0 border-b border-zinc-800/70 px-4 flex items-center gap-3">
+
+      {/* Mobile hamburger */}
+      <button
+        onClick={onOpenSidebar}
+        className="md:hidden p-1.5 -ml-1 text-zinc-400 hover:text-white hover:bg-zinc-800 rounded-md transition-colors"
+      >
+        <Menu size={18} />
+      </button>
 
       {/* Mode toggle */}
       <div data-tour="mode-toggle" className="relative overflow-hidden rounded-lg p-px shrink-0">

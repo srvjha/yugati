@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { signIn, useSession } from '@/lib/auth-client';
-import { ArrowRight, Calendar, Bot, Zap, Shield, Check, Sparkles, Loader2, Mail } from 'lucide-react';
+import { ArrowRight, Calendar, Bot, Zap, Shield, Check, Sparkles, Loader2, Mail, Menu, X } from 'lucide-react';
 import { ThemeToggle } from '@/components/theme-toggle';
 
 // Shared edge-highlight style used on every "card" element
@@ -44,8 +44,16 @@ export default function LandingPage() {
 
 // ─── Nav ───────────────────────────────────────────────────────────────────────
 
+const NAV_LINKS = [
+  { label: 'Features', href: '#features' },
+  { label: 'Pricing',  href: '#pricing'  },
+  { label: 'FAQ',      href: '#faq'       },
+  { label: 'Docs',     href: '/docs'      },
+];
+
 function LandingNav({ onSignIn, signingIn }: { onSignIn: () => void; signingIn: boolean }) {
   const [scrolled, setScrolled] = useState(false);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const { data: session } = useSession();
   const isLoggedIn = !!session?.user;
 
@@ -56,8 +64,9 @@ function LandingNav({ onSignIn, signingIn }: { onSignIn: () => void; signingIn: 
   }, []);
 
   return (
+    <>
     <nav className={`fixed top-0 inset-x-0 z-50 transition-all duration-300
-      ${scrolled
+      ${scrolled || mobileMenuOpen
         ? 'bg-black/70 backdrop-blur-xl border-b border-white/[0.07] shadow-[0_1px_24px_rgba(0,0,0,0.5)]'
         : 'bg-transparent backdrop-blur-none'}`}>
       <div className="max-w-6xl mx-auto px-6 h-14 flex items-center justify-between">
@@ -79,32 +88,24 @@ function LandingNav({ onSignIn, signingIn }: { onSignIn: () => void; signingIn: 
           />
         </div>
 
-        {/* Center nav links */}
+        {/* Center nav links — desktop only */}
         <div className="hidden sm:flex items-center gap-6">
-          {[
-            { label: 'Features', href: '#features' },
-            { label: 'Pricing',  href: '#pricing'  },
-            { label: 'FAQ',      href: '#faq'       },
-          ].map(({ label, href }) => (
-            <a
-              key={label}
-              href={href}
-              className="text-sm text-zinc-500 hover:text-white transition-colors duration-150 relative group"
-            >
-              {label}
-              <span className="absolute -bottom-0.5 left-0 w-0 h-px bg-white/40 transition-all duration-200 group-hover:w-full" />
-            </a>
+          {NAV_LINKS.map(({ label, href }) => (
+            href.startsWith('#') ? (
+              <a key={label} href={href} className="text-sm text-zinc-500 hover:text-white transition-colors duration-150 relative group">
+                {label}
+                <span className="absolute -bottom-0.5 left-0 w-0 h-px bg-white/40 transition-all duration-200 group-hover:w-full" />
+              </a>
+            ) : (
+              <Link key={label} href={href} className="text-sm text-zinc-500 hover:text-white transition-colors duration-150 relative group">
+                {label}
+                <span className="absolute -bottom-0.5 left-0 w-0 h-px bg-white/40 transition-all duration-200 group-hover:w-full" />
+              </Link>
+            )
           ))}
-          <Link
-            href="/docs"
-            className="text-sm text-zinc-500 hover:text-white transition-colors duration-150 relative group"
-          >
-            Docs
-            <span className="absolute -bottom-0.5 left-0 w-0 h-px bg-white/40 transition-all duration-200 group-hover:w-full" />
-          </Link>
         </div>
 
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-3">
           <ThemeToggle />
           {isLoggedIn ? (
             <Link
@@ -122,7 +123,7 @@ function LandingNav({ onSignIn, signingIn }: { onSignIn: () => void; signingIn: 
               <button
                 onClick={onSignIn}
                 disabled={signingIn}
-                className="text-sm text-zinc-500 hover:text-white transition-colors duration-150 relative group disabled:opacity-60"
+                className="hidden sm:block text-sm text-zinc-500 hover:text-white transition-colors duration-150 relative group disabled:opacity-60"
               >
                 Sign in
                 <span className="absolute -bottom-0.5 left-0 w-0 h-px bg-white/60 transition-all duration-200 group-hover:w-full" />
@@ -131,18 +132,54 @@ function LandingNav({ onSignIn, signingIn }: { onSignIn: () => void; signingIn: 
               <button
                 onClick={onSignIn}
                 disabled={signingIn}
-                className={`group flex items-center gap-2 px-4 py-2 bg-white text-black text-sm font-semibold border border-white/20
+                className={`hidden sm:flex group items-center gap-2 px-4 py-2 bg-white text-black text-sm font-semibold border border-white/20
                   hover:-translate-y-px hover:shadow-[0_0_24px_rgba(255,255,255,0.18)]
                   active:translate-y-0 active:shadow-none disabled:opacity-70 disabled:hover:translate-y-0
                   transition-all duration-150 ${edgeShadow}`}
               >
                 Get started<ArrowRight size={13} className="transition-transform duration-150 group-hover:translate-x-0.5" />
               </button>
+
+              {/* Mobile hamburger */}
+              <button
+                onClick={() => setMobileMenuOpen((o) => !o)}
+                className="sm:hidden p-1.5 text-zinc-400 hover:text-white transition-colors"
+              >
+                {mobileMenuOpen ? <X size={20} /> : <Menu size={20} />}
+              </button>
             </>
           )}
         </div>
       </div>
+
+      {/* Mobile dropdown menu */}
+      {mobileMenuOpen && (
+        <div className="sm:hidden border-t border-white/[0.06] bg-black/90 backdrop-blur-xl px-6 py-4 flex flex-col gap-1">
+          {NAV_LINKS.map(({ label, href }) => (
+            href.startsWith('#') ? (
+              <a key={label} href={href} onClick={() => setMobileMenuOpen(false)}
+                className="py-2.5 text-sm text-zinc-400 hover:text-white transition-colors border-b border-white/[0.04] last:border-0">
+                {label}
+              </a>
+            ) : (
+              <Link key={label} href={href} onClick={() => setMobileMenuOpen(false)}
+                className="py-2.5 text-sm text-zinc-400 hover:text-white transition-colors border-b border-white/[0.04] last:border-0">
+                {label}
+              </Link>
+            )
+          ))}
+          <button
+            onClick={() => { setMobileMenuOpen(false); onSignIn(); }}
+            disabled={signingIn}
+            className={`mt-3 flex items-center justify-center gap-2 px-4 py-3 bg-white text-black text-sm font-semibold border border-white/20 disabled:opacity-70 transition-all ${edgeShadow}`}
+          >
+            {signingIn ? <Loader2 size={14} className="animate-spin" /> : <GoogleIcon />}
+            {signingIn ? 'Signing in…' : 'Get started with Google'}
+          </button>
+        </div>
+      )}
     </nav>
+    </>
   );
 }
 
@@ -480,8 +517,8 @@ function ProductMockup() {
         ) : (
         <div className="flex bg-black" style={{ height: '400px' }}>
 
-          {/* App sidebar */}
-          <div className="w-40 bg-zinc-950 border-r border-white/[0.05] flex flex-col py-3 px-2 shrink-0">
+          {/* App sidebar — hidden on mobile */}
+          <div className="hidden sm:flex w-40 bg-zinc-950 border-r border-white/[0.05] flex-col py-3 px-2 shrink-0">
             <div className="px-2 mb-4">
               <Image
                 src="https://res.cloudinary.com/sauravjha/image/upload/e_trim/v1782117736/yugati-dark-mode_xsais0.png"
@@ -503,8 +540,8 @@ function ProductMockup() {
             ))}
           </div>
 
-          {/* Folder nav — clickable */}
-          <div className="w-36 bg-zinc-950/60 border-r border-white/[0.04] flex flex-col py-3 px-2 shrink-0">
+          {/* Folder nav — hidden on mobile */}
+          <div className="hidden md:flex w-36 bg-zinc-950/60 border-r border-white/[0.04] flex-col py-3 px-2 shrink-0">
             <p className="text-[9px] text-zinc-700 uppercase tracking-wider px-2 mb-1.5">Inbox</p>
             {INBOX_FOLDERS.map((f) => (
               <button
@@ -611,8 +648,8 @@ function ProductMockup() {
             )}
           </div>
 
-          {/* Calendar mini — hoverable dates */}
-          <div className="w-48 bg-zinc-950/70 flex flex-col shrink-0">
+          {/* Calendar mini — hidden on mobile/tablet */}
+          <div className="hidden lg:flex w-48 bg-zinc-950/70 flex-col shrink-0">
             <div className="px-3 pt-3 pb-2 border-b border-white/[0.04]">
               <div className="flex items-center justify-between mb-2">
                 <span className="text-[10px] font-semibold text-zinc-400">June 2026</span>
@@ -1313,9 +1350,9 @@ function PricingSection({ onSignIn, signingIn }: { onSignIn: () => void; signing
       </div>
 
       {/* Enterprise strip */}
-      <div className={`flex items-center justify-between px-6 py-4 border border-zinc-800/60 bg-zinc-950/30 ${edgeShadow}`}>
+      <div className={`flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 px-6 py-4 border border-zinc-800/60 bg-zinc-950/30 ${edgeShadow}`}>
         <div className="flex items-center gap-4">
-          <div className="w-9 h-9 border border-zinc-700/60 bg-zinc-900 flex items-center justify-center">
+          <div className="w-9 h-9 border border-zinc-700/60 bg-zinc-900 flex items-center justify-center shrink-0">
             <Sparkles size={14} className="text-zinc-400" />
           </div>
           <div>
@@ -1325,7 +1362,7 @@ function PricingSection({ onSignIn, signingIn }: { onSignIn: () => void; signing
         </div>
         <Link
           href="/pricing"
-          className="shrink-0 flex items-center gap-1.5 text-xs font-semibold text-zinc-400 hover:text-white transition-colors"
+          className="shrink-0 flex items-center gap-1.5 text-xs font-semibold text-zinc-400 hover:text-white transition-colors ml-13 sm:ml-0"
         >
           See all plans <ArrowRight size={12} />
         </Link>
@@ -1339,7 +1376,7 @@ function PricingSection({ onSignIn, signingIn }: { onSignIn: () => void; signing
 function CTASection({ onSignIn, signingIn }: { onSignIn: () => void; signingIn: boolean }) {
   return (
     <section className="max-w-6xl mx-auto px-6 pb-28 w-full">
-      <div className={`relative border border-white/[0.07] bg-zinc-950 overflow-hidden p-16 text-center ${edgeShadow}`}>
+      <div className={`relative border border-white/[0.07] bg-zinc-950 overflow-hidden p-8 sm:p-16 text-center ${edgeShadow}`}>
 
         {/* Moving grid inside the card */}
         <div
@@ -1504,7 +1541,7 @@ function FAQList() {
 function LandingFooter() {
   return (
     <footer className="border-t border-white/[0.05] py-6">
-      <div className="max-w-6xl mx-auto px-6 flex items-center justify-between">
+      <div className="max-w-6xl mx-auto px-6 flex flex-col sm:flex-row items-center justify-between gap-4">
         <div className="flex items-center gap-2.5">
           <div className="w-5 h-5 bg-white flex items-center justify-center">
             <span className="text-black text-[9px] font-black">Y</span>
@@ -1514,12 +1551,12 @@ function LandingFooter() {
           <span className="text-xs text-zinc-800">© 2026</span>
         </div>
 
-        <div className="flex items-center gap-4">
+        <div className="flex flex-col sm:flex-row items-center gap-3 sm:gap-4">
           <div className="flex items-center gap-1.5 text-xs text-zinc-700">
             <Shield size={11} />
             End-to-end encrypted
           </div>
-          <div className="w-px h-3 bg-zinc-800" />
+          <div className="hidden sm:block w-px h-3 bg-zinc-800" />
           <div className="flex items-center gap-4 text-xs text-zinc-700">
             <Link href="/docs" className="hover:text-zinc-400 transition-colors">Docs</Link>
             <a href="/privacy" className="hover:text-zinc-400 transition-colors">Privacy Policy</a>

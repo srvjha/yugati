@@ -108,6 +108,8 @@ export function MailSidebar({
   onSubscriptions,
   onSummarize,
   onTakeTour,
+  mobileOpen = false,
+  onMobileClose,
 }: {
   collapsed: boolean;
   onCollapse: (v: boolean) => void;
@@ -121,12 +123,25 @@ export function MailSidebar({
   onSubscriptions: () => void;
   onSummarize: () => void;
   onTakeTour?: () => void;
+  mobileOpen?: boolean;
+  onMobileClose?: () => void;
 }) {
   return (
+    <>
+      {/* Mobile backdrop */}
+      {mobileOpen && (
+        <div
+          className="fixed inset-0 z-40 bg-black/60 md:hidden"
+          onClick={onMobileClose}
+        />
+      )}
     <aside
       data-tour="mail-sidebar"
-      className={`shrink-0 flex flex-col h-full bg-zinc-950 border-r border-zinc-800/70 transition-[width] duration-300 ease-in-out overflow-hidden
-        ${collapsed ? "w-14" : "w-56"}`}
+      className={`shrink-0 flex flex-col h-full bg-zinc-950 border-r border-zinc-800/70 overflow-hidden
+        fixed inset-y-0 left-0 z-50 md:relative md:z-auto
+        transition-transform md:transition-[width] duration-300 ease-in-out
+        ${mobileOpen ? "translate-x-0" : "-translate-x-full"} md:translate-x-0
+        ${collapsed ? "w-56 md:w-14" : "w-56"}`}
     >
       {/* Logo + collapse */}
       <div className="h-14 flex items-center justify-between px-3 border-b border-zinc-800/70 shrink-0">
@@ -406,5 +421,6 @@ export function MailSidebar({
         )}
       </div>
     </aside>
+    </>
   );
 }

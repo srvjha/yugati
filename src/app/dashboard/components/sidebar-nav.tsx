@@ -1,13 +1,13 @@
 'use client';
 
-import React from 'react';
+import React, { useState } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { usePathname, useRouter } from 'next/navigation';
 import {
   Inbox, Star, Send, FileText, AlertCircle, Trash2, MailMinus,
   Calendar, LogOut, LayoutDashboard, Plug, CreditCard,
-  Activity, BookOpen, Settings, Bot, LayoutTemplate,
+  Activity, BookOpen, Settings, Bot, LayoutTemplate, Menu, X,
 } from 'lucide-react';
 import { signOut } from '@/lib/auth-client';
 import { UsagePill } from './usage-pill';
@@ -39,6 +39,7 @@ const NAV_ITEMS: { href: string; label: string; icon: React.ElementType; isNew?:
 export function SidebarNav({ user, isAdmin }: { user: User; isAdmin?: boolean }) {
   const pathname = usePathname();
   const router   = useRouter();
+  const [mobileOpen, setMobileOpen] = useState(false);
 
   function isActive(href: string) {
     const base = href.split('?')[0]!;
@@ -50,20 +51,50 @@ export function SidebarNav({ user, isAdmin }: { user: User; isAdmin?: boolean })
     ${active ? 'bg-zinc-800 text-white' : 'text-zinc-200 hover:text-white hover:bg-zinc-900'}`;
 
   return (
-    <nav className="w-56 shrink-0 flex flex-col h-full bg-zinc-950 border-r border-zinc-800/70">
+    <>
+      {/* Mobile hamburger button */}
+      <button
+        onClick={() => setMobileOpen(true)}
+        className="md:hidden fixed top-3.5 left-4 z-50 p-1.5 text-zinc-400 hover:text-white hover:bg-zinc-800 rounded-md transition-colors"
+      >
+        <Menu size={18} />
+      </button>
+
+      {/* Mobile backdrop */}
+      {mobileOpen && (
+        <div
+          className="fixed inset-0 z-40 bg-black/60 md:hidden"
+          onClick={() => setMobileOpen(false)}
+        />
+      )}
+
+    <nav className={`
+      w-56 shrink-0 flex flex-col h-full bg-zinc-950 border-r border-zinc-800/70
+      fixed inset-y-0 left-0 z-50 md:relative md:z-auto
+      transition-transform duration-300 ease-in-out
+      ${mobileOpen ? 'translate-x-0' : '-translate-x-full'} md:translate-x-0
+    `}>
 
       {/* Logo */}
-      <div className="h-14 flex items-center px-3 border-b border-zinc-800/70 shrink-0">
-        <Image
-          src="https://res.cloudinary.com/sauravjha/image/upload/e_trim/v1782117736/yugati-dark-mode_xsais0.png"
-          alt="Yugati" width={480} height={160}
-          className="h-7 w-auto object-contain block [html[data-theme='light']_&]:hidden"
-        />
-        <Image
-          src="https://res.cloudinary.com/sauravjha/image/upload/e_trim/v1782117817/yugati-light-mode_sblh0y.png"
-          alt="Yugati" width={480} height={160}
-          className="h-7 w-auto object-contain hidden [html[data-theme='light']_&]:block"
-        />
+      <div className="h-14 flex items-center justify-between px-3 border-b border-zinc-800/70 shrink-0">
+        <div className="flex items-center">
+          <Image
+            src="https://res.cloudinary.com/sauravjha/image/upload/e_trim/v1782117736/yugati-dark-mode_xsais0.png"
+            alt="Yugati" width={480} height={160}
+            className="h-7 w-auto object-contain block [html[data-theme='light']_&]:hidden"
+          />
+          <Image
+            src="https://res.cloudinary.com/sauravjha/image/upload/e_trim/v1782117817/yugati-light-mode_sblh0y.png"
+            alt="Yugati" width={480} height={160}
+            className="h-7 w-auto object-contain hidden [html[data-theme='light']_&]:block"
+          />
+        </div>
+        <button
+          onClick={() => setMobileOpen(false)}
+          className="md:hidden p-1 text-zinc-600 hover:text-zinc-300 transition-colors"
+        >
+          <X size={16} />
+        </button>
       </div>
 
       {/* Scrollable nav */}
@@ -141,5 +172,6 @@ export function SidebarNav({ user, isAdmin }: { user: User; isAdmin?: boolean })
         </div>
       </div>
     </nav>
+    </>
   );
 }

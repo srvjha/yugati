@@ -9,7 +9,7 @@ import { useTRPC } from "@/trpc/client";
 import { useSession } from "@/lib/auth-client";
 import * as Tooltip from "@radix-ui/react-tooltip";
 import dynamic from "next/dynamic";
-import { Mail, ChevronDown, Loader2, Trash2 } from "lucide-react";
+import { Mail, ChevronDown, Loader2, Trash2, ChevronLeft } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -90,6 +90,7 @@ export default function MailPage() {
   const bothConnected     = connData?.gmail === true && connData?.googlecalendar === true;
 
   const [collapsed, setCollapsed] = useState(false);
+  const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   const [chatMode, setChatMode] = useState(true);
   const [activeFolder, setActiveFolder] = useState<SidebarFolder>("inbox");
   const [activeTab, setActiveTab] = useState<InboxTab>(() => {
@@ -461,23 +462,28 @@ export default function MailPage() {
             setSearchQuery("");
             setChatMode(false);
             setShowSubscriptions(false);
+            setMobileSidebarOpen(false);
           }}
           user={user ?? null}
           isAdmin={user?.role === 'admin'}
-          onCompose={() => gmailConnected ? setComposing(true) : setShowConnectModal(true)}
+          onCompose={() => { if (gmailConnected) { setComposing(true); } else { setShowConnectModal(true); } setMobileSidebarOpen(false); }}
           unreadCount={unreadCount}
           showSubscriptions={showSubscriptions}
           onSubscriptions={() => {
             setShowSubscriptions((s) => !s);
             setChatMode(false);
+            setMobileSidebarOpen(false);
           }}
           onSummarize={() => {
             setChatMode(true);
             setSummarizePrompt(
               `Summarize my most recent unread emails (up to 10) — give me the key topics, senders, and anything urgent that needs my attention. Use snippets only, not full content.`,
             );
+            setMobileSidebarOpen(false);
           }}
           onTakeTour={startTour}
+          mobileOpen={mobileSidebarOpen}
+          onMobileClose={() => setMobileSidebarOpen(false)}
         />
 
         <div className="flex-1 min-w-0 flex flex-col overflow-hidden">
@@ -495,6 +501,7 @@ export default function MailPage() {
             selectedCount={selectedIds.size}
             onDeleteSelected={() => void deleteSelected()}
             senders={senders}
+            onOpenSidebar={() => setMobileSidebarOpen(true)}
           />
 
           <div className="flex-1 min-h-0 flex overflow-hidden">
@@ -527,83 +534,149 @@ export default function MailPage() {
               />
             ) : selectedEmailId ? (
               /* ── Split view (email selected) ── */
-              <PanelGroup direction="horizontal" className="flex-1 min-w-0">
-                {/* Email list panel */}
-                <Panel defaultSize={50} minSize={25} maxSize={70}>
-                  <div className="flex flex-col h-full overflow-hidden border-r border-zinc-800/50">
-                    {isInbox && !searchQuery && (
-                      <CategoryTabs activeTab={activeTab} onTabChange={(tab) => {
-                        setActiveTab(tab);
-                        const p = new URLSearchParams(window.location.search);
-                        p.set('tab', tab);
-                        router.replace(`?${p.toString()}`, { scroll: false });
-                      }} counts={tabCounts} />
-                    )}
-                    {!isInbox && (
-                      <div className="px-5 py-2.5 border-b border-zinc-800/40 flex items-center gap-2 shrink-0">
-                        <span className="text-sm font-semibold text-zinc-200">
-                          {SIDEBAR_FOLDERS.find((f) => f.id === activeFolder)?.label ?? "Mail"}
-                        </span>
-                      </div>
-                    )}
-                    {isLoading && <SkeletonList />}
-                    {isAuthError && <AuthError />}
-                    {!isAuthError && error && (
-                      <div className="flex-1 flex items-center justify-center text-sm text-zinc-500">Failed to load messages</div>
-                    )}
-                    {!isLoading && !error && data?.messages?.length === 0 && (
-                      <div className="flex-1 flex flex-col items-center justify-center gap-2 text-zinc-700">
-                        <Mail size={22} /><span className="text-sm">No messages</span>
-                      </div>
-                    )}
-                    <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden">
-                      {groupedEmails.map(({ label, msgs }) => (
-                        <div key={label}>
-                          <div className="px-5 py-1.5 text-[11px] font-semibold text-zinc-500 bg-zinc-950/60 border-b border-zinc-800/30 sticky top-0 z-10">{label}</div>
-                          {msgs.map((msg) => (
-                            <EmailRow
-                              key={msg.id}
-                              msg={msg}
-                              selected={selectedIds.has(msg.id ?? "")}
-                              active={selectedEmailId === msg.id}
-                              onSelect={() => toggleSelect(msg.id ?? "")}
-                              onOpen={() => setSelectedEmailId(msg.id ?? null)}
-                              onDelete={() => void deleteOne(msg.id ?? "")}
-                            />
-                          ))}
-                        </div>
-                      ))}
-                      {!isLoading && !error && (data?.messages?.length ?? 0) >= fetchedCount && (
-                        <div className="flex justify-center py-6">
-                          <button onClick={() => setFetchedCount((n) => n + 10)} disabled={isFetching}
-                            className="flex items-center gap-2 px-5 py-2.5 text-sm font-medium text-zinc-100 border border-zinc-600 rounded-full bg-zinc-900 hover:bg-zinc-800 hover:border-zinc-400 hover:text-white transition-colors disabled:opacity-40">
-                            {isFetching ? <Loader2 size={14} className="animate-spin" /> : <ChevronDown size={14} />}
-                            Load more
-                          </button>
+              <>
+                {/* Mobile: full-screen email detail overlay */}
+                <div className="md:hidden fixed inset-0 z-30 flex flex-col bg-zinc-950">
+                  <div className="h-14 shrink-0 border-b border-zinc-800/70 flex items-center px-4">
+                    <button
+                      onClick={() => setSelectedEmailId(null)}
+                      className="flex items-center gap-1.5 text-sm text-zinc-400 hover:text-white transition-colors"
+                    >
+                      <ChevronLeft size={16} />
+                      Back
+                    </button>
+                  </div>
+                  <div className="flex-1 min-h-0 overflow-hidden">
+                    <EmailDetailPanel
+                      emailId={selectedEmailId}
+                      gmailConnected={gmailConnected}
+                      onClose={() => setSelectedEmailId(null)}
+                      onDeleted={() => setSelectedEmailId(null)}
+                      onRequestAI={(prompt) => {
+                        setSelectedEmailId(null);
+                        setChatMode(true);
+                        setSummarizePrompt(prompt);
+                      }}
+                    />
+                  </div>
+                </div>
+
+                {/* Desktop: split panel */}
+                <PanelGroup direction="horizontal" className="hidden md:flex flex-1 min-w-0">
+                  {/* Email list panel */}
+                  <Panel defaultSize={50} minSize={25} maxSize={70}>
+                    <div className="flex flex-col h-full overflow-hidden border-r border-zinc-800/50">
+                      {isInbox && !searchQuery && (
+                        <CategoryTabs activeTab={activeTab} onTabChange={(tab) => {
+                          setActiveTab(tab);
+                          const p = new URLSearchParams(window.location.search);
+                          p.set('tab', tab);
+                          router.replace(`?${p.toString()}`, { scroll: false });
+                        }} counts={tabCounts} />
+                      )}
+                      {!isInbox && (
+                        <div className="px-5 py-2.5 border-b border-zinc-800/40 flex items-center gap-2 shrink-0">
+                          <span className="text-sm font-semibold text-zinc-200">
+                            {SIDEBAR_FOLDERS.find((f) => f.id === activeFolder)?.label ?? "Mail"}
+                          </span>
                         </div>
                       )}
+                      {isLoading && <SkeletonList />}
+                      {isAuthError && <AuthError />}
+                      {!isAuthError && error && (
+                        <div className="flex-1 flex items-center justify-center text-sm text-zinc-500">Failed to load messages</div>
+                      )}
+                      {!isLoading && !error && data?.messages?.length === 0 && (
+                        <div className="flex-1 flex flex-col items-center justify-center gap-2 text-zinc-700">
+                          <Mail size={22} /><span className="text-sm">No messages</span>
+                        </div>
+                      )}
+                      <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden">
+                        {groupedEmails.map(({ label, msgs }) => (
+                          <div key={label}>
+                            <div className="px-5 py-1.5 text-[11px] font-semibold text-zinc-500 bg-zinc-950/60 border-b border-zinc-800/30 sticky top-0 z-10">{label}</div>
+                            {msgs.map((msg) => (
+                              <EmailRow
+                                key={msg.id}
+                                msg={msg}
+                                selected={selectedIds.has(msg.id ?? "")}
+                                active={selectedEmailId === msg.id}
+                                onSelect={() => toggleSelect(msg.id ?? "")}
+                                onOpen={() => setSelectedEmailId(msg.id ?? null)}
+                                onDelete={() => void deleteOne(msg.id ?? "")}
+                              />
+                            ))}
+                          </div>
+                        ))}
+                        {!isLoading && !error && (data?.messages?.length ?? 0) >= fetchedCount && (
+                          <div className="flex justify-center py-6">
+                            <button onClick={() => setFetchedCount((n) => n + 10)} disabled={isFetching}
+                              className="flex items-center gap-2 px-5 py-2.5 text-sm font-medium text-zinc-100 border border-zinc-600 rounded-full bg-zinc-900 hover:bg-zinc-800 hover:border-zinc-400 hover:text-white transition-colors disabled:opacity-40">
+                              {isFetching ? <Loader2 size={14} className="animate-spin" /> : <ChevronDown size={14} />}
+                              Load more
+                            </button>
+                          </div>
+                        )}
+                      </div>
                     </div>
+                  </Panel>
+
+                  {/* Drag handle */}
+                  <PanelResizeHandle className="w-1 bg-zinc-800/50 hover:bg-blue-500/50 active:bg-blue-500/70 transition-colors cursor-col-resize" />
+
+                  {/* Email detail panel */}
+                  <Panel defaultSize={50} minSize={28}>
+                    <EmailDetailPanel
+                      emailId={selectedEmailId}
+                      gmailConnected={gmailConnected}
+                      onClose={() => setSelectedEmailId(null)}
+                      onDeleted={() => setSelectedEmailId(null)}
+                      onRequestAI={(prompt) => {
+                        setSelectedEmailId(null);
+                        setChatMode(true);
+                        setSummarizePrompt(prompt);
+                      }}
+                    />
+                  </Panel>
+                </PanelGroup>
+
+                {/* Mobile: email list (visible behind the overlay) */}
+                <div className="md:hidden flex-1 flex flex-col overflow-hidden">
+                  {isInbox && !searchQuery && (
+                    <CategoryTabs activeTab={activeTab} onTabChange={(tab) => {
+                      setActiveTab(tab);
+                      const p = new URLSearchParams(window.location.search);
+                      p.set('tab', tab);
+                      router.replace(`?${p.toString()}`, { scroll: false });
+                    }} counts={tabCounts} />
+                  )}
+                  {!isInbox && (
+                    <div className="px-5 py-2.5 border-b border-zinc-800/40 flex items-center gap-2 shrink-0">
+                      <span className="text-sm font-semibold text-zinc-200">
+                        {SIDEBAR_FOLDERS.find((f) => f.id === activeFolder)?.label ?? "Mail"}
+                      </span>
+                    </div>
+                  )}
+                  <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden">
+                    {groupedEmails.map(({ label, msgs }) => (
+                      <div key={label}>
+                        <div className="px-5 py-1.5 text-[11px] font-semibold text-zinc-500 bg-zinc-950/60 border-b border-zinc-800/30 sticky top-0 z-10">{label}</div>
+                        {msgs.map((msg) => (
+                          <EmailRow
+                            key={msg.id}
+                            msg={msg}
+                            selected={selectedIds.has(msg.id ?? "")}
+                            active={selectedEmailId === msg.id}
+                            onSelect={() => toggleSelect(msg.id ?? "")}
+                            onOpen={() => setSelectedEmailId(msg.id ?? null)}
+                            onDelete={() => void deleteOne(msg.id ?? "")}
+                          />
+                        ))}
+                      </div>
+                    ))}
                   </div>
-                </Panel>
-
-                {/* Drag handle */}
-                <PanelResizeHandle className="w-1 bg-zinc-800/50 hover:bg-blue-500/50 active:bg-blue-500/70 transition-colors cursor-col-resize" />
-
-                {/* Email detail panel */}
-                <Panel defaultSize={50} minSize={28}>
-                  <EmailDetailPanel
-                    emailId={selectedEmailId}
-                    gmailConnected={gmailConnected}
-                    onClose={() => setSelectedEmailId(null)}
-                    onDeleted={() => setSelectedEmailId(null)}
-                    onRequestAI={(prompt) => {
-                      setSelectedEmailId(null);
-                      setChatMode(true);
-                      setSummarizePrompt(prompt);
-                    }}
-                  />
-                </Panel>
-              </PanelGroup>
+                </div>
+              </>
             ) : (
               /* ── Full-width list (nothing selected) ── */
               <div className="flex-1 flex flex-col overflow-hidden">
